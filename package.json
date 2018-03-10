@@ -1,0 +1,47 @@
+{
+  "name": "@thrive-savings/api",
+  "version": "0.1.0",
+  "keywords": [
+    "rocketstation"
+  ],
+  "scripts": {
+    "lint": "./node_modules/.bin/eslint . --fix",
+    "convert": "./node_modules/.bin/rs c",
+    "reset": "./node_modules/.bin/rs dbr",
+    "migrate": "./node_modules/.bin/rs dbc && ./node_modules/.bin/rs dbm",
+    "serve": "node app.js . --exec yarn run lint && node",
+    "prestart": "yarn migrate",
+    "start": "node app.js"
+  },
+  "author": "Rocket Station <contact@rstation.io> (https://rstation.io)",
+  "contributors": [
+    "Oleksii Bilous <oleksiibilous@rstation.io> (https://rstation.io)",
+    "Oleksii Pysanko <oleksiipysanko@rstation.io> (https://rstation.io)"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "2",
+    "jsonwebtoken": "7",
+    "koa-static": "4",
+    "node-schedule": "^1.2.4",
+    "request": "2",
+    "request-promise": "4",
+    "rocketstation-api": "1",
+    "twilio": "3",
+    "uuid": "3",
+    "mixpanel": "0.7.0",
+    "vinyl-api-cli": "git+https://2680d900d14b9746903be541aa2faa25924f8c14:x-oauth-basic@github.com/rocketstation/vinyl-api-cli.git"
+  },
+  "devDependencies": {
+    "eslint": "4.11.0",
+    "eslint-config-standard": "10",
+    "eslint-plugin-import": "2",
+    "eslint-plugin-node": "5",
+    "eslint-plugin-promise": "3",
+    "eslint-plugin-standard": "3",
+    "nodemon": "1"
+  },
+  "engines": {
+    "node": ">=7"
+  }
+}

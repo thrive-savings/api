@@ -1,0 +1,13 @@
+secret.js
+
+assets/avatars/*
+!assets/avatars/*/
+
+assets/goals/*
+!assets/goals/*/
+
+assets/signatures
+
+controllers/test/*
+
+.DS_Store
