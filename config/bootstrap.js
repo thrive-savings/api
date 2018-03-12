@@ -1,6 +1,4 @@
 module.exports = (Sequelize, Account, User, mixpanel, Bluebird, request, scheduler, Transaction) => async () => {
-  // NEEDS FIX
-  // Have pre defined frequency types and make schedulers fetch those frequency type on run time
   const FETCH_FREQUENCIES = ['ONCEWEEKLY', 'ONCEDAILY']
 
   const convertFrequency = frequency => {

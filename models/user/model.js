@@ -287,7 +287,7 @@ Happy saving! ;)`
             `Hi ${this.firstName}! You've withdrawn $${dollars} You'll see this amount back in your chequing account today. Your Thrive balance is $${balance}. Thank you.`
         } else {
           msg = type === "direct_debit" ?
-            `${this.firstName} - Your transfer to your Thrive savings account has settled. To get your balance, just reply back with 'Balance'. Happy weekend` :
+            `${this.firstName} - Your transfer to your Thrive savings account has settled. To get your updated balance, just reply back with 'Balance'. Have a great day!` :
             `Hi ${this.firstName}. Your withdrawal request has settled. As a good friend, I'd love to know what you are spending it on?`
         }
       }
