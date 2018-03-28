@@ -266,29 +266,28 @@ Happy saving! ;)`
         body: `Hi ${this.firstName}, ${code} is your Thrive Savings verification code. Please enter that code on the number verification screen to confirm this phone number is yours.`
       })
     },
-    notifyUserAboutTransaction(type, state, amount) {
+    notifyUserAboutTransaction (type, state, amount) {
       let msg
 
-      let dollars = amount / 100;
+      let dollars = amount / 100
       dollars = dollars % 1 === 0 ? dollars : dollars.toFixed(2)
-      dollars.toLocaleString("en-US", {style:"currency", currency:"USD"});
+      dollars.toLocaleString('en-US', {style: 'currency', currency: 'USD'})
 
       let balance = this.balance / 100
       balance = balance % 1 === 0 ? balance : balance.toFixed(2)
-      balance.toLocaleString("en-US", {style:"currency", currency:"USD"});
+      balance.toLocaleString('en-US', {style: 'currency', currency: 'USD'})
 
-      if(state === "invalid_amount") {
+      if (state === 'invalid_amount') {
         msg = `Hi ${this.firstName}, the amount ($${dollars}) you requested to withdraw exceeds your balance ($${balance})`
-      }
-      else {
-        if(state === "in_progress") {
-          msg = type === "direct_debit" ?
-            `Hi ${this.firstName}! You've got another $${dollars} in transit to your Thrive account. Have a great day!` :
-            `Hi ${this.firstName}! You've withdrawn $${dollars} You'll see this amount back in your chequing account today. Your Thrive balance is $${balance}. Thank you.`
+      } else {
+        if (state === 'in_progress') {
+          msg = type === 'direct_debit'
+            ? `Hi ${this.firstName}! You've got another $${dollars} in transit to your Thrive account. Have a great day!`
+            : `Hi ${this.firstName}! You've withdrawn $${dollars} You'll see this amount back in your chequing account today. Your Thrive balance is $${balance}. Thank you.`
         } else {
-          msg = type === "direct_debit" ?
-            `${this.firstName} - Your transfer to your Thrive savings account has settled. To get your updated balance, just reply back with 'Balance'. Have a great day!` :
-            `Hi ${this.firstName}. Your withdrawal request has settled. As a good friend, I'd love to know what you are spending it on?`
+          msg = type === 'direct_debit'
+            ? `${this.firstName} - Your transfer to your Thrive savings account has settled. To get your updated balance, just reply back with 'Balance'. Have a great day!`
+            : `Hi ${this.firstName}. Your withdrawal request has settled. As a good friend, I'd love to know what you are spending it on?`
         }
       }
 
@@ -298,11 +297,11 @@ Happy saving! ;)`
         body: msg
       })
 
-      mixpanel.track("Sent Message", {
-        "Message": msg,
-        "From Phone": process.env.twilioNumber,
-        "To Phone": this.phone,
-        "Message Type" : "Automatic"
+      mixpanel.track('Sent Message', {
+        'Message': msg,
+        'From Phone': process.env.twilioNumber,
+        'To Phone': this.phone,
+        'Message Type': 'Automatic'
       })
     }
   },
