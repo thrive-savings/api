@@ -1,4 +1,4 @@
-module.exports = (Bluebird, User) => ({
+module.exports = (Bluebird, User, Company) => ({
   resend: {
     schema: [['data', true, [['email', true], ['phone', true]]]],
     async method (ctx) {
@@ -25,6 +25,17 @@ module.exports = (Bluebird, User) => ({
       await user.save()
 
       ctx.body = { data: { authorized: user.getAuthorized() } }
+    }
+  },
+  verifyReferral: {
+    schema: [['data', true, [['code', true]]]],
+    async method (ctx) {
+      const { data: { code } } = ctx.request.body
+      const company = await Company.findOne({ where: { code } })
+
+      if (!company) return Bluebird.reject([{ key: 'code', value: 'You provided an incorrect code. Try again or connect admin.' }])
+
+      ctx.body = { data: { code } }
     }
   }
 })
