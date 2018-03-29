@@ -162,10 +162,16 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mi
     loginID: {
       type: Sequelize.STRING,
       field: 'login_id'
+    },
+
+    companyID: {
+      type: Sequelize.STRING,
+      field: 'company_id'
     }
   },
   associations: {
-    hasMany: ['Account', 'Goal']
+    hasMany: ['Account', 'Goal'],
+    belongsTo: 'Company'
   },
   createdAt: 'createdAt',
   instanceMethods: {
@@ -311,7 +317,7 @@ Happy saving! ;)`
     }
   },
   indexes: [
-    { fields: ['code'] }
+    { fields: ['code', 'company_id'] }
   ],
   timestamps: true,
   updatedAt: false

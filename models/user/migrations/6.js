@@ -6,7 +6,7 @@ module.exports = Sequelize => ({
         'login_id',
         {
           type: Sequelize.STRING
-        },
+        }
       )
   }
 })
