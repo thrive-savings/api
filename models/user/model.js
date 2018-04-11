@@ -167,6 +167,22 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mi
     companyID: {
       type: Sequelize.STRING,
       field: 'company_id'
+    },
+
+    workType: {
+      type: Sequelize.STRING,
+      field: 'work_type'
+    },
+
+    savingType: {
+      type: Sequelize.STRING,
+      field: 'saving_type'
+    },
+
+    fixedContribution: {
+      defaultValue: 2000,
+      type: Sequelize.INTEGER,
+      field: 'fixed_contribution'
     }
   },
   associations: {
