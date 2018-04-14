@@ -25,5 +25,32 @@ module.exports = (Bluebird, moment, User) => ({
       await user.save()
       ctx.body = {}
     }
+  },
+  requestMobile: {
+    schema: [['data', true, [['email', true]]]],
+    async method (ctx) {
+      const { data: { email } } = ctx.request.body
+      const user = await User.findOne({ where: { email } })
+      if (!user) {
+        return Bluebird.reject([{ key: 'email', value: 'There is no user with such email. Please, try another or sign up.' }])
+      }
+      await user.generateRestorePasswordCode()
+      ctx.body = {}
+    }
+  },
+  resetMobile: {
+    schema: [['data', true, [['password', true], ['code', true]]]],
+    async method (ctx) {
+      const { data: { password, code } } = ctx.request.body
+      const user = await User.findOne({ where: { restorePasswordCode: code } })
+      if (!user || moment() > moment(user.restorePasswordCodeExpiresAt)) {
+        return Bluebird.reject([{ key: 'password', value: `Password can't be changed. Please, try again` }])
+      }
+      user.hashPassword(password)
+      user.restorePasswordCode = null
+      user.restorePasswordCodeExpiresAt = null
+      await user.save()
+      ctx.body = {}
+    }
   }
 })

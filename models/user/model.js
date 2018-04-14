@@ -50,6 +50,16 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mi
       field: 'restore_password_token_expires_at'
     },
 
+    restorePasswordCode: {
+      type: Sequelize.STRING,
+      field: 'restore_password_token'
+    },
+
+    restorePasswordCodeExpiresAt: {
+      type: Sequelize.DATE,
+      field: 'restore_password_token_expires_at'
+    },
+
     firstName: {
       type: Sequelize.STRING,
       field: 'first_name'
@@ -219,6 +229,33 @@ Happy saving! ;)`
             <div>
               <p>To reset your Thrive Savings password, go to ${config.constants.CLIENT_URL}/restore/${this.restorePasswordToken} </p>
               <p>The link will expire after an hour</p>
+              <p>If you haven't requested a password reset, you can ignore this message</p>
+              <p>-The team at Thrive</p>
+            </div>
+          </html>`,
+        subject: 'Thrive password reset',
+        to: this.email
+      })
+    },
+    async generateRestorePasswordCode () {
+      const random = () => Math.floor(1000 + Math.random() * 9000)
+      const users = await this.constructor.findAll()
+      const codes = users.map((item) => item.code)
+      let code = random()
+
+      while (codes.includes(code)) {
+        code = random()
+      }
+      this.restorePasswordCode = code
+      this.restorePasswordCodeExpiresAt = moment().add(60, 'm').toDate()
+      await this.save()
+      mail.send({
+        from: 'restore@thrivesavings.com',
+        html: `
+          <html>
+            <div>
+              <p>To reset your Thrive Savings password, type <b>${this.restorePasswordCode}</b> in your app. </p>
+              <p>The code will expire after an hour</p>
               <p>If you haven't requested a password reset, you can ignore this message</p>
               <p>-The team at Thrive</p>
             </div>
