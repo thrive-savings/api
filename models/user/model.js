@@ -1,4 +1,4 @@
-module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mixpanel) => ({
+module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mixpanel, aws) => ({
   attributes: {
     acceptedAt: {
       type: Sequelize.DATE,
@@ -193,6 +193,10 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mi
       defaultValue: 2000,
       type: Sequelize.INTEGER,
       field: 'fixed_contribution'
+    },
+
+    gender: {
+      type: Sequelize.STRING
     }
   },
   associations: {
@@ -264,6 +268,25 @@ Happy saving! ;)`
         to: this.email
       })
     },
+    async getAvatar () {
+      if (this.avatar) {
+        const s3 = new aws.S3({
+          accessKeyId: process.env.awsAccessKeyID,
+          secretAccessKey: process.env.awsSecretKey,
+          region: process.env.awsRegion
+        })
+
+        const data = {
+          Bucket: process.env.awsBucketName,
+          Key: this.avatar
+        }
+
+        let { Body: avatarData } = await s3.getObject(data).promise()
+        avatarData = avatarData.toString('base64')
+
+        return avatarData
+      }
+    },
     getAuthorized () {
       let account
       if (this.accounts) {
@@ -282,7 +305,9 @@ Happy saving! ;)`
         isWelcomed: this.isWelcomed,
         lastName: this.lastName,
         email: this.email,
-        phone: this.phone
+        phone: this.phone,
+        isVerified: this.isVerified,
+        balance: this.balance
       }
     },
     getProfile () {

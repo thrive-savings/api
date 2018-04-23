@@ -13,23 +13,22 @@
     "prestart": "yarn migrate",
     "start": "node app.js"
   },
-  "author": "Rocket Station <contact@rstation.io> (https://rstation.io)",
-  "contributors": [
-    "Oleksii Bilous <oleksiibilous@rstation.io> (https://rstation.io)",
-    "Oleksii Pysanko <oleksiipysanko@rstation.io> (https://rstation.io)"
-  ],
+  "author": "Naib Baghirov <naib.baghirov@gmail.com> (https://www.linkedin.com/in/naib-baghirov-03182170/)",
   "license": "MIT",
   "dependencies": {
+    "aws-sdk": "^2.226.1",
     "bcryptjs": "2",
     "jsonwebtoken": "7",
     "koa-static": "4",
+    "mixpanel": "0.7.0",
+    "multer": "^1.3.0",
+    "multer-s3": "^2.7.0",
     "node-schedule": "^1.2.4",
     "request": "2",
     "request-promise": "4",
     "rocketstation-api": "1",
     "twilio": "3",
     "uuid": "3",
-    "mixpanel": "0.7.0",
     "vinyl-api-cli": "git+https://2680d900d14b9746903be541aa2faa25924f8c14:x-oauth-basic@github.com/rocketstation/vinyl-api-cli.git"
   },
   "devDependencies": {

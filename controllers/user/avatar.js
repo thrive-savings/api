@@ -1,20 +1,31 @@
-module.exports = (fs, path, User) => ({
+module.exports = (path, fs, User, aws) => ({
   create: {
-    schema: [['data', true, [['image', true]]]],
+    schema: [['data', true, [['encodedImage', true], ['imageType', true]]]],
     async method (ctx) {
-      const { data: { image } } = ctx.request.body
+      const { data: { encodedImage, imageType } } = ctx.request.body
+      const avatarS3Key = `avatars/${ctx.authorized.id.toString()}`
 
-      // let avatar = image
-      // const matches = image.match(/^data:([A-Za-z-+/]+);base64,(.+)$/)
+      const s3 = new aws.S3({
+        accessKeyId: process.env.awsAccessKeyID,
+        secretAccessKey: process.env.awsSecretKey,
+        region: process.env.awsRegion
+      })
 
-      // if (matches && matches[2]) {
-      //   avatar = `avatars/${ctx.authorized.id}.jpg`
-      //   fs.writeFileSync(`${process.cwd()}/assets/${avatar}`, matches[2], 'base64')
-      // }
+      let buf = Buffer.from(encodedImage, 'base64')
+      var data = {
+        Bucket: process.env.awsBucketName,
+        Key: avatarS3Key,
+        Body: buf,
+        ContentEncoding: 'base64',
+        ContentType: imageType
+      }
 
-      await User.update({ avatar: image }, { where: { id: ctx.authorized.id } })
+      await s3.putObject(data).promise()
+      await User.update({ avatar: avatarS3Key }, { where: { id: ctx.authorized.id } })
 
-      ctx.body = {}
+      const user = await User.findOne({ where: { id: ctx.authorized.id } })
+      const avatar = await user.getAvatar()
+      ctx.body = { avatar }
     }
   },
   defaults: {

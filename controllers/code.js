@@ -12,6 +12,19 @@ module.exports = (Bluebird, User, Company) => ({
       ctx.body = {}
     }
   },
+  mobileResend: {
+    schema: [['data', true, [['phone', true]]]],
+    async method (ctx) {
+      const { data: { phone } } = ctx.request.body
+      const user = await User.findOne({ where: { phone } })
+
+      if (!user) return Bluebird.reject([{ key: 'user', value: 'not found' }])
+
+      await user.sendCode()
+
+      ctx.body = {}
+    }
+  },
   verify: {
     schema: [['data', true, [['code', true]]]],
     async method (ctx) {
@@ -35,7 +48,7 @@ module.exports = (Bluebird, User, Company) => ({
 
       if (!company) return Bluebird.reject([{ key: 'code', value: 'You provided an incorrect code. Try again or connect admin.' }])
 
-      ctx.body = { data: { code } }
+      ctx.body = { data: { companyID: company.id } }
     }
   }
 })
