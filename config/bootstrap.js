@@ -2,7 +2,7 @@ module.exports = (Sequelize, Account, User, mixpanel, Bluebird, request, schedul
   const FETCH_FREQUENCIES = ['ONCEWEEKLY', 'ONCEDAILY']
 
   const convertFrequency = frequency => {
-    switch(frequency) {
+    switch (frequency) {
       case 'ONCEWEEKLY':
         return { hour: 10, minute: 0, dayOfWeek: 1, tz: 'UTC' }
       case 'ONCEDAILY':
@@ -16,14 +16,14 @@ module.exports = (Sequelize, Account, User, mixpanel, Bluebird, request, schedul
 
   const fetchAccounts = async frequencyWord => {
     const users = await User.findAll({where: {fetchFrequency: frequencyWord}})
-    if(users.length <= 0) return
+    if (users.length <= 0) return
 
     let runTime = new Date()
     try {
       console.log(`Scheduler Running for Frequency ${frequencyWord} at ${runTime}`)
       let validatedUsers = []
 
-      if(users.length > 1) {
+      if (users.length > 1) {
         let LoginIds = []
         let UserIds = {}
         users.map(({id: userID, loginID}) => {
@@ -34,14 +34,14 @@ module.exports = (Sequelize, Account, User, mixpanel, Bluebird, request, schedul
         console.log(`Running ${process.env.flinksURL}/AuthorizeMultiple with ${LoginIds}`)
         const { ValidLoginIds, InvalidLoginIds } = await request.post({
           uri: `${process.env.flinksURL}/AuthorizeMultiple`,
-          body: { LoginIds },
+          body: { LoginIds, MostRecentCached: true },
           json: true
         })
         console.log(`AuthorizeMultiple returned ${ValidLoginIds} and ${InvalidLoginIds}`)
 
         validatedUsers = ValidLoginIds.map(({LoginId, RequestId}) => ({UserId: UserIds[LoginId], LoginId, RequestId}))
 
-        if(InvalidLoginIds.length > 0) {
+        if (InvalidLoginIds.length > 0) {
           mixpanel.track('AuthorizeMultiple Returned Invalid Ids', { Date: `${runTime}`, LoginIds: `${InvalidLoginIds}` })
         }
       } else {
@@ -50,7 +50,7 @@ module.exports = (Sequelize, Account, User, mixpanel, Bluebird, request, schedul
         console.log(`Running ${process.env.flinksURL}/Authorize for ${LoginId}`)
         const {RequestId} = await request.post({
           uri: `${process.env.flinksURL}/Authorize`,
-          body: { LoginId },
+          body: { LoginId, MostRecentCached: true },
           json: true
         })
         console.log(`Authorize returned ${RequestId}`)
@@ -59,7 +59,7 @@ module.exports = (Sequelize, Account, User, mixpanel, Bluebird, request, schedul
       }
 
       console.log(`ValidatedUsers Count: ${validatedUsers.length}`)
-      for(let {UserId, LoginId, RequestId} of validatedUsers) {
+      for (let {UserId, LoginId, RequestId} of validatedUsers) {
         let getAccountsDetailsBody = {
           RequestId,
           WithAccountIdentity: true,
@@ -71,11 +71,11 @@ module.exports = (Sequelize, Account, User, mixpanel, Bluebird, request, schedul
         accounts.map(async account => {
           accountsCached[account.token] = account
           const lastTransaction = await Transaction.findOne({order: [['id', 'DESC']], where: {accountID: account.id}})
-          if(lastTransaction) {
+          if (lastTransaction) {
             refreshDelta.push({ AccountId: account.token, TransactionId: lastTransaction.token })
           }
         })
-        if(refreshDelta.length > 0) getAccountsDetailsBody.RefreshDelta = refreshDelta
+        if (refreshDelta.length > 0) getAccountsDetailsBody.RefreshDelta = refreshDelta
 
         console.log(`Running ${process.env.flinksURL}/GetAccountsDetail with body ${getAccountsDetailsBody}`)
         const { Accounts: foundAccounts = [] } = await request.post({
@@ -85,7 +85,7 @@ module.exports = (Sequelize, Account, User, mixpanel, Bluebird, request, schedul
         })
         console.log(`GetAccountsDetail returned ${foundAccounts.length} accounts`)
 
-        if(foundAccounts.length > 0) {
+        if (foundAccounts.length > 0) {
           foundAccounts.map(async foundAccount => {
             let {
               Holder: { Name: name = '' } = {},
@@ -141,7 +141,7 @@ module.exports = (Sequelize, Account, User, mixpanel, Bluebird, request, schedul
     }
   }
 
-  //Schedule jobs
+  // Schedule jobs
   FETCH_FREQUENCIES.map(async frequencyWord => {
     let frequency = convertFrequency(frequencyWord)
 
