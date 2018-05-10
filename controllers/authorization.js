@@ -95,7 +95,7 @@ module.exports = (Account, Bluebird, Goal, moment, Sequelize, User) => ({
         user.hashPassword(password)
         await user.save()
       } else {
-        user = await User.create({ email, password, firstName, lastName, gender, phone: '', dob: date, address: streetNumber + ' ' + streetName, unit, city, province: state, country, postalCode, companyID })
+        user = await User.create({ email, password, firstName, lastName, gender, dob: date, address: streetNumber + ' ' + streetName, unit, city, province: state, country, postalCode, companyID })
       }
 
       ctx.body = { data: { authorized: user.getAuthorized() } }

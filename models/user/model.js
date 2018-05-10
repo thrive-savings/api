@@ -16,7 +16,7 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mi
 
     phone: {
       type: Sequelize.STRING,
-      allowNull: false,
+      allowNull: true,
       unique: true
     },
 
