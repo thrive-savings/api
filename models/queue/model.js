@@ -58,7 +58,7 @@ module.exports = (Sequelize, uuid) => ({
   },
 
   instanceMethods: {
-    setUUID() {
+    setUUID () {
       this.uuid = uuid().replace(/-/g, '')
     }
   },
