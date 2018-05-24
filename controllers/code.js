@@ -18,7 +18,7 @@ module.exports = (Bluebird, User, Company) => ({
       const { data: { phone } } = ctx.request.body
       const user = await User.findOne({ where: { phone } })
 
-      if (!user) return Bluebird.reject([{ key: 'user', value: 'not found' }])
+      if (!user) return Bluebird.reject([{ key: 'user', value: 'User not found' }])
 
       await user.sendCode()
 
@@ -44,7 +44,8 @@ module.exports = (Bluebird, User, Company) => ({
     schema: [['data', true, [['code', true]]]],
     async method (ctx) {
       const { data: { code } } = ctx.request.body
-      const company = await Company.findOne({ where: { code } })
+
+      const company = await Company.findOne({ where: { code: code.toLowerCase() } })
 
       if (!company) return Bluebird.reject([{ key: 'code', value: 'You provided an incorrect code. Try again or connect admin.' }])
 

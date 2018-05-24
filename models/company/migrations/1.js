@@ -19,7 +19,7 @@ module.exports = Sequelize => ({
         }
       })
       .then(() => {
-        queryInterface.bulkInsert('companies', [{code: 'PERSONAL', name: 'PERSONAL'}])
+        queryInterface.bulkInsert('companies', [{code: 'personal', name: 'PERSONAL'}])
       })
   },
   down (queryInterface) {

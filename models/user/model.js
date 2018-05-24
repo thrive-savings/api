@@ -197,6 +197,12 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mi
 
     gender: {
       type: Sequelize.STRING
+    },
+
+    employerBonus: {
+      type: Sequelize.BOOLEAN,
+      defaultValue: false,
+      field: 'employer_bonus'
     }
   },
   associations: {
@@ -307,7 +313,8 @@ Happy saving! ;)`
         email: this.email,
         phone: this.phone,
         isVerified: this.isVerified,
-        balance: this.balance
+        balance: this.balance,
+        employerBonus: this.employerBonus
       }
     },
     getProfile () {
@@ -374,6 +381,30 @@ Happy saving! ;)`
             : `Hi ${this.firstName}. Your withdrawal request has settled. As a good friend, I'd love to know what you are spending it on?`
         }
       }
+
+      twilio.messages.create({
+        from: process.env.twilioNumber,
+        to: this.phone,
+        body: msg
+      })
+
+      mixpanel.track('Sent Message', {
+        'Message': msg,
+        'From Phone': process.env.twilioNumber,
+        'To Phone': this.phone,
+        'Message Type': 'Automatic'
+      })
+    },
+    sendBonusNotification (amount) {
+      let amountDollars = amount / 100
+      amountDollars = amountDollars % 1 === 0 ? amountDollars : amountDollars.toFixed(2)
+      amountDollars.toLocaleString('en-US', {style: 'currency', currency: 'USD'})
+
+      let balanceDollars = this.balance / 100
+      balanceDollars = balanceDollars % 1 === 0 ? balanceDollars : balanceDollars.toFixed(2)
+      balanceDollars.toLocaleString('en-US', {style: 'currency', currency: 'USD'})
+
+      const msg = `Hi ${this.firstName}! Your employer had contributed to your Thrive savings amount by $${amountDollars}. Your updated balance is $${balanceDollars}. Have a great day!`
 
       twilio.messages.create({
         from: process.env.twilioNumber,
