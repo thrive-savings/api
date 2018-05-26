@@ -8,7 +8,7 @@ module.exports = (Sequelize) => ({
     }
   },
   associations: {
-    hasMany: 'User'
+    hasMany: ['User', 'Bonus']
   },
   instanceMethods: {
     async generateCode () {

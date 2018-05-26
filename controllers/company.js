@@ -1,4 +1,4 @@
-module.exports = (Bluebird, User, Company) => ({
+module.exports = (Bluebird, User, Company, Bonus) => ({
   add: {
     schema: [['data', true, [['name', true]]]],
     async method (ctx) {
@@ -14,7 +14,7 @@ module.exports = (Bluebird, User, Company) => ({
     schema: [['data', true, [['companyID', true], ['userID', true], ['amount', true]]]],
     async method (ctx) {
       const { data: { companyID, userID, amount } } = ctx.request.body
-      if (amount <= 0) return Bluebird.reject([{ key: 'company', value: 'Top up amount should be positive' }])
+      if (amount <= 0) return Bluebird.reject([{ key: 'company', value: 'Bonus amount should be positive' }])
 
       const user = await User.findOne({ where: { id: userID } })
 
@@ -22,8 +22,9 @@ module.exports = (Bluebird, User, Company) => ({
       else if (user.companyID !== parseInt(companyID)) return Bluebird.reject([{ key: 'company', value: 'User and Company not matching' }])
 
       user.balance += parseInt(amount)
-      user.employerBonus = true
       await user.save()
+
+      await Bonus.create({ amount, companyID, userID })
 
       user.sendBonusNotification(amount)
 

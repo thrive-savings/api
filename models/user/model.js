@@ -197,16 +197,10 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mi
 
     gender: {
       type: Sequelize.STRING
-    },
-
-    employerBonus: {
-      type: Sequelize.BOOLEAN,
-      defaultValue: false,
-      field: 'employer_bonus'
     }
   },
   associations: {
-    hasMany: ['Account', 'Goal'],
+    hasMany: ['Account', 'Goal', 'Bonus'],
     belongsTo: 'Company'
   },
   createdAt: 'createdAt',
@@ -314,7 +308,7 @@ Happy saving! ;)`
         phone: this.phone,
         isVerified: this.isVerified,
         balance: this.balance,
-        employerBonus: this.employerBonus
+        notifications: {}
       }
     },
     getProfile () {
@@ -404,7 +398,7 @@ Happy saving! ;)`
       balanceDollars = balanceDollars % 1 === 0 ? balanceDollars : balanceDollars.toFixed(2)
       balanceDollars.toLocaleString('en-US', {style: 'currency', currency: 'USD'})
 
-      const msg = `Hi ${this.firstName}! Your employer had contributed to your Thrive savings amount by $${amountDollars}. Your updated balance is $${balanceDollars}. Have a great day!`
+      const msg = `Hi ${this.firstName}! Your employer had contributed $${amountDollars} to your Thrive savings amount. Your updated balance is $${balanceDollars}. Have a great day!`
 
       twilio.messages.create({
         from: process.env.twilioNumber,
