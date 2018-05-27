@@ -197,6 +197,12 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mi
 
     gender: {
       type: Sequelize.STRING
+    },
+
+    savingPreferencesSet: {
+      defaultValue: false,
+      type: Sequelize.BOOLEAN,
+      field: 'saving_preferences_set'
     }
   },
   associations: {
@@ -308,7 +314,10 @@ Happy saving! ;)`
         phone: this.phone,
         isVerified: this.isVerified,
         balance: this.balance,
-        notifications: {}
+        notifications: {
+          savingPreferencesSet: this.savingPreferencesSet,
+          bonus: 0
+        }
       }
     },
     getProfile () {

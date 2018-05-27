@@ -34,5 +34,12 @@ module.exports = (User, mixpanel) => ({
 
       ctx.body = { data: { fixedContribution, frequency } }
     }
+  },
+  initialSetDone: {
+    async method (ctx) {
+      await User.update({ savingPreferencesSet: true }, { where: { id: ctx.authorized.id } })
+
+      ctx.body = {}
+    }
   }
 })
