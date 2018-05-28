@@ -28,6 +28,24 @@ module.exports = (path, fs, User, aws) => ({
       ctx.body = { avatar }
     }
   },
+  delete: {
+    async method (ctx) {
+      const s3 = new aws.S3({
+        accessKeyId: process.env.awsAccessKeyID,
+        secretAccessKey: process.env.awsSecretKey,
+        region: process.env.awsRegion
+      })
+
+      const user = await User.findOne({ where: { id: ctx.authorized.id } })
+      await s3.deleteObject({
+        Bucket: process.env.awsBucketName,
+        Key: user.avatar
+      }).promise()
+      await User.update({ avatar: null }, { where: { id: ctx.authorized.id } })
+
+      ctx.body = {}
+    }
+  },
   defaults: {
     async method (ctx) {
       const dir = path.join(process.cwd(), 'assets/avatars/default')
