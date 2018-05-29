@@ -11,23 +11,23 @@ module.exports = (Account, Bluebird, request, User) => ({
         console.log(`Calling Authorize with LoginId ${LoginId}, try number ${retryNumber}`)
         const { RequestId, Login: { LastRefresh }, HttpStatusCode, FlinksCode } = await request.post({
           uri: `${process.env.flinksURL}/Authorize`,
-          body: { LoginId },
+          body: { LoginId, MostRecentCached: true },
           json: true
         })
         lastRefresh = LastRefresh
         console.log(`Authorize returned, RequestId: ${RequestId}, LastRefresh: ${lastRefresh}, Request Status: ${HttpStatusCode}, FlinksCode: ${FlinksCode}`)
 
         console.log(`Fetching accounts for ${RequestId}, try number ${retryNumber}`)
-        let { Accounts, Institution } = await request.post({
+        const { Accounts, Institution } = await request.post({
           uri: `${process.env.flinksURL}/GetAccountsSummary`,
-          body: { RequestId },
+          body: { RequestId, MostRecentCached: true },
           json: true
         })
         accounts = Accounts
         bank = Institution
 
         retryNumber++
-        console.log(`Fetched RequestId: ${RequestId}, Number of Accounts: ${accounts.length}, Institution: ${bank}`)
+        console.log(`Fetched RequestId: ${RequestId}, Number of Accounts: ${accounts ? accounts.length : 0}, Institution: ${bank}`)
       }
 
       await User.update({ loginID: LoginId }, { where: { id: ctx.authorized.id } })
@@ -38,16 +38,21 @@ module.exports = (Account, Bluebird, request, User) => ({
           Category: type,
           Id: token,
           Title: title
-        }) => Account.create({
-          bank,
-          number,
-          title,
-          token,
-          type,
-          userID: ctx.authorized.id
+        }) => Account.findOrCreate({
+          where: {
+            token
+          },
+          defaults: {
+            bank,
+            number,
+            title,
+            token,
+            type,
+            userID: ctx.authorized.id
+          }
         })))
 
-      accounts = accounts.map(({ dataValues }) => ({ id: dataValues.id, number: dataValues.number, title: dataValues.title, bank: bank, loginid: LoginId }))
+      accounts = accounts.map(([{ dataValues }]) => ({ id: dataValues.id, number: dataValues.number, title: dataValues.title, bank: bank, loginid: LoginId }))
 
       ctx.body = { data: { PageIntegration: { accounts } } }
     },
@@ -58,6 +63,7 @@ module.exports = (Account, Bluebird, request, User) => ({
   setDefault: {
     schema: [['data', true, [['accountID', true, 'integer']]]],
     async method (ctx) {
+      await Account.update({ isDefault: false }, { where: { user_id: ctx.authorized.id, isDefault: true } })
       const account = await Account.findOne({ where: { id: ctx.request.body.data.accountID } })
       account.isDefault = true
       await account.save()

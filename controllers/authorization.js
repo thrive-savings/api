@@ -1,4 +1,4 @@
-module.exports = (Account, Bluebird, Goal, moment, Sequelize, User) => ({
+module.exports = (Account, Bluebird, Goal, Bonus, moment, Sequelize, User) => ({
   signIn: {
     schema: [['data', true, [['email', true], ['password', true]]]],
     async method (ctx) {
@@ -28,7 +28,7 @@ module.exports = (Account, Bluebird, Goal, moment, Sequelize, User) => ({
     schema: [['data', true, [['email', true], ['password', true]]]],
     async method (ctx) {
       const { data: { email, password } } = ctx.request.body
-      const user = await User.findOne({ include: [Account, Goal], where: { email } })
+      const user = await User.findOne({ include: [Account, Goal, Bonus], where: { email } })
       if (!user) {
         return Bluebird.reject([{ key: 'email', value: 'This email is not registered. Please double check for typos or sign up for an account.' }])
       }
