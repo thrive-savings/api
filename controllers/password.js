@@ -29,7 +29,9 @@ module.exports = (Bluebird, moment, User) => ({
   requestMobile: {
     schema: [['data', true, [['email', true]]]],
     async method (ctx) {
-      const { data: { email } } = ctx.request.body
+      const { data: { email: providedEmail } } = ctx.request.body
+      const email = providedEmail.toLowerCase()
+
       const user = await User.findOne({ where: { email } })
       if (!user) {
         return Bluebird.reject([{ key: 'email', value: 'There is no user with such email. Please, try another or sign up.' }])

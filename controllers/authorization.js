@@ -27,7 +27,9 @@ module.exports = (Account, Bluebird, Goal, Bonus, moment, Sequelize, User) => ({
   mobileSignIn: {
     schema: [['data', true, [['email', true], ['password', true]]]],
     async method (ctx) {
-      const { data: { email, password } } = ctx.request.body
+      const { data: { email: providedEmail, password } } = ctx.request.body
+      const email = providedEmail.toLowerCase()
+
       const user = await User.findOne({ include: [Account, Goal, Bonus], where: { email } })
       if (!user) {
         return Bluebird.reject([{ key: 'email', value: 'This email is not registered. Please double check for typos or sign up for an account.' }])
@@ -48,6 +50,7 @@ module.exports = (Account, Bluebird, Goal, Bonus, moment, Sequelize, User) => ({
     schema: [['data', true, [['email', true], ['firstName', true], ['lastName', true], ['password', true], ['phone', true]]]],
     async method (ctx) {
       const { data, data: { email, firstName, lastName, password, phone } } = ctx.request.body
+
       let user
       if (phone === '9991239876') {
         data.phone = `${phone}-${moment().unix()}`
@@ -86,7 +89,8 @@ module.exports = (Account, Bluebird, Goal, Bonus, moment, Sequelize, User) => ({
       ]]
     ],
     async method (ctx) {
-      const { data: { email, password, firstName, lastName, gender, date, companyID, address: { streetNumber, streetName, unit, city, state, country, postalCode } } } = ctx.request.body
+      const { data: { email: providedEmail, password, firstName, lastName, gender, date, companyID, address: { streetNumber, streetName, unit, city, state, country, postalCode } } } = ctx.request.body
+      const email = providedEmail.toLowerCase()
 
       let user = await User.findOne({ where: { email } })
       if (user) {

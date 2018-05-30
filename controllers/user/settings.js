@@ -21,7 +21,8 @@ module.exports = (Bluebird, User) => ({
   setEmail: {
     schema: [['data', true, [['email', true]]]],
     async method (ctx) {
-      const { data: { email } } = ctx.request.body
+      const { data: { email: providedEmail } } = ctx.request.body
+      const email = providedEmail.toLowerCase()
 
       let user = await User.findOne({ where: { email } })
 
