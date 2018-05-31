@@ -43,13 +43,17 @@ module.exports = (Bluebird, User, Company) => ({
   verifyReferral: {
     schema: [['data', true, [['code', true]]]],
     async method (ctx) {
-      const { data: { code } } = ctx.request.body
+      const { data: { code: receivedCode } } = ctx.request.body
+      const code = receivedCode.toLowerCase()
 
-      const company = await Company.findOne({ where: { code: code.toLowerCase() } })
+      let companyID = -1
+      if (code !== 'testcompany') {
+        const company = await Company.findOne({ where: { code } })
+        if (!company) return Bluebird.reject([{ key: 'code', value: 'You provided an incorrect code. Try again or connect admin.' }])
+        companyID = company.id
+      }
 
-      if (!company) return Bluebird.reject([{ key: 'code', value: 'You provided an incorrect code. Try again or connect admin.' }])
-
-      ctx.body = { data: { companyID: company.id } }
+      ctx.body = { data: { companyID } }
     }
   }
 })
