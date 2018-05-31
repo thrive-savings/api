@@ -84,7 +84,7 @@ module.exports = (Account, Bluebird, Goal, Bonus, moment, Sequelize, User) => ({
       ['data', true, [
         ['email', true], ['password', true], ['firstName', true], ['lastName', true], ['gender', true], ['date', true], ['companyID', true],
         ['address', true, [
-          ['streetNumber', true], ['streetName', true], ['unit', true], ['city', true], ['state', true], ['country', true], ['postalCode', true]
+          ['streetNumber', true], ['streetName', true], ['unit'], ['city', true], ['state', true], ['country', true], ['postalCode', true]
         ]]
       ]]
     ],
