@@ -7,7 +7,7 @@ module.exports = (Account, Bluebird, request, User) => ({
       let lastRefresh = '0001-01-01T00:00:00'
       let accounts = []
       let bank = ''
-      while (lastRefresh === '0001-01-01T00:00:00' && retryNumber < 10) {
+      while ((lastRefresh === '0001-01-01T00:00:00' || accounts.length === 0) && retryNumber < 10) {
         console.log(`Calling Authorize with LoginId ${LoginId}, try number ${retryNumber}`)
         const { RequestId, Login: { LastRefresh }, HttpStatusCode, FlinksCode } = await request.post({
           uri: `${process.env.flinksURL}/Authorize`,
@@ -23,14 +23,18 @@ module.exports = (Account, Bluebird, request, User) => ({
           body: { RequestId, MostRecentCached: true },
           json: true
         })
-        accounts = Accounts
-        bank = Institution
+        if (Accounts) {
+          accounts = Accounts
+          bank = Institution
+        }
 
         retryNumber++
-        console.log(`Fetched RequestId: ${RequestId}, Number of Accounts: ${accounts ? accounts.length : 0}, Institution: ${bank}`)
+        console.log(`Fetched RequestId: ${RequestId}, Number of Accounts: ${accounts.length}, Institution: ${bank}`)
       }
 
       await User.update({ loginID: LoginId }, { where: { id: ctx.authorized.id } })
+
+      if (accounts.length === 0) return [{ key: 'flinks', value: 'Server could not fetch accounts successfully. Please contact support' }]
 
       accounts = await Bluebird.all(
         accounts.map(({

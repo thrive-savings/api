@@ -1,9 +1,6 @@
 {
   "name": "@thrive-savings/api",
   "version": "0.1.0",
-  "keywords": [
-    "rocketstation"
-  ],
   "scripts": {
     "lint": "./node_modules/.bin/eslint . --fix",
     "convert": "./node_modules/.bin/rs c",
