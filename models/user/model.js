@@ -186,7 +186,8 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mi
 
     savingType: {
       type: Sequelize.STRING,
-      field: 'saving_type'
+      field: 'saving_type',
+      defaultValue: 'Thrive Flex'
     },
 
     fixedContribution: {
@@ -314,6 +315,14 @@ Happy saving! ;)`
         phone: this.phone,
         isVerified: this.isVerified,
         balance: this.balance,
+        savingPreferences: {
+          workType: this.workType,
+          savingType: this.savingType,
+          savingDetails: {
+            fetchFrequency: this.fetchFrequency,
+            fixedContribution: this.fixedContribution
+          }
+        },
         notifications: {
           savingPreferencesSet: this.savingPreferencesSet,
           bonus: 0
