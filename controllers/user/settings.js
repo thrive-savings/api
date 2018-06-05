@@ -1,18 +1,21 @@
-module.exports = (Bluebird, User) => ({
+module.exports = (Bluebird, User, Sequelize) => ({
   setPhone: {
     schema: [['data', true, [['phone', true]]]],
     async method (ctx) {
       const { data: { phone } } = ctx.request.body
 
-      let user = await User.findOne({ where: { phone } })
-
+      let user = await User.findOne({ where: { phone, id: { [Sequelize.Op.ne]: ctx.authorized.id } } })
       if (user) {
         return Bluebird.reject([{ key: 'phone', value: 'This phone already exists in our system. Please use another one.' }])
       }
 
-      await User.update({ phone, isVerified: 0 }, { where: { id: ctx.authorized.id } })
-
       user = await User.findOne({ where: { id: ctx.authorized.id } })
+      if (user.phone === phone && user.isVerified) {
+        return Bluebird.reject([{ key: 'phone', value: 'This phone is already saved as your phone. Please use another one.' }])
+      }
+
+      user.phone = phone
+      user.isVerified = 0
       await user.sendCode()
 
       ctx.body = { data: { authorized: user.getAuthorized() } }
