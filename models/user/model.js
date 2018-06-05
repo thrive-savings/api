@@ -174,6 +174,12 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mi
       field: 'login_id'
     },
 
+    bankLinked: {
+      type: Sequelize.BOOLEAN,
+      field: 'bank_linked',
+      defaultValue: false
+    },
+
     companyID: {
       type: Sequelize.STRING,
       field: 'company_id'
@@ -306,6 +312,7 @@ Happy saving! ;)`
 
       return {
         account,
+        bankLinked: this.bankLinked,
         didSign: !!this.signature,
         firstName: this.firstName,
         jwt: this.generateJWT(),
