@@ -310,8 +310,17 @@ Happy saving! ;)`
         }
       }
 
+      let goals
+      if (this.goals) {
+        goals = this.goals.sort(({id: id0}, {id: id1}) => (id0 - id1))
+        goals = goals.map(
+          ({ id, category, name, amount, percentage, desiredDate, createdAt, userID }) => ({ id, category, name, amount, savedAmount: Math.round(this.balance * (percentage / 100)), percentage, desiredDate, createdAt, userID })
+        )
+      }
+
       return {
         account,
+        goals,
         bankLinked: this.bankLinked,
         didSign: !!this.signature,
         firstName: this.firstName,
