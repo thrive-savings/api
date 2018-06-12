@@ -11,7 +11,7 @@ module.exports = Sequelize => ({
       'goals',
       'name',
       {
-        type: Sequelize.DATE
+        type: Sequelize.STRING
       }
     ),
     queryInterface.addColumn(
