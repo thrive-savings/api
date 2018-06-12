@@ -13,6 +13,10 @@ module.exports = Sequelize => ({
           type: Sequelize.STRING,
           field: 'bank'
         },
+        fullName: {
+          type: Sequelize.STRING,
+          field: 'full_name'
+        },
         firstName: {
           type: Sequelize.STRING,
           field: 'first_name'
@@ -28,10 +32,6 @@ module.exports = Sequelize => ({
         lastName: {
           type: Sequelize.STRING,
           field: 'last_name'
-        },
-        loginID: {
-          type: Sequelize.STRING,
-          field: 'login_id'
         },
         number: {
           type: Sequelize.STRING,
@@ -52,6 +52,9 @@ module.exports = Sequelize => ({
         type: {
           type: Sequelize.STRING,
           field: 'type'
+        },
+        versapay_token: {
+          type: Sequelize.STRING
         },
         userID: {
           type: Sequelize.INTEGER,

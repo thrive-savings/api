@@ -6,8 +6,7 @@ module.exports = Sequelize => ({
           type: Sequelize.INTEGER,
           allowNull: false,
           primaryKey: true,
-          autoIncrement: true,
-          field: 'id'
+          autoIncrement: true
         },
         acceptedAt: {
           type: Sequelize.DATE,
@@ -16,22 +15,18 @@ module.exports = Sequelize => ({
         email: {
           type: Sequelize.STRING,
           allowNull: false,
-          unique: true,
-          field: 'email'
+          unique: true
         },
         phone: {
           type: Sequelize.STRING,
-          allowNull: false,
-          unique: true,
-          field: 'phone'
+          allowNull: true,
+          unique: true
         },
         password: {
-          type: Sequelize.STRING,
-          field: 'password'
+          type: Sequelize.STRING
         },
         code: {
-          type: Sequelize.STRING,
-          field: 'code'
+          type: Sequelize.STRING
         },
         isVerified: {
           type: Sequelize.BOOLEAN,

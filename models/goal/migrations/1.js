@@ -14,7 +14,7 @@ module.exports = Sequelize => ({
           field: 'description'
         },
         image: {
-          type: Sequelize.STRING,
+          type: Sequelize.TEXT,
           field: 'image'
         },
         userID: {
