@@ -181,7 +181,8 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mi
     },
 
     companyID: {
-      type: Sequelize.STRING,
+      type: Sequelize.INTEGER,
+      defaultValue: 1,
       field: 'company_id'
     },
 
@@ -212,11 +213,6 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mi
       field: 'saving_preferences_set'
     }
   },
-  associations: {
-    hasMany: ['Account', 'Goal', 'Bonus'],
-    belongsTo: 'Company'
-  },
-  createdAt: 'createdAt',
   instanceMethods: {
     greet () {
       twilio.messages.create({
@@ -448,6 +444,10 @@ Happy saving! ;)`
       })
     }
   },
+  associations: {
+    hasMany: ['Account', 'Goal', 'Bonus'],
+    belongsTo: 'Company'
+  },
   hooks: {
     beforeCreate (instance) {
       instance.hashPassword(instance.password)
@@ -457,5 +457,6 @@ Happy saving! ;)`
     { fields: ['code', 'company_id'] }
   ],
   timestamps: true,
+  createdAt: 'createdAt',
   updatedAt: false
 })

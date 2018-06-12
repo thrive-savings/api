@@ -15,5 +15,8 @@ module.exports = Sequelize => ({
         }
       )
       .then(() => queryInterface.addIndex('users', ['company_id']))
+  },
+  down (queryInterface) {
+    return queryInterface.removeIndex('users', ['company_id'])
   }
 })

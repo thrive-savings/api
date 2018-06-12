@@ -7,7 +7,7 @@
     "reset": "./node_modules/.bin/rs dbr",
     "migrate": "./node_modules/.bin/rs dbc && ./node_modules/.bin/rs dbm",
     "serve": "node app.js . --exec yarn run lint && node",
-    "prestart": "yarn migrate",
+    "prestart": "yarn reset && yarn migrate",
     "start": "node app.js"
   },
   "author": "Naib Baghirov <naib.baghirov@gmail.com> (https://www.linkedin.com/in/naib-baghirov-03182170/)",

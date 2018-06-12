@@ -24,10 +24,10 @@ module.exports = (Sequelize) => ({
     }
   },
   associations: {
-    belongsTo: ['User', 'Company']
+    belongsTo: 'User'
   },
   indexes: [
-    { fields: ['user_id', 'company_id'] }
+    { fields: ['user_id'] }
   ],
   timestamps: true,
   notificationSeenDate: false,

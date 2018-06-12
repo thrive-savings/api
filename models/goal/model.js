@@ -30,9 +30,6 @@ module.exports = (Bluebird, Sequelize) => ({
       field: 'created_at'
     }
   },
-  associations: {
-    belongsTo: 'User'
-  },
   classMethods: {
     async adjustOtherGoalPercentages (userID, goalID, newPercentage, isDelete = false) {
       console.log(`----ADJUSTING PERCENTAGES----- ${goalID}, ${newPercentage}, ${isDelete}`)
@@ -57,6 +54,9 @@ module.exports = (Bluebird, Sequelize) => ({
         await Bluebird.all(goalIdPercPairs.map(({id, percentage}) => this.update({ percentage }, { where: { id } })))
       }
     }
+  },
+  associations: {
+    belongsTo: 'User'
   },
   indexes: [
     { fields: ['user_id'] }

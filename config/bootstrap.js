@@ -1,23 +1,33 @@
 module.exports = (Sequelize, Account, User, mixpanel, Bluebird, request, scheduler, Transaction) => async () => {
-  const FETCH_FREQUENCIES = ['ONCEWEEKLY', 'ONCEDAILY']
+  const FETCH_FREQUENCIES = ['ONCEWEEKLY', 'TWICEWEEKLY', 'BIWEEKLY', 'ONCEMONTHLY', 'EVERYHOUR']
 
   const convertFrequency = frequency => {
+    const rule = new scheduler.RecurrenceRule()
+    rule.hour = 10
+    rule.minute = 0
     switch (frequency) {
       case 'ONCEWEEKLY':
-        return '0 0 10 ? * 1'
+        rule.dayOfWeek = 0
+        break
       case 'TWICEWEEKLY':
-        return '0 0 10 ? * 1,2'
+        rule.dayOfWeek = [1, 3]
+        break
       case 'BIWEEKLY':
-        return ['0 0 10 ? 1/1 1#1', '0 0 10 ? 1/1 1#3']
+        rule.date = [0, 15]
+        break
       case 'ONCEMONTHLY':
-        return '0 0 10 1 1/1 ?'
+        rule.date = 0
+        break
       case 'ONCEDAILY':
-        return '0 0 10 ? * 1-5'
+        break
       case 'EVERYHOUR':
-        return '0 0 0/1 1/1 * ?'
-      default:
-        return '0 0 10 ? * 1'
+        rule.hour = null
+        break
+      default: // ONCEWEEKLY
+        rule.dayOfWeek = 0
+        break
     }
+    return rule
   }
 
   const fetchAccounts = async frequencyWord => {
@@ -31,17 +41,8 @@ module.exports = (Sequelize, Account, User, mixpanel, Bluebird, request, schedul
   // Schedule jobs
   FETCH_FREQUENCIES.map(async frequencyWord => {
     const frequency = convertFrequency(frequencyWord)
-
-    if (frequency.constructor === Array) {
-      for (const freq of frequency) {
-        scheduler.scheduleJob(freq, async () => {
-          await fetchAccounts(frequencyWord)
-        })
-      }
-    } else {
-      scheduler.scheduleJob(frequency, async () => {
-        await fetchAccounts(frequencyWord)
-      })
-    }
+    scheduler.scheduleJob(frequency, async () => {
+      await fetchAccounts(frequencyWord)
+    })
   })
 }

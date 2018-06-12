@@ -16,11 +16,7 @@ module.exports = Sequelize => ({
         companyID: {
           type: Sequelize.INTEGER,
           allowNull: false,
-          field: 'company_id',
-          references: {
-            model: 'companies',
-            key: 'id'
-          }
+          field: 'company_id'
         },
         userID: {
           type: Sequelize.INTEGER,
@@ -29,7 +25,9 @@ module.exports = Sequelize => ({
           references: {
             model: 'users',
             key: 'id'
-          }
+          },
+          onDelete: 'CASCADE',
+          onUpdate: 'CASCADE'
         },
         createdAt: {
           type: Sequelize.DATE,
@@ -40,11 +38,11 @@ module.exports = Sequelize => ({
           field: 'notification_seen_date'
         }
       })
-      .then(() => queryInterface.addIndex('bonuses', ['user_id', 'company_id']))
+      .then(() => queryInterface.addIndex('bonuses', ['user_id']))
   },
   down (queryInterface) {
     return queryInterface
       .dropTable('bonuses')
-      .then(() => queryInterface.removeIndex('bonuses', ['user_id', 'company_id']))
+      .then(() => queryInterface.removeIndex('bonuses', ['user_id']))
   }
 })
