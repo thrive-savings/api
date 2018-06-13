@@ -1,4 +1,4 @@
-module.exports = (Bluebird, User, Company) => ({
+module.exports = (Bluebird, User, Company, Account, Goal, Bonus) => ({
   resend: {
     schema: [['data', true, [['email', true], ['phone', true]]]],
     async method (ctx) {
@@ -29,7 +29,7 @@ module.exports = (Bluebird, User, Company) => ({
     schema: [['data', true, [['code', true]]]],
     async method (ctx) {
       const { data: { code } } = ctx.request.body
-      const user = await User.findOne({ where: { code } })
+      const user = await User.findOne({ include: [Account, Goal, Bonus], where: { code } })
 
       if (!user) return Bluebird.reject([{ key: 'code', value: 'You provided an incorrect code. Try again or resend.' }])
 

@@ -29,6 +29,7 @@ module.exports = (Account, Bluebird, request, User, mixpanel) => ({
           accounts = Accounts
           bank = Institution
         } else {
+          console.log(`Delaying the loop for 3s`)
           await delay(3000)
         }
 

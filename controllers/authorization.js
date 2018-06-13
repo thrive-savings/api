@@ -103,7 +103,15 @@ module.exports = (Account, Bluebird, Goal, Bonus, moment, Sequelize, User) => ({
         await Goal.create({ category: 'RainyDay', name: 'Rainy Day Fund', percentage: 100, userID: user.id })
       }
 
+      user = await User.findOne({ include: [Account, Goal, Bonus], where: { email } })
       ctx.body = { data: { authorized: user.getAuthorized() } }
+    },
+    onError (error) {
+      if (error instanceof Sequelize.UniqueConstraintError) {
+        const fields = Object.keys(error.fields)
+        if (fields.includes('email')) return [{ key: 'email', value: 'This email is already taken.' }]
+      }
+      if (error instanceof Sequelize.ValidationError) return [{ key: 'email', value: 'This email is not valid.' }]
     }
   }
 })
