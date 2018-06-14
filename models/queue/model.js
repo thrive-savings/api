@@ -43,13 +43,15 @@ module.exports = (Sequelize, uuid) => ({
       type: Sequelize.STRING,
       allowNull: true
     },
-    account_id: {
+    userID: {
       type: Sequelize.INTEGER,
-      allowNull: true // false
+      allowNull: false,
+      field: 'user_id'
     },
-    user_id: {
+    accountID: {
       type: Sequelize.INTEGER,
-      allowNull: true // false
+      allowNull: false,
+      field: 'account_id'
     },
     uuid: {
       type: Sequelize.STRING,

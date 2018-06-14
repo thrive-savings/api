@@ -1,4 +1,4 @@
-module.exports = (Account, Bluebird, request, User, mixpanel) => ({
+module.exports = (User, Account, Transaction, Bluebird, request, config, mixpanel, scheduler, moment) => ({
   fetch: {
     schema: [['data', true, [['loginID', true]]]],
     async method (ctx) {
