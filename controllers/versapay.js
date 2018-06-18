@@ -4,8 +4,6 @@ module.exports = (User, Account, Queue, config) => ({
   hook: {
     async method (ctx) {
       const req = ctx.request.body
-      console.log('Received VersaPay Hook Call')
-      console.log(req)
       if (req.type === 'transaction') {
         /*
         // Verify signature

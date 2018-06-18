@@ -32,7 +32,6 @@ module.exports = (Bluebird, Sequelize) => ({
   },
   classMethods: {
     async adjustOtherGoalPercentages (userID, goalID, newPercentage, isDelete = false) {
-      console.log(`----ADJUSTING PERCENTAGES----- ${goalID}, ${newPercentage}, ${isDelete}`)
       const goals = await this.findAll({ where: { id: { $ne: goalID }, userID: userID } })
       let goalIdPercPairs = goals.map(({ id, percentage }) => ({ id, percentage }))
       const goalsCount = goalIdPercPairs.length

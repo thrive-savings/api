@@ -10,16 +10,13 @@ module.exports = (User, Account, Transaction, Bluebird, request, config, mixpane
       let accounts = []
       let bank = ''
       while ((lastRefresh === '0001-01-01T00:00:00' || accounts.length === 0) && retryNumber < 20) {
-        console.log(`Calling Authorize with LoginId ${LoginId}, try number ${retryNumber}`)
-        const { RequestId, Login: { LastRefresh }, HttpStatusCode, FlinksCode } = await request.post({
+        const { RequestId, Login: { LastRefresh } } = await request.post({
           uri: `${process.env.flinksURL}/Authorize`,
           body: { LoginId, MostRecentCached: true },
           json: true
         })
         lastRefresh = LastRefresh
-        console.log(`Authorize returned, RequestId: ${RequestId}, LastRefresh: ${lastRefresh}, Request Status: ${HttpStatusCode}, FlinksCode: ${FlinksCode}`)
 
-        console.log(`Fetching accounts for ${RequestId}, try number ${retryNumber}`)
         const { Accounts, Institution } = await request.post({
           uri: `${process.env.flinksURL}/GetAccountsSummary`,
           body: { RequestId, MostRecentCached: true },
@@ -29,12 +26,10 @@ module.exports = (User, Account, Transaction, Bluebird, request, config, mixpane
           accounts = Accounts
           bank = Institution
         } else {
-          console.log(`Delaying the loop for 3s`)
           await delay(3000)
         }
 
         retryNumber++
-        console.log(`Fetched RequestId: ${RequestId}, Number of Accounts: ${accounts.length}, Institution: ${bank}`)
       }
 
       mixpanel.track('Fetching Bank Accounts Result when Linking Bank', { Date: `${new Date()}`, UserId: `${ctx.authorized.id}`, LoginId: `${LoginId}`, AccountsCount: `${accounts.length}` })

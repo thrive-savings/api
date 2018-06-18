@@ -45,7 +45,6 @@ module.exports = (Bluebird, User, Company, Account, Goal, Bonus) => ({
     async method (ctx) {
       const { data: { code: receivedCode } } = ctx.request.body
       const code = receivedCode.toLowerCase().trim()
-      console.log(code)
 
       let companyID = -1
       if (code !== 'testcompany') {

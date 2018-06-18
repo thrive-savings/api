@@ -62,13 +62,6 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird) => ({
 
             if (accountToken === defaultAccount.token) { balance = accountBalance }
 
-            console.log('-------------TRANSACTIONS-------------')
-            console.log(fetchedAccount.Transactions)
-            console.log('-------------BALANCE-------------')
-            console.log(fetchedAccount.Balance)
-            console.log('-------------HOLDER-------------')
-            console.log(fetchedAccount.Holder)
-
             const storedAccount = await Account.findOne({ where: { token: accountToken } })
 
             if (!storedAccount.transit) {
