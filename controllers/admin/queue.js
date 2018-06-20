@@ -1,4 +1,4 @@
-module.exports = (Account, Queue, Sequelize, moment) => ({
+module.exports = (User, Account, Queue, Sequelize, moment) => ({
   create: {
     schema: [
       ['data', true, [
