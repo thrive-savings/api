@@ -1,4 +1,4 @@
-module.exports = (User, Account, Transaction, moment, request, Bluebird) => ({
+module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpanel) => ({
   fetchInterval: {
     schema: [[
       ['end'], ['userIDs', 'array'], ['start']
@@ -47,6 +47,7 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird) => ({
           body: getAccountsDetailBody,
           json: true
         })
+        mixpanel.track('Fetching New Transactions', { Date: new Date(), RequestBody: getAccountsDetailBody, UserID: user.id, HttpStatusCode: fetchHttpStatusCode, FlinksCode: fetchFlinksCode })
 
         if (fetchHttpStatusCode === 200) {
           for (const fetchedAccount of Accounts) {

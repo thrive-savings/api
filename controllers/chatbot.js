@@ -152,9 +152,22 @@ module.exports = (Sequelize, User, Queue, twilio, mixpanel, request, config) => 
               }
             }
           }
+        } else if (['invite', 'Invite'].includes(command)) {
+          mixpanelEvent = 'Received Invite Command'
+          let invitedPhone = params[0]
+          if (!invitedPhone.match(/^\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/)) {
+            responseMsg = 'Correct Command Syntax: "Invite 647-123-4567"'
+          } else {
+            responseMsg = `Invitation has been sent to ${invitedPhone}`
+            twilio.messages.create({
+              from: process.env.twilioNumber,
+              to: invitedPhone,
+              body: `Your friend, ${user.firstName}, has invited you to use Thrive Savings app to improve your financial well-being. You can download the mobile from Apple App Store or Google Play Store by searching for Thrive Savings.`
+            })
+          }
         } else if (['help', 'Help', 'help!', 'Help!'].includes(command)) {
           mixpanelEvent = 'Received Help Command'
-          responseMsg = 'Under Development: Help requested'
+          responseMsg = `Please email help@thrivesavings.com to contact support.`
         } else if (['Hi', 'Hello', 'Hey', 'Yo', 'Hola'].includes(command)) {
           mixpanelEvent = 'Received Hi Command'
           responseMsg = `Hi ${user.firstName}! How can I help you today?`
@@ -195,7 +208,7 @@ module.exports = (Sequelize, User, Queue, twilio, mixpanel, request, config) => 
       const requestBody = ctx.request.body
       const { text } = requestBody
 
-      let [ phone, msg ] = text.split(' ')
+      let [ phone, ...msg ] = text.split(' ')
 
       // Find user by phone
       let user = await User.findOne({ where: { phone } })
@@ -205,6 +218,7 @@ module.exports = (Sequelize, User, Queue, twilio, mixpanel, request, config) => 
 
       let slackMsg = ''
       if (user) {
+        msg = msg.join(' ')
         twilio.messages.create({
           from: process.env.twilioNumber,
           to: user.phone,

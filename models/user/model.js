@@ -52,12 +52,12 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mi
 
     restorePasswordCode: {
       type: Sequelize.STRING,
-      field: 'restore_password_token'
+      field: 'restore_password_code'
     },
 
     restorePasswordCodeExpiresAt: {
       type: Sequelize.DATE,
-      field: 'restore_password_token_expires_at'
+      field: 'restore_password_code_expires_at'
     },
 
     firstName: {
