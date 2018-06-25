@@ -32,7 +32,7 @@ module.exports = (User, Account, Transaction, Bluebird, request, config, mixpane
         retryNumber++
       }
 
-      mixpanel.track('Fetching Bank Accounts Result when Linking Bank', { Date: `${new Date()}`, UserId: `${ctx.authorized.id}`, LoginId: `${LoginId}`, AccountsCount: `${accounts.length}` })
+      mixpanel.track('Fetching Bank Accounts', { Date: `${new Date()}`, UserId: `${ctx.authorized.id}`, LoginId: `${LoginId}`, AccountsCount: `${accounts.length}` })
 
       await User.update({ loginID: LoginId, bankLinked: true }, { where: { id: ctx.authorized.id } })
 

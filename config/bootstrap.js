@@ -1,5 +1,5 @@
 module.exports = (User, config, mixpanel, request, scheduler) => async () => {
-  const FETCH_FREQUENCIES = ['ONCEWEEKLY', 'TWICEWEEKLY', 'BIWEEKLY', 'ONCEMONTHLY', 'ONCEDAILY']
+  const FETCH_FREQUENCIES = ['ONCEWEEKLY', 'TWICEWEEKLY', 'BIWEEKLY', 'ONCEMONTHLY']
   // const FETCH_FREQUENCIES = ['ONCEDAILY', 'EVERYMINUTE']
 
   const convertFrequency = frequency => {
@@ -9,16 +9,16 @@ module.exports = (User, config, mixpanel, request, scheduler) => async () => {
     rule.minute = 0
     switch (frequency) {
       case 'ONCEWEEKLY':
-        rule.dayOfWeek = 0
+        rule.dayOfWeek = 1
         break
       case 'TWICEWEEKLY':
         rule.dayOfWeek = [1, 3]
         break
       case 'BIWEEKLY':
-        rule.date = [0, 15]
+        rule.date = [1, 15]
         break
       case 'ONCEMONTHLY':
-        rule.date = 0
+        rule.date = 1
         break
       case 'ONCEDAILY':
         break
@@ -30,7 +30,7 @@ module.exports = (User, config, mixpanel, request, scheduler) => async () => {
         rule.minute = new scheduler.Range(0, 59, 1)
         break
       default: // ONCEWEEKLY
-        rule.dayOfWeek = 0
+        rule.dayOfWeek = 1
         break
     }
     return rule
