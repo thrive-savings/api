@@ -44,13 +44,13 @@ module.exports = (Bluebird, moment, User) => ({
     schema: [['data', true, [['password', true], ['code', true]]]],
     async method (ctx) {
       const { data: { password, code } } = ctx.request.body
-      const user = await User.findOne({ where: { restorePasswordCode: code } })
-      if (!user || moment() > moment(user.restorePasswordCodeExpiresAt)) {
+      const user = await User.findOne({ where: { restorePasswordToken: code } })
+      if (!user || moment() > moment(user.restorePasswordTokenExpiresAt)) {
         return Bluebird.reject([{ key: 'password', value: `Password can't be changed. Please, try again` }])
       }
       user.hashPassword(password)
-      user.restorePasswordCode = null
-      user.restorePasswordCodeExpiresAt = null
+      user.restorePasswordToken = null
+      user.restorePasswordTokenExpiresAt = null
       await user.save()
       ctx.body = {}
     }

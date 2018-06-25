@@ -259,15 +259,15 @@ Happy saving! ;)`
       while (codes.includes(code)) {
         code = random()
       }
-      this.restorePasswordCode = code
-      this.restorePasswordCodeExpiresAt = moment().add(60, 'm').toDate()
+      this.restorePasswordToken = code
+      this.restorePasswordTokenExpiresAt = moment().add(60, 'm').toDate()
       await this.save()
       mail.send({
         from: 'restore@thrivesavings.com',
         html: `
           <html>
             <div>
-              <p>To reset your Thrive Savings password, type <b>${this.restorePasswordCode}</b> in your app. </p>
+              <p>To reset your Thrive Savings password, type <b>${this.restorePasswordToken}</b> in your app. </p>
               <p>The code will expire after an hour</p>
               <p>If you haven't requested a password reset, you can ignore this message</p>
               <p>-The team at Thrive</p>
