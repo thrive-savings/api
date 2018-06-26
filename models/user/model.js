@@ -218,11 +218,7 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mi
       twilio.messages.create({
         from: process.env.twilioNumber,
         to: this.phone,
-        body: `Welcome ${this.firstName}! You're now part of the Thrive family. My name is Thrivebot and I'm your personal assistant.
-
-I have finished analyzing your account and your first withdrawal will be $5.25. Feel free to message me anytime, ask for your balance, withdraw your money, or just say hi!
-
-Happy saving! ;)`
+        body: `Welcome ${this.firstName}! You're now part of the Thrive family. My name is Thrivebot and I'm your personal assistant.\n\n Feel free to message me anytime, ask for your balance, withdraw your money, or just say hi!\n\nHappy saving! ;)`
       })
     },
     checkPassword (password) {
