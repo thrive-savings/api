@@ -30,7 +30,7 @@ module.exports = Sequelize => ({
       'users',
       'restore_password_code',
       {
-        type: Sequelize.DATE
+        type: Sequelize.STRING
       }
     ),
     queryInterface.addColumn(
