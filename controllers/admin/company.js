@@ -4,7 +4,7 @@ module.exports = (Bluebird, User, Company, Bonus) => ({
     async method (ctx) {
       const { data: { name } } = ctx.request.body
 
-      const company = await Company.create({ name, code: 'placeholder' })
+      const company = await Company.create({ name: name.trim(), code: 'placeholder' })
       await company.generateCode()
 
       ctx.body = { data: { name: company.name, code: company.code } }

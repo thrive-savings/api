@@ -1,4 +1,4 @@
-module.exports = (User, Account, Transaction, moment, request, Bluebird) => ({
+module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpanel) => ({
   run: {
     schema: [['data', true, [['userID', true, 'integer']]]],
     async method (ctx) {
@@ -18,6 +18,8 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird) => ({
       } else {
         transactions = await Transaction.findAll({ where: { accountID: account.id, userID } })
       }
+
+      mixpanel.track('Algo Running - Start', { UserID: `${user.id}`, AccountID: `${account.id}`, TransactionsCount: `${transactions ? transactions.length : 0}` })
 
       let amount = 0
       if (transactions) {
@@ -46,6 +48,8 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird) => ({
         else if (latestBalance > amount * 200) amount *= 2
         else if (latestBalance > amount * 100) amount = Math.floor(amount * 1.5)
         else if (latestBalance > amount * 50) amount = Math.floor(amount * 1.25)
+
+        mixpanel.track('Algo Running - End', { UserID: `${user.id}`, AccountID: `${account.id}`, Amount: `${amount}`, DebitSum: `${debitSum}`, DebitCount: `${debitCount}`, Balance: `${latestBalance}` })
       }
 
       ctx.body = { amount }

@@ -29,6 +29,7 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpane
         body: { LoginId, MostRecentCached: true },
         json: true
       })
+      mixpanel.track('Authorizing Flinks Connection Returned', { UserID: `${user.id}`, LoginID: `${LoginId}`, HttpStatusCode: authHttpStatusCode, FlinksCode: authFlinksCode })
 
       let balance = 0
       let unlinkBank = false
@@ -47,7 +48,7 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpane
           body: getAccountsDetailBody,
           json: true
         })
-        mixpanel.track('Fetching New Transactions', { Date: new Date(), RequestBody: getAccountsDetailBody, UserID: user.id, HttpStatusCode: fetchHttpStatusCode, FlinksCode: fetchFlinksCode })
+        mixpanel.track('Fetching New Transactions Returned', { UserID: user.id, HttpStatusCode: fetchHttpStatusCode, FlinksCode: fetchFlinksCode, RequestBody: getAccountsDetailBody, AccounsCount: `${Accounts ? Accounts.length : 0}` })
 
         if (fetchHttpStatusCode === 200) {
           for (const fetchedAccount of Accounts) {
