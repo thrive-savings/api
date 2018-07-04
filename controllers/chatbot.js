@@ -233,5 +233,25 @@ module.exports = (Sequelize, User, Queue, twilio, mixpanel, request, config) => 
 
       ctx.body = slackMsg
     }
+  },
+  addCompany: {
+    async method (ctx) {
+      let { text: companyNames } = ctx.request.body
+      companyNames = companyNames.split(',')
+
+      let slackMsg = 'Company Added '
+      for (const companyName of companyNames) {
+        if (companyName) {
+          const { data: { code: companyCode } } = await request.post({
+            uri: `${config.constants.URL}/admin/company-add`,
+            body: { secret: process.env.apiSecret, data: { name: companyName.toString() } },
+            json: true
+          })
+          slackMsg += `| Name: ${companyName} - Code: ${companyCode} `
+        }
+      }
+
+      ctx.body = slackMsg
+    }
   }
 })
