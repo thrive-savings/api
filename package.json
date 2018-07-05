@@ -13,6 +13,7 @@
   "author": "Naib Baghirov <naib.baghirov@gmail.com> (https://www.linkedin.com/in/naib-baghirov-03182170/)",
   "license": "MIT",
   "dependencies": {
+    "amplitude": "^3.5.0",
     "aws-sdk": "^2.226.1",
     "bcryptjs": "2",
     "jsonwebtoken": "7",

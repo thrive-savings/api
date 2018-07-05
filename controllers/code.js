@@ -1,4 +1,4 @@
-module.exports = (Bluebird, User, Company, Account, Goal, Bonus) => ({
+module.exports = (Bluebird, User, Company, Account, Goal, Bonus, amplitude) => ({
   resend: {
     schema: [['data', true, [['email', true], ['phone', true]]]],
     async method (ctx) {
@@ -37,6 +37,14 @@ module.exports = (Bluebird, User, Company, Account, Goal, Bonus) => ({
       user.isVerified = true
       await user.save()
 
+      amplitude.track({
+        eventType: "ACCOUNT_VERIFIED",
+        userId: user.id,
+        userProperties: {
+          'Account Verified': user.isVerified
+        }
+      })
+
       ctx.body = { data: { authorized: user.getAuthorized() } }
     }
   },
@@ -46,14 +54,16 @@ module.exports = (Bluebird, User, Company, Account, Goal, Bonus) => ({
       const { data: { code: receivedCode } } = ctx.request.body
       const code = receivedCode.toLowerCase().trim()
 
+      let companyName = 'Test Company'
       let companyID = -1
       if (code !== 'testcompany') {
         const company = await Company.findOne({ where: { code } })
         if (!company) return Bluebird.reject([{ key: 'code', value: 'You provided an incorrect code. Try again or connect admin.' }])
         companyID = company.id
+        companyName = company.name
       }
 
-      ctx.body = { data: { companyID } }
+      ctx.body = { data: { companyID, companyName, companyCode: code } }
     }
   }
 })

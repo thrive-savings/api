@@ -218,7 +218,7 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mi
       twilio.messages.create({
         from: process.env.twilioNumber,
         to: this.phone,
-        body: `Welcome ${this.firstName}! You're now part of the Thrive family. My name is Thrivebot and I'm your personal assistant.\n\n Feel free to message me anytime, ask for your balance, withdraw your money, or just say hi!\n\nHappy saving! ;)`
+        body: `Welcome ${this.firstName}! You're now part of the Thrive family. My name is Thrivebot and I'm your personal assistant.\n\nFeel free to message me anytime, ask for your balance, withdraw your money, or just say hi!\n\nHappy saving! ;)`
       })
     },
     checkPassword (password) {
@@ -313,6 +313,7 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mi
       return {
         account,
         goals,
+        id: this.id,
         bankLinked: this.bankLinked,
         didSign: !!this.signature,
         firstName: this.firstName,

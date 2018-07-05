@@ -1,4 +1,4 @@
-module.exports = (User, Account, Transaction, Bluebird, request, config, mixpanel, scheduler, moment) => ({
+module.exports = (User, Account, Transaction, Bluebird, request, config, mixpanel, scheduler, moment, amplitude) => ({
   fetch: {
     schema: [['data', true, [['loginID', true]]]],
     async method (ctx) {
@@ -34,9 +34,23 @@ module.exports = (User, Account, Transaction, Bluebird, request, config, mixpane
 
       mixpanel.track('Fetching Bank Accounts', { Date: `${new Date()}`, UserId: `${ctx.authorized.id}`, LoginId: `${LoginId}`, AccountsCount: `${accounts.length}` })
 
-      await User.update({ loginID: LoginId, bankLinked: true }, { where: { id: ctx.authorized.id } })
+      await User.update({ loginID: LoginId }, { where: { id: ctx.authorized.id } })
 
-      if (accounts.length === 0) return [{ key: 'flinks', value: 'Server could not fetch accounts successfully. Please contact support' }]
+      if (accounts.length === 0) {
+        amplitude.track({
+          eventType: 'FETCH_ACCOUNTS_FAIL',
+          userId: ctx.authorized.id,
+          eventProperties: { LoginId, 'Bank': bank }
+        })
+        return [{ key: 'flinks', value: 'Server could not fetch accounts successfully. Please contact support' }]
+      }
+
+      amplitude.track({
+        eventType: 'FETCH_ACCOUNTS_SUCCESS',
+        userId: ctx.authorized.id,
+        userProperties: { LoginId, 'Bank': bank },
+        eventProperties: { 'Accounts Count': accounts.length }
+      })
 
       accounts = await Bluebird.all(
         accounts.map(({
@@ -76,7 +90,15 @@ module.exports = (User, Account, Transaction, Bluebird, request, config, mixpane
       await account.save()
 
       const user = await User.findOne({ where: { id: ctx.authorized.id } })
+      user.bankLinked = true
+      await user.save()
       user.greet()
+
+      amplitude.track({
+        eventType: 'DEFAULT_ACCOUNT_SET',
+        userId: ctx.authorized.id,
+        userProperties: { 'Bank Linked': true }
+      })
 
       let authorizedAccount = account.toAuthorized()
       authorizedAccount.flLoginID = user.loginID

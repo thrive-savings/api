@@ -1,4 +1,4 @@
-module.exports = (Account, Bluebird, Goal, Bonus, moment, Sequelize, User) => ({
+module.exports = (Sequelize, User, Company, Account, Goal, Bonus, moment, Bluebird, amplitude) => ({
   signIn: {
     schema: [['data', true, [['email', true], ['password', true]]]],
     async method (ctx) {
@@ -37,6 +37,25 @@ module.exports = (Account, Bluebird, Goal, Bonus, moment, Sequelize, User) => ({
       if (!user.checkPassword(password)) {
         return Bluebird.reject([{ key: 'password', value: 'You provided an incorrect password. Please try again or reset your password.' }])
       }
+
+      const company = await Company.findOne({ where: { id: user.companyID } })
+      amplitude.track({
+        eventType: 'LOGIN_SUCCESS',
+        userId: user.id,
+        userProperties: {
+          'Email': user.email,
+          'Phone': user.phone,
+          'First Name': user.firstName,
+          'Last Name': user.lastName,
+          'Employer Name': company.name,
+          'Employer Code': company.code,
+          'Balance on Thrive': user.balance,
+          'Work Type': user.workType,
+          'Saving Type': user.savingType,
+          'Saving Frequency': user.fetchFrequency,
+          'Account Verified': user.isVerified
+        }
+      })
 
       if (!user.isVerified) {
         await user.sendCode()
@@ -102,6 +121,25 @@ module.exports = (Account, Bluebird, Goal, Bonus, moment, Sequelize, User) => ({
         user = await User.create({ email, password, firstName, lastName, gender, dob: date, address: streetNumber + ' ' + streetName, unit, city, province: state, country, postalCode, companyID })
         await Goal.create({ category: 'RainyDay', name: 'Rainy Day Fund', percentage: 100, userID: user.id })
       }
+
+      const company = await Company.findOne({ where: { id: user.companyID } })
+      amplitude.track({
+        eventType: 'PERSONAL_DETAILS_SET',
+        userId: user.id,
+        userProperties: {
+          'Email': user.email,
+          'Phone': user.phone,
+          'First Name': user.firstName,
+          'Last Name': user.lastName,
+          'Employer Name': company.name,
+          'Employer Code': company.code,
+          'Balance on Thrive': user.balance,
+          'Work Type': user.workType,
+          'Saving Type': user.savingType,
+          'Saving Frequency': user.fetchFrequency,
+          'Account Verified': user.isVerified
+        }
+      })
 
       user = await User.findOne({ include: [Account, Goal, Bonus], where: { email } })
       ctx.body = { data: { authorized: user.getAuthorized() } }

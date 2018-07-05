@@ -1,4 +1,4 @@
-module.exports = (Bluebird, User, Account, Goal, Bonus, Sequelize) => ({
+module.exports = (Bluebird, User, Account, Goal, Bonus, Sequelize, amplitude) => ({
   setPhone: {
     schema: [['data', true, [['phone', true]]]],
     async method (ctx) {
@@ -18,6 +18,15 @@ module.exports = (Bluebird, User, Account, Goal, Bonus, Sequelize) => ({
       user.isVerified = 0
       await user.sendCode()
 
+      amplitude.track({
+        eventType: 'PHONE_SET',
+        userId: user.id,
+        userProperties: {
+          'Phone': user.phone,
+          'Account Verified': user.isVerified
+        }
+      })
+
       ctx.body = { data: { authorized: user.getAuthorized() } }
     }
   },
@@ -36,6 +45,14 @@ module.exports = (Bluebird, User, Account, Goal, Bonus, Sequelize) => ({
       await User.update({ email }, { where: { id: ctx.authorized.id } })
 
       user = await User.findOne({ include: [Account, Goal, Bonus], where: { id: ctx.authorized.id } })
+      amplitude.track({
+        eventType: 'EMAIL_UPDATED',
+        userId: user.id,
+        userProperties: {
+          'Email': user.email
+        }
+      })
+
       ctx.body = { data: { authorized: user.getAuthorized() } }
     }
   },
@@ -52,6 +69,11 @@ module.exports = (Bluebird, User, Account, Goal, Bonus, Sequelize) => ({
 
       user.hashPassword(newPassword)
       await user.save()
+
+      amplitude.track({
+        eventType: 'PASSWORD_UPDATED',
+        userId: user.id
+      })
 
       ctx.body = { data: { authorized: user.getAuthorized() } }
     }
