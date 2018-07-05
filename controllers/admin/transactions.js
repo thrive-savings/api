@@ -24,6 +24,7 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpane
       const LoginId = user.loginID
       const defaultAccount = await Account.findOne({ where: { isDefault: true, userID } })
 
+      mixpanel.track('Authorizing Flinks Connection Called', { UserID: `${user.id}`, LoginID: `${LoginId}`, AccountID: `${defaultAccount.id}` })
       const { RequestId, HttpStatusCode: authHttpStatusCode, FlinksCode: authFlinksCode } = await request.post({
         uri: `${process.env.flinksURL}/Authorize`,
         body: { LoginId, MostRecentCached: true },
@@ -43,12 +44,13 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpane
           getAccountsDetailBody.DaysOfTransactions = 'Days90'
         }
 
+        mixpanel.track('Fetching New Transactions Called', { UserID: user.id, RequestBody: getAccountsDetailBody })
         const { Accounts, HttpStatusCode: fetchHttpStatusCode, FlinksCode: fetchFlinksCode } = await request.post({
           uri: `${process.env.flinksURL}/GetAccountsDetail`,
           body: getAccountsDetailBody,
           json: true
         })
-        mixpanel.track('Fetching New Transactions Returned', { UserID: user.id, HttpStatusCode: fetchHttpStatusCode, FlinksCode: fetchFlinksCode, RequestBody: getAccountsDetailBody, AccounsCount: `${Accounts ? Accounts.length : 0}` })
+        mixpanel.track('Fetching New Transactions Returned', { UserID: user.id, HttpStatusCode: fetchHttpStatusCode, FlinksCode: fetchFlinksCode, AccounsCount: `${Accounts ? Accounts.length : 0}` })
 
         if (fetchHttpStatusCode === 200) {
           for (const fetchedAccount of Accounts) {
@@ -89,6 +91,7 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpane
               })
             )
 
+            mixpanel.track('Transactions Created on Database', { TransactionsCount: transactions.length })
             await Bluebird.all(transactions.map((item) => Transaction.findOrCreate({ where: { token: item.token }, defaults: item })))
           }
         } else {

@@ -39,11 +39,12 @@ module.exports = (User, config, mixpanel, request, scheduler) => async () => {
   const fetchAccounts = async frequencyWord => {
     const users = await User.findAll({ where: { fetchFrequency: frequencyWord } })
     const runTime = new Date()
-    mixpanel.track(`${frequencyWord} Scheduler Running`, { Date: `${runTime}`, Frequency: `${frequencyWord}`, UserCount: `${users.length}` })
+    mixpanel.track(`${frequencyWord} Scheduler Running`, { Frequency: `${frequencyWord}`, UserCount: `${users.length}` })
     if (users.length > 0) {
       for (const user of users) {
+        mixpanel.track(`${frequencyWord} Looping User`, { Frequency: `${frequencyWord}`, UserID: `${user.id}` })
         if (user.bankLinked) {
-          mixpanel.track(`${frequencyWord} Fetching Transactions`, { Date: `${runTime}`, Frequency: `${frequencyWord}`, UserID: `${user.id}`, LoginID: `${user.loginID}` })
+          mixpanel.track(`${frequencyWord} Fetching Transactions`, { Frequency: `${frequencyWord}`, UserID: `${user.id}`, LoginID: `${user.loginID}` })
           // Fetch new transactions for user
           const { data: { balance } } = await request.post({
             uri: `${config.constants.URL}/admin/transactions-fetch-user`,
@@ -51,7 +52,7 @@ module.exports = (User, config, mixpanel, request, scheduler) => async () => {
             json: true
           })
 
-          mixpanel.track(`${frequencyWord} Getting Amount`, { Date: `${runTime}`, Frequency: `${frequencyWord}`, UserID: `${user.id}`, SavingType: `${user.savingType}` })
+          mixpanel.track(`${frequencyWord} Getting Amount`, { Frequency: `${frequencyWord}`, UserID: `${user.id}`, SavingType: `${user.savingType}`, Balance: `${balance}` })
           // Get  saving amount
           let amount
           if (user.savingType === 'Thrive Flex') {
@@ -61,13 +62,13 @@ module.exports = (User, config, mixpanel, request, scheduler) => async () => {
               json: true
             })
             amount = algoResult.amount
-            mixpanel.track(`${frequencyWord} Running Algo`, { Date: `${runTime}`, Frequency: `${frequencyWord}`, UserID: `${user.id}`, SavingType: `${user.savingType}`, Amount: `${amount}` })
+            mixpanel.track(`${frequencyWord} Algo Returned`, { Frequency: `${frequencyWord}`, UserID: `${user.id}`, SavingType: `${user.savingType}`, Amount: `${amount}` })
           } else {
             amount = user.fixedContribution
-            mixpanel.track(`${frequencyWord} Setting Fixed Amount`, { Date: `${runTime}`, Frequency: `${frequencyWord}`, UserID: `${user.id}`, SavingType: `${user.savingType}`, Amount: `${amount}` })
+            mixpanel.track(`${frequencyWord} Setting Fixed Amount`, { Frequency: `${frequencyWord}`, UserID: `${user.id}`, SavingType: `${user.savingType}`, Amount: `${amount}` })
           }
 
-          mixpanel.track(`${frequencyWord} Transfering Amount ${amount}`, { Date: `${runTime}`, Frequency: `${frequencyWord}`, UserID: `${user.id}`, SavingType: `${user.savingType}`, Amount: `${amount}`, Balance: `${balance}` })
+          mixpanel.track(`${frequencyWord} Transfering Amount ${amount}`, { Frequency: `${frequencyWord}`, UserID: `${user.id}`, SavingType: `${user.savingType}`, Amount: `${amount}`, Balance: `${balance}` })
           // Transfer the amount
           if (balance > 15000 && amount < 100000) {
             // Create queue entry
