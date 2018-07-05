@@ -1,4 +1,4 @@
-module.exports = (path, fs, User, aws) => ({
+module.exports = (path, fs, User, aws, amplitude) => ({
   create: {
     schema: [['data', true, [['encodedImage', true], ['imageType', true]]]],
     async method (ctx) {
@@ -25,6 +25,12 @@ module.exports = (path, fs, User, aws) => ({
 
       const user = await User.findOne({ where: { id: ctx.authorized.id } })
       const avatar = await user.getAvatar()
+
+      amplitude.track({
+        eventType: 'AVATAR_CREATED',
+        userId: user.id
+      })
+
       ctx.body = { avatar }
     }
   },
@@ -42,6 +48,11 @@ module.exports = (path, fs, User, aws) => ({
         Key: user.avatar
       }).promise()
       await User.update({ avatar: null }, { where: { id: ctx.authorized.id } })
+
+      amplitude.track({
+        eventType: 'AVATAR_DELETED', 
+        userId: user.id
+      })
 
       ctx.body = {}
     }

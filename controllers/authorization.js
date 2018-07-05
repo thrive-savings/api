@@ -137,7 +137,8 @@ module.exports = (Sequelize, User, Company, Account, Goal, Bonus, moment, Bluebi
           'Work Type': user.workType,
           'Saving Type': user.savingType,
           'Saving Frequency': user.fetchFrequency,
-          'Account Verified': user.isVerified
+          'Account Verified': user.isVerified,
+          'Goals': 1
         }
       })
 

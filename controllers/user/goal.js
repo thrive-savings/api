@@ -1,4 +1,4 @@
-module.exports = (fs, path, Sequelize, moment, User, Goal, mixpanel) => ({
+module.exports = (fs, path, Sequelize, moment, User, Goal, mixpanel, amplitude) => ({
   create: {
     schema: [
       ['data', true, [
@@ -60,6 +60,14 @@ module.exports = (fs, path, Sequelize, moment, User, Goal, mixpanel) => ({
 
       const goals = await Goal.findAll({ where: { userID: ctx.authorized.id }, order: Sequelize.col('id') })
       const user = await User.findOne({ where: { id: ctx.authorized.id } })
+      amplitude.track({
+        eventType: 'GOAL_ADDED',
+        userId: user.id,
+        userProperties: {
+          'Goals': goals.length
+        }
+      })
+
       ctx.body = {
         data: {
           goals: goals.map(
@@ -85,6 +93,14 @@ module.exports = (fs, path, Sequelize, moment, User, Goal, mixpanel) => ({
 
       const goals = await Goal.findAll({ where: { userID: ctx.authorized.id }, order: Sequelize.col('id') })
       const user = await User.findOne({ where: { id: ctx.authorized.id } })
+      amplitude.track({
+        eventType: 'GOAL_UPDATED',
+        userId: user.id,
+        userProperties: {
+          'Goals': goals.length
+        }
+      })
+
       ctx.body = {
         data: {
           goals: goals.map(
@@ -110,6 +126,14 @@ module.exports = (fs, path, Sequelize, moment, User, Goal, mixpanel) => ({
 
       const goals = await Goal.findAll({ where: { userID: ctx.authorized.id }, order: Sequelize.col('id') })
       const user = await User.findOne({ where: { id: ctx.authorized.id } })
+      amplitude.track({
+        eventType: 'GOAL_DELETED',
+        userId: user.id,
+        userProperties: {
+          'Goals': goals.length
+        }
+      })
+
       ctx.body = {
         data: {
           goals: goals.map(
