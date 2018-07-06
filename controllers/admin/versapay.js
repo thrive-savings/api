@@ -60,6 +60,10 @@ module.exports = (User, Account, Queue, request, Bluebird) => ({
       })
 
       ctx.body = { data: { message: `Versapay successfully synced for #${queues.length} of transfers` } }
+    },
+    onError (error) {
+      console.log(error)
+      mixpanel('Error Happened - Syncing Versapay', { Error: error, StringifiedError: JSON.stringify(error) })
     }
   }
 })

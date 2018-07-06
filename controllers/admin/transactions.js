@@ -99,7 +99,7 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpane
           mixpanel.track('Initial Transfer GetAccountsDetail Call Failed', { Date: `${new Date()}`, UserId: `${userID}`, LoginId: `${LoginId}`, RequestId: `${RequestId}`, HttpStatusCode: `${fetchHttpStatusCode}`, FlinksCode: `${fetchFlinksCode}` })
         }
       } else {
-        unlinkBank = true
+        unlinkBank = false
         mixpanel.track('Initial Transfer Authorize Call Failed', { Date: `${new Date()}`, UserId: `${userID}`, LoginId: `${LoginId}`, HttpStatusCode: `${authHttpStatusCode}`, FlinksCode: `${authFlinksCode}` })
       }
 
@@ -109,6 +109,10 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpane
       }
 
       ctx.body = { data: { balance: balance * 100 } }
+    },
+    onError (error) {
+      console.log(error)
+      mixpanel('Error Happened - Fetching User Transactions', { Error: error, StringifiedError: JSON.stringify(error) })
     }
   }
 })

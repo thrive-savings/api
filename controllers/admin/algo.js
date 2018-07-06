@@ -53,6 +53,10 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpane
       }
 
       ctx.body = { amount }
+    },
+    onError (error) {
+      console.log(error)
+      mixpanel('Error Happened while Running Algo', { Error: error })
     }
   }
 })

@@ -27,7 +27,7 @@ module.exports = (User, config, mixpanel, request, scheduler) => async () => {
         break
       case 'EVERYMINUTE':
         rule.hour = null
-        rule.minute = new scheduler.Range(0, 59, 1)
+        rule.minute = new scheduler.Range(0, 59, 10)
         break
       default: // ONCEWEEKLY
         rule.dayOfWeek = 1
@@ -72,6 +72,7 @@ module.exports = (User, config, mixpanel, request, scheduler) => async () => {
           // Transfer the amount
           if (balance > 15000 && amount < 100000) {
             // Create queue entry
+            mixpanel.track(`${frequencyWord} Creating Queue Entry ${amount}`, { Frequency: `${frequencyWord}`, UserID: `${user.id}`, Amount: `${amount}`, Balance: `${balance}` })
             await request.post({
               uri: `${config.constants.URL}/admin/queue-create`,
               body: { secret: process.env.apiSecret, data: { userID: user.id, amountInCents: amount, type: 'debit', requestMethod: 'Automated' } },
@@ -79,6 +80,7 @@ module.exports = (User, config, mixpanel, request, scheduler) => async () => {
             })
 
             // Deposit to VersaPay
+            mixpanel.track(`${frequencyWord} Depositing to Versapay ${amount}`, { Frequency: `${frequencyWord}`, UserID: `${user.id}`, Amount: `${amount}`, Balance: `${balance}` })
             await request.post({
               uri: `${config.constants.URL}/admin/versapay-sync`,
               body: { secret: process.env.apiSecret, data: { userID: user.id } },

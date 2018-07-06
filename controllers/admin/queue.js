@@ -5,7 +5,6 @@ module.exports = (User, Account, Queue, Sequelize, moment) => ({
         ['userID', true, 'integer'], ['accountID', 'integer'], ['amountInCents', true, 'integer'], ['type', true], ['requestMethod', true]
       ]]
     ],
-
     async method (ctx) {
       const { data: { userID, accountID: providedAccountID, amountInCents, type, requestMethod } } = ctx.request.body
 
@@ -20,6 +19,10 @@ module.exports = (User, Account, Queue, Sequelize, moment) => ({
 
         ctx.body = { data: { message: 'Request successfully queued' } }
       }
+    },
+    onError (error) {
+      console.log(error)
+      mixpanel('Error Happened - Creating Queue', { Error: error, StringifiedError: JSON.stringify(error) })
     }
   }
 })
