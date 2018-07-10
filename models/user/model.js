@@ -390,16 +390,16 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mi
       balance.toLocaleString('en-US', {style: 'currency', currency: 'USD'})
 
       if (state === 'invalid_amount') {
-        msg = `Hi ${this.firstName}, the amount ($${dollars}) you requested to withdraw exceeds your balance ($${balance})`
+        msg = `Hi ${this.firstName}, the amount of $${dollars} you requested to withdraw exceeds your balance of $${balance}`
       } else {
         if (state === 'in_progress') {
           msg = type === 'direct_debit'
-            ? `Hi ${this.firstName}! You've got another $${dollars} in transit to your Thrive account. Have a great day!`
-            : `Hi ${this.firstName}! You've withdrawn $${dollars} You'll see this amount back in your chequing account today. Your Thrive balance is $${balance}. Thank you.`
+            ? `Hi ${this.firstName}! You've got $${dollars} enroute to Thrive Savings. Keep it up, great job saving!`
+            : `Hi ${this.firstName}! You've withdrawn $${dollars} You’ll see this amount back in your chequing account in 1 business day. Your Thrive Savings balance is $${balance}. Have a great day!`
         } else {
           msg = type === 'direct_debit'
-            ? `${this.firstName} - Your transfer to your Thrive savings account has settled. To get your updated balance, just reply back with 'Balance'. Have a great day!`
-            : `Hi ${this.firstName}. Your withdrawal request has settled. As a good friend, I'd love to know what you are spending it on?`
+            ? `Hi ${this.firstName}. You’ve got an updated balance at Thrive Savings, reply back with ‘Balance’ to check your progress. Have a great day!`
+            : `Hi ${this.firstName}. Your withdrawal request has settled. As a good friend, I’d love to know what you are spending it on?`
         }
       }
 

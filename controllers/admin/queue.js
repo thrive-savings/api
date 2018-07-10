@@ -1,4 +1,4 @@
-module.exports = (User, Account, Queue, Sequelize, moment) => ({
+module.exports = (User, Account, Queue, Sequelize, moment, mixpanel) => ({
   create: {
     schema: [
       ['data', true, [
@@ -21,8 +21,7 @@ module.exports = (User, Account, Queue, Sequelize, moment) => ({
       }
     },
     onError (error) {
-      console.log(error)
-      mixpanel('Error Happened - Creating Queue', { Error: error, StringifiedError: JSON.stringify(error) })
+      mixpanel.track('Error Happened - Creating Queue', { Error: error })
     }
   }
 })

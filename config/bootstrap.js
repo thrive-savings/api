@@ -1,6 +1,6 @@
 module.exports = (User, config, mixpanel, request, scheduler) => async () => {
-  const FETCH_FREQUENCIES = ['ONCEWEEKLY', 'TWICEWEEKLY', 'BIWEEKLY', 'ONCEMONTHLY', 'ONCEDAILY']
-  // const FETCH_FREQUENCIES = ['ONCEDAILY', 'EVERYMINUTE']
+  // const FETCH_FREQUENCIES = ['ONCEWEEKLY', 'TWICEWEEKLY', 'BIWEEKLY', 'ONCEMONTHLY', 'ONCEDAILY']
+  const FETCH_FREQUENCIES = ['ONCEDAILY']
 
   const convertFrequency = frequency => {
     const rule = new scheduler.RecurrenceRule()
@@ -27,7 +27,7 @@ module.exports = (User, config, mixpanel, request, scheduler) => async () => {
         break
       case 'EVERYMINUTE':
         rule.hour = null
-        rule.minute = new scheduler.Range(0, 59, 10)
+        rule.minute = new scheduler.Range(0, 59, 1)
         break
       default: // ONCEWEEKLY
         rule.dayOfWeek = 1
@@ -42,50 +42,53 @@ module.exports = (User, config, mixpanel, request, scheduler) => async () => {
     mixpanel.track(`${frequencyWord} Scheduler Running`, { Frequency: `${frequencyWord}`, UserCount: `${users.length}` })
     if (users.length > 0) {
       for (const user of users) {
-        mixpanel.track(`${frequencyWord} Looping User`, { Frequency: `${frequencyWord}`, UserID: `${user.id}` })
         if (user.bankLinked) {
-          mixpanel.track(`${frequencyWord} Fetching Transactions`, { Frequency: `${frequencyWord}`, UserID: `${user.id}`, LoginID: `${user.loginID}` })
-          // Fetch new transactions for user
-          const { data: { balance } } = await request.post({
-            uri: `${config.constants.URL}/admin/transactions-fetch-user`,
-            body: { secret: process.env.apiSecret, data: { userID: user.id } },
-            json: true
-          })
-
-          mixpanel.track(`${frequencyWord} Getting Amount`, { Frequency: `${frequencyWord}`, UserID: `${user.id}`, SavingType: `${user.savingType}`, Balance: `${balance}` })
-          // Get  saving amount
-          let amount
-          if (user.savingType === 'Thrive Flex') {
-            const algoResult = await request.post({
-              uri: `${config.constants.URL}/admin/algo-run`,
+          try {
+            mixpanel.track(`${frequencyWord}-User ${user.id}: Fetching Transactions`, { Frequency: `${frequencyWord}`, UserID: `${user.id}`, LoginID: `${user.loginID}` })
+            // Fetch new transactions for user
+            const { data: { balance } } = await request.post({
+              uri: `${config.constants.URL}/admin/transactions-fetch-user`,
               body: { secret: process.env.apiSecret, data: { userID: user.id } },
               json: true
             })
-            amount = algoResult.amount
-            mixpanel.track(`${frequencyWord} Algo Returned`, { Frequency: `${frequencyWord}`, UserID: `${user.id}`, SavingType: `${user.savingType}`, Amount: `${amount}` })
-          } else {
-            amount = user.fixedContribution
-            mixpanel.track(`${frequencyWord} Setting Fixed Amount`, { Frequency: `${frequencyWord}`, UserID: `${user.id}`, SavingType: `${user.savingType}`, Amount: `${amount}` })
-          }
 
-          mixpanel.track(`${frequencyWord} Transfering Amount ${amount}`, { Frequency: `${frequencyWord}`, UserID: `${user.id}`, SavingType: `${user.savingType}`, Amount: `${amount}`, Balance: `${balance}` })
-          // Transfer the amount
-          if (balance > 15000 && amount < 100000) {
-            // Create queue entry
-            mixpanel.track(`${frequencyWord} Creating Queue Entry ${amount}`, { Frequency: `${frequencyWord}`, UserID: `${user.id}`, Amount: `${amount}`, Balance: `${balance}` })
-            await request.post({
-              uri: `${config.constants.URL}/admin/queue-create`,
-              body: { secret: process.env.apiSecret, data: { userID: user.id, amountInCents: amount, type: 'debit', requestMethod: 'Automated' } },
-              json: true
-            })
+            mixpanel.track(`${frequencyWord}-User ${user.id}: Getting Amount`, { Frequency: `${frequencyWord}`, UserID: `${user.id}`, SavingType: `${user.savingType}`, Balance: `${balance}` })
+            // Get  saving amount
+            let amount
+            if (user.savingType === 'Thrive Flex') {
+              const algoResult = await request.post({
+                uri: `${config.constants.URL}/admin/algo-run`,
+                body: { secret: process.env.apiSecret, data: { userID: user.id } },
+                json: true
+              })
+              amount = algoResult.amount
+              mixpanel.track(`${frequencyWord}-User ${user.id}: Algo Returned`, { Frequency: `${frequencyWord}`, UserID: `${user.id}`, SavingType: `${user.savingType}`, Amount: `${amount}` })
+            } else {
+              amount = user.fixedContribution
+              mixpanel.track(`${frequencyWord}-User ${user.id}: Setting Fixed Amount`, { Frequency: `${frequencyWord}`, UserID: `${user.id}`, SavingType: `${user.savingType}`, Amount: `${amount}` })
+            }
 
-            // Deposit to VersaPay
-            mixpanel.track(`${frequencyWord} Depositing to Versapay ${amount}`, { Frequency: `${frequencyWord}`, UserID: `${user.id}`, Amount: `${amount}`, Balance: `${balance}` })
-            await request.post({
-              uri: `${config.constants.URL}/admin/versapay-sync`,
-              body: { secret: process.env.apiSecret, data: { userID: user.id } },
-              json: true
-            })
+            mixpanel.track(`${frequencyWord}-User ${user.id}: Transfering Amount ${amount}`, { Frequency: `${frequencyWord}`, UserID: `${user.id}`, SavingType: `${user.savingType}`, Amount: `${amount}`, Balance: `${balance}` })
+            // Transfer the amount
+            if (balance > 15000 && amount < 100000) {
+              // Create queue entry
+              mixpanel.track(`${frequencyWord}-User ${user.id}: Creating Queue Entry ${amount}`, { Frequency: `${frequencyWord}`, UserID: `${user.id}`, Amount: `${amount}`, Balance: `${balance}` })
+              await request.post({
+                uri: `${config.constants.URL}/admin/queue-create`,
+                body: { secret: process.env.apiSecret, data: { userID: user.id, amountInCents: amount, type: 'debit', requestMethod: 'Automated' } },
+                json: true
+              })
+
+              // Deposit to VersaPay
+              mixpanel.track(`${frequencyWord}-User ${user.id}: Depositing to Versapay ${amount}`, { Frequency: `${frequencyWord}`, UserID: `${user.id}`, Amount: `${amount}`, Balance: `${balance}` })
+              await request.post({
+                uri: `${config.constants.URL}/admin/versapay-sync`,
+                body: { secret: process.env.apiSecret, data: { userID: user.id } },
+                json: true
+              })
+            }
+          } catch (e) {
+            mixpanel.track(`${frequencyWord} - Error`, { Frequency: `${frequencyWord}`, Error: e })
           }
         }
       }

@@ -24,13 +24,13 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpane
       const LoginId = user.loginID
       const defaultAccount = await Account.findOne({ where: { isDefault: true, userID } })
 
-      mixpanel.track('Authorizing Flinks Connection Called', { UserID: `${user.id}`, LoginID: `${LoginId}`, AccountID: `${defaultAccount.id}` })
+      mixpanel.track(`User ${user.id}: Authorize Called`,{ UserID: `${user.id}`, LoginID: `${LoginId}`, AccountID: `${defaultAccount.id}` })
       const { RequestId, HttpStatusCode: authHttpStatusCode, FlinksCode: authFlinksCode } = await request.post({
         uri: `${process.env.flinksURL}/Authorize`,
         body: { LoginId, MostRecentCached: true },
         json: true
       })
-      mixpanel.track('Authorizing Flinks Connection Returned', { UserID: `${user.id}`, LoginID: `${LoginId}`, HttpStatusCode: authHttpStatusCode, FlinksCode: authFlinksCode })
+      mixpanel.track(`User ${user.id}: Authorize Returned`, { UserID: `${user.id}`, LoginID: `${LoginId}`, HttpStatusCode: authHttpStatusCode, FlinksCode: authFlinksCode })
 
       let balance = 0
       let unlinkBank = false
@@ -44,13 +44,13 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpane
           getAccountsDetailBody.DaysOfTransactions = 'Days90'
         }
 
-        mixpanel.track('Fetching New Transactions Called', { UserID: user.id, RequestBody: getAccountsDetailBody })
+        mixpanel.track(`User ${user.id}: GetAccountsDetail Called`, { UserID: user.id, RequestBody: getAccountsDetailBody })
         const { Accounts, HttpStatusCode: fetchHttpStatusCode, FlinksCode: fetchFlinksCode } = await request.post({
           uri: `${process.env.flinksURL}/GetAccountsDetail`,
           body: getAccountsDetailBody,
           json: true
         })
-        mixpanel.track('Fetching New Transactions Returned', { UserID: user.id, HttpStatusCode: fetchHttpStatusCode, FlinksCode: fetchFlinksCode, AccounsCount: `${Accounts ? Accounts.length : 0}` })
+        mixpanel.track(`User ${user.id}: GetAccountsDetail Returned`, { UserID: user.id, HttpStatusCode: fetchHttpStatusCode, FlinksCode: fetchFlinksCode, AccounsCount: `${Accounts ? Accounts.length : 0}` })
 
         if (fetchHttpStatusCode === 200) {
           for (const fetchedAccount of Accounts) {
@@ -91,28 +91,21 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpane
               })
             )
 
-            mixpanel.track('Transactions Created on Database', { TransactionsCount: transactions.length })
+            mixpanel.track(`User ${user.id}: Transactions Created`, { TransactionsCount: transactions.length })
             await Bluebird.all(transactions.map((item) => Transaction.findOrCreate({ where: { token: item.token }, defaults: item })))
           }
-        } else {
-          unlinkBank = true
-          mixpanel.track('Initial Transfer GetAccountsDetail Call Failed', { Date: `${new Date()}`, UserId: `${userID}`, LoginId: `${LoginId}`, RequestId: `${RequestId}`, HttpStatusCode: `${fetchHttpStatusCode}`, FlinksCode: `${fetchFlinksCode}` })
         }
-      } else {
-        unlinkBank = false
-        mixpanel.track('Initial Transfer Authorize Call Failed', { Date: `${new Date()}`, UserId: `${userID}`, LoginId: `${LoginId}`, HttpStatusCode: `${authHttpStatusCode}`, FlinksCode: `${authFlinksCode}` })
-      }
-
-      if (unlinkBank) {
-        user.bankLinked = false
-        await user.save()
       }
 
       ctx.body = { data: { balance: balance * 100 } }
     },
-    onError (error) {
-      console.log(error)
-      mixpanel('Error Happened - Fetching User Transactions', { Error: error, StringifiedError: JSON.stringify(error) })
+    onError (response) {
+      if (response.error) {
+        console.log(response.error)
+        const { options: { body: { LoginId } }, error: { HttpStatusCode, FlinksCode, Institution } } = response
+        mixpanel.track('Error Happened - Fetching User Transactions', { Error: response.error, LoginId, HttpStatusCode, FlinksCode })
+        // TODO: Unlink bank here according to FlinksCode
+      }
     }
   }
 })

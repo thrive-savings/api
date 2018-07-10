@@ -19,7 +19,7 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpane
         transactions = await Transaction.findAll({ where: { accountID: account.id, userID } })
       }
 
-      mixpanel.track('Algo Running - Start', { UserID: `${user.id}`, AccountID: `${account.id}`, TransactionsCount: `${transactions ? transactions.length : 0}` })
+      mixpanel.track(`User ${user.id}: Algo Running - Start`, { UserID: `${user.id}`, AccountID: `${account.id}`, TransactionsCount: `${transactions ? transactions.length : 0}` })
 
       let amount = 0
       if (transactions) {
@@ -49,14 +49,13 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpane
         else if (latestBalance > amount * 100) amount = Math.floor(amount * 1.5)
         else if (latestBalance > amount * 50) amount = Math.floor(amount * 1.25)
 
-        mixpanel.track('Algo Running - End', { UserID: `${user.id}`, AccountID: `${account.id}`, Amount: `${amount}`, DebitSum: `${debitSum}`, DebitCount: `${debitCount}`, Balance: `${latestBalance}` })
+        mixpanel.track(`User ${user.id}: Algo Running - End`, { UserID: `${user.id}`, AccountID: `${account.id}`, Amount: `${amount}`, DebitSum: `${debitSum}`, DebitCount: `${debitCount}`, Balance: `${latestBalance}` })
       }
 
       ctx.body = { amount }
     },
     onError (error) {
-      console.log(error)
-      mixpanel('Error Happened while Running Algo', { Error: error })
+      mixpanel.track('Error Happened while Running Algo', { Error: error })
     }
   }
 })
