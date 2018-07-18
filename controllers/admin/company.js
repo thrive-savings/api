@@ -4,7 +4,10 @@ module.exports = (Bluebird, User, Company, Bonus) => ({
     async method (ctx) {
       const { data: { name } } = ctx.request.body
 
-      const company = await Company.create({ name: name.trim(), code: 'placeholder' })
+      let company = await Company.findOne({ where: { name: name.trim() } })
+      if (company) return Bluebird.reject([{ key: 'company', value: 'Company with given name already exists' }])
+
+      company = await Company.create({ name: name.trim(), code: 'placeholder' })
       await company.generateCode()
 
       ctx.body = { data: { name: company.name, code: company.code } }

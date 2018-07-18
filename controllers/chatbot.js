@@ -1,4 +1,4 @@
-module.exports = (Sequelize, User, Queue, twilio, mixpanel, request, config) => ({
+module.exports = (Sequelize, User, Queue, twilio, amplitude, request, config) => ({
   receiveSms: {
     async method (ctx) {
       const getDollarString = amount => {
@@ -24,14 +24,14 @@ module.exports = (Sequelize, User, Queue, twilio, mixpanel, request, config) => 
 
       if (!user) {
         slackMsg = `Incoming message from unknown user | Phone: ${phone} | Message: ${msg}`
-        responseMsg = 'Sorry, we don\'t recognize this number.'
+        responseMsg = 'Hello from Thrive! We don\'t recognize this number. Please visit https://join.thrivesavings.com to sign up for a Thrive account and start growing your savings.'
       } else {
         // Check against available commands
-        let mixpanelEvent = ''
+        let analyticsEvent = ''
 
         if (['balance', 'Balance'].includes(command)) {
-          mixpanelEvent = 'Received Balance Command'
-          responseMsg = `Your balance: $${getDollarString(user.balance)}`
+          analyticsEvent = 'Bot Received Balance Command'
+          responseMsg = `Hello ${user.firstName}. Your balance is $${getDollarString(user.balance)}.`
 
           let withdrawsInProgress = 0
           let depositsInProgress = 0
@@ -44,31 +44,27 @@ module.exports = (Sequelize, User, Queue, twilio, mixpanel, request, config) => 
             }
           }
 
-          if (withdrawsInProgress) {
-            responseMsg += `, Withdraws In Transit: $${getDollarString(withdrawsInProgress)}`
+          if (withdrawsInProgress && depositsInProgress) {
+            responseMsg += ` You also have $${getDollarString(depositsInProgress)} enroute to Thrive Savings and $${getDollarString(withdrawsInProgress)} pending withdrawal.`
           }
-          if (depositsInProgress) {
-            responseMsg += `, Deposits In Transit: $${getDollarString(depositsInProgress)}`
+          else if (withdrawsInProgress) {
+            responseMsg += ` You also have $${getDollarString(withdrawsInProgress)} pending withdrawal.`
+          }
+          else if (depositsInProgress) {
+            responseMsg += ` You also have $${getDollarString(depositsInProgress)} enroute to Thrive Savings.`
           }
         } else if (['save', 'Save', 'deposit', 'Deposit'].includes(command)) {
-          mixpanelEvent = 'Received Save Command'
+          analyticsEvent = 'Bot Received Save Command'
           if (!user.bankLinked) {
-            responseMsg = 'Link your bank first'
+            responseMsg = `Hi ${user.name}, it looks like you haven’t connected a bank account yet. Please  go to the app to link your primary chequing account.`
           } else {
             let amount = +params[0]
-            if (isNaN(amount)) {
-              responseMsg = 'Correct Command Syntax: "Save 10.55"'
+            if (isNaN(amount) || amount <= 0) {
+              responseMsg = 'How much do you want to save? Example: "Save 10.55"'
             } else {
               amount *= 100
-              responseMsg = `Processing your request of $${getDollarString(amount)} deposit`
-              twilio.messages.create({
-                from: process.env.twilioNumber,
-                to: user.phone,
-                body: responseMsg
-              })
-              responseMsg = ''
 
-              slackMsg = `Processing Save Command received from ${user.phone} | ${user.firstName} ${user.lastName} | Balance ${user.balance} | ${msg}`
+              slackMsg = `Processing Save Command from ${user.phone} | ${user.firstName} ${user.lastName} | Balance ${user.balance} | ${msg}`
               setGenericSlackMsg = false
 
               // Fetch new transactions for user
@@ -79,7 +75,7 @@ module.exports = (Sequelize, User, Queue, twilio, mixpanel, request, config) => 
               })
 
               // Transfer the amount
-              if (amount < balance && amount < 100000) {
+              if (amount < balance && amount <= 100000 && amount >= 500) {
                 // Create queue entry
                 await request.post({
                   uri: `${config.constants.URL}/admin/queue-create`,
@@ -95,32 +91,27 @@ module.exports = (Sequelize, User, Queue, twilio, mixpanel, request, config) => 
                 })
               } else {
                 if (amount >= balance) {
-                  responseMsg = `You are requesting to deposit $${getDollarString(amount)}, but your Bank Account Balance is $${getDollarString(balance)}`
-                } else {
-                  responseMsg = `You are requesting to deposit $${getDollarString(amount)}, which is greater than $1000.00`
+                  responseMsg = `We cannot process your deposit request as your bank account balance may go into insufficient funds. `
+                } else if (amount > 100000) {
+                  responseMsg = `You are requesting to deposit $${getDollarString(amount)}. We don't support depositing over $1000 at the moment.`
+                } else if (amount < 500) {
+                  responseMsg = `The minimum amount to deposit is $5.00. Please enter an amount above $5.00.`
                 }
               }
             }
           }
         } else if (['withdraw', 'Withdraw', 'move', 'Move'].includes(command)) {
-          mixpanelEvent = 'Received Withdraw Command'
+          analyticsEvent = 'Bot Received Withdraw Command'
           if (!user.bankLinked) {
-            responseMsg = 'Link your bank first'
+            responseMsg = `Hi ${user.name}, it looks like you haven’t connected a bank account yet. Please  go to the app to link your primary chequing account.`
           } else {
             let amount = +params[0]
-            if (isNaN(amount)) {
-              responseMsg = 'Correct Command Syntax: "Withdraw 10.55"'
+            if (isNaN(amount) || amount <= 0) {
+              responseMsg = 'How much do you want to withdraw? Example: "Withdraw 10.55"'
             } else {
               amount *= 100
-              responseMsg = `Processing your request of $${getDollarString(amount)} withdraw`
-              twilio.messages.create({
-                from: process.env.twilioNumber,
-                to: user.phone,
-                body: responseMsg
-              })
-              responseMsg = ''
 
-              slackMsg = `Processing Withdraw Command received from ${user.phone} | ${user.firstName} ${user.lastName} | Balance ${user.balance} | ${msg}`
+              slackMsg = `Processing Withdraw Command from ${user.phone} | ${user.firstName} ${user.lastName} | Balance ${user.balance} | ${msg}`
               setGenericSlackMsg = false
 
               let withdrawsInProgress = 0
@@ -131,9 +122,9 @@ module.exports = (Sequelize, User, Queue, twilio, mixpanel, request, config) => 
 
               if (amount > user.balance - withdrawsInProgress) {
                 if (withdrawsInProgress) {
-                  responseMsg = `You are requesting to withdraw $${getDollarString(amount)}, but your Thrive Balance is $${getDollarString(user.balance)} - $${getDollarString(withdrawsInProgress)} [Withdraw Requests In Transit] = $${getDollarString(user.balance - withdrawsInProgress)}`
+                  responseMsg = `We cannot process your withdraw request due to previous withdraw request(s) of $${getDollarString(withdrawsInProgress)} which will bring your balance to $${getDollarString(user.balance - withdrawsInProgress)}.`
                 } else {
-                  responseMsg = `You are requesting to withdraw $${getDollarString(amount)}, but your Thrive Balance is $${getDollarString(user.balance)}`
+                  responseMsg = `The amount of $${getDollarString(amount)} you requested to withdraw exceeds your balance of $${getDollarString(user.balance)}.`
                 }
               } else {
                 // Create queue entry
@@ -153,12 +144,12 @@ module.exports = (Sequelize, User, Queue, twilio, mixpanel, request, config) => 
             }
           }
         } else if (['invite', 'Invite'].includes(command)) {
-          mixpanelEvent = 'Received Invite Command'
+          analyticsEvent = 'Bot Received Invite Command'
           let invitedPhone = params[0]
-          if (!invitedPhone.match(/^\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/)) {
-            responseMsg = 'Correct Command Syntax: "Invite 647-123-4567"'
+          if (invitedPhone && !invitedPhone.match(/^\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/)) {
+            responseMsg = 'Do you want to invite a friend? Example: "Invite 647-123-4567"'
           } else {
-            responseMsg = `Invitation has been sent to ${invitedPhone}`
+            responseMsg = `Invitation has been sent to ${invitedPhone}.`
             twilio.messages.create({
               from: process.env.twilioNumber,
               to: invitedPhone,
@@ -166,17 +157,24 @@ module.exports = (Sequelize, User, Queue, twilio, mixpanel, request, config) => 
             })
           }
         } else if (['help', 'Help', 'help!', 'Help!'].includes(command)) {
-          mixpanelEvent = 'Received Help Command'
+          analyticsEvent = 'Bot Received Help Command'
           responseMsg = `Please email help@thrivesavings.com to contact support.`
         } else if (['Hi', 'Hello', 'Hey', 'Yo', 'Hola'].includes(command)) {
-          mixpanelEvent = 'Received Hi Command'
+          analyticsEvent = 'Bot Received Hi Command'
           responseMsg = `Hi ${user.firstName}! How can I help you today?`
         }
 
-        if (!mixpanelEvent) {
-          mixpanelEvent = 'Received Message'
+        if (!analyticsEvent) {
+          analyticsEvent = 'Bot Received Message'
         }
-        mixpanel.track(mixpanelEvent, { Date: `${new Date()}`, Message: `${msg}`, Phone: `${user.phone}`, UserID: `${user.id}` })
+        amplitude.track({
+          eventType: analyticsEvent.toUpperCase(),
+          userId: user.id,
+          eventProperties: {
+            'Message': msg,
+            'Phone': user.phone
+          }
+        })
 
         // Check if matched any command
         if (responseMsg) {
@@ -185,7 +183,14 @@ module.exports = (Sequelize, User, Queue, twilio, mixpanel, request, config) => 
             to: user.phone,
             body: responseMsg
           })
-          mixpanel.track('Sent Message', { Date: `${new Date()}`, Message: `${responseMsg}`, Phone: `${user.phone}`, UserID: `${user.id}` })
+          amplitude.track({
+            eventType: 'BOT SENT MESSAGE',
+            userId: user.id,
+            eventProperties: {
+              'Message': responseMsg,
+              'Phone': user.phone
+            }
+          })
         } else if (setGenericSlackMsg) {
           // Send to Slack
           slackMsg = `Incoming message from ${user.phone} | ${user.firstName} ${user.lastName} | Balance ${user.balance} | ${msg}`
@@ -226,7 +231,14 @@ module.exports = (Sequelize, User, Queue, twilio, mixpanel, request, config) => 
         })
 
         slackMsg = `Reply from Thrive to ${user.phone} | ${user.firstName} ${user.lastName} | ${msg}`
-        mixpanel.track('Sent Message', { Date: `${new Date()}`, Message: `${msg}`, Phone: `${user.phone}` })
+        amplitude.track({
+          eventType: 'BOT SENT MESSAGE',
+          userId: user.id,
+          eventProperties: {
+            'Message': msg,
+            'Phone': user.phone
+          }
+        })
       } else {
         slackMsg = `Error: user with phone ${phone} not found`
       }
