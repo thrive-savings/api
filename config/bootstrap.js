@@ -1,6 +1,6 @@
 module.exports = (User, config, mixpanel, request, scheduler) => async () => {
   // const FETCH_FREQUENCIES = ['ONCEWEEKLY', 'TWICEWEEKLY', 'BIWEEKLY', 'ONCEMONTHLY', 'ONCEDAILY']
-  const FETCH_FREQUENCIES = ['ONCEDAILY']
+  const FETCH_FREQUENCIES = []
 
   const convertFrequency = frequency => {
     const rule = new scheduler.RecurrenceRule()
