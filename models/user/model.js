@@ -1,4 +1,4 @@
-module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mixpanel, aws) => ({
+module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mixpanel, amplitude, aws) => ({
   attributes: {
     acceptedAt: {
       type: Sequelize.DATE,
@@ -409,11 +409,14 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mi
         body: msg
       })
 
-      mixpanel.track('Sent Message', {
-        'Message': msg,
-        'From Phone': process.env.twilioNumber,
-        'To Phone': this.phone,
-        'Message Type': 'Automatic'
+      amplitude.track({
+        eventType: 'BOT SENT MESSAGE',
+        userId: this.id,
+        eventProperties: {
+          'Message': msg,
+          'Phone': this.phone,
+          'Message Type': 'Automatic'
+        }
       })
     },
     sendBonusNotification (amount) {
@@ -433,11 +436,14 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mi
         body: msg
       })
 
-      mixpanel.track('Sent Message', {
-        'Message': msg,
-        'From Phone': process.env.twilioNumber,
-        'To Phone': this.phone,
-        'Message Type': 'Automatic'
+      amplitude.track({
+        eventType: 'BOT SENT MESSAGE',
+        userId: this.id,
+        eventProperties: {
+          'Message': msg,
+          'Phone': this.phone,
+          'Message Type': 'Automatic'
+        }
       })
     }
   },

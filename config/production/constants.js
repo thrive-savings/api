@@ -1,4 +1,4 @@
 module.exports = {
-  URL: 'https://join.thrivesavings.com/api',
-  CLIENT_URL: 'https://join.thrivesavings.com'
+  URL: 'http://api.thrivesavings.com',
+  CLIENT_URL: 'http://join.thrivesavings.com'
 }

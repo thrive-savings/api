@@ -172,7 +172,8 @@ module.exports = (Sequelize, User, Queue, twilio, amplitude, request, config) =>
           userId: user.id,
           eventProperties: {
             'Message': msg,
-            'Phone': user.phone
+            'Phone': user.phone,
+            'Message Type': 'Automatic'
           }
         })
 
@@ -188,7 +189,8 @@ module.exports = (Sequelize, User, Queue, twilio, amplitude, request, config) =>
             userId: user.id,
             eventProperties: {
               'Message': responseMsg,
-              'Phone': user.phone
+              'Phone': user.phone,
+              'Message Type': 'Automatic'
             }
           })
         } else if (setGenericSlackMsg) {
@@ -236,7 +238,8 @@ module.exports = (Sequelize, User, Queue, twilio, amplitude, request, config) =>
           userId: user.id,
           eventProperties: {
             'Message': msg,
-            'Phone': user.phone
+            'Phone': user.phone,
+            'Message Type': 'Manual'
           }
         })
       } else {
