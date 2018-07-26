@@ -395,7 +395,7 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mi
         if (state === 'in_progress') {
           msg = type === 'direct_debit'
             ? `Hi ${this.firstName}! You've got $${dollars} enroute to Thrive Savings. Keep it up, great job saving!`
-            : `Hi ${this.firstName}! You've withdrawn $${dollars} You’ll see this amount back in your chequing account in 1 business day. Your Thrive Savings balance is $${balance}. Have a great day!`
+            : `Hi ${this.firstName}! You've withdrawn $${dollars} You’ll see this amount back in your chequing account in 1 business day. Have a great day!`
         } else {
           msg = type === 'direct_debit'
             ? `Hi ${this.firstName}. You’ve got an updated balance at Thrive Savings, reply back with ‘Balance’ to check your progress. Have a great day!`
