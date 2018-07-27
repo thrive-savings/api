@@ -1,4 +1,4 @@
-module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpanel) => ({
+module.exports = (User, Account, Transaction, moment, request, Bluebird, amplitude) => ({
   fetchInterval: {
     schema: [[
       ['end'], ['userIDs', 'array'], ['start']
@@ -24,13 +24,25 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpane
       const LoginId = user.loginID
       const defaultAccount = await Account.findOne({ where: { isDefault: true, userID } })
 
-      mixpanel.track(`User ${user.id}: Authorize Called`,{ UserID: `${user.id}`, LoginID: `${LoginId}`, AccountID: `${defaultAccount.id}` })
+      amplitude.track({
+        eventType: 'FLINKS_AUTHORIZE_CALL',
+        userId: user.id,
+        eventProperties: {
+          LoginID: `${LoginId}`, AccountID: `${defaultAccount.id}`
+        }
+      })
       const { RequestId, HttpStatusCode: authHttpStatusCode, FlinksCode: authFlinksCode } = await request.post({
         uri: `${process.env.flinksURL}/Authorize`,
         body: { LoginId, MostRecentCached: true },
         json: true
       })
-      mixpanel.track(`User ${user.id}: Authorize Returned`, { UserID: `${user.id}`, LoginID: `${LoginId}`, HttpStatusCode: authHttpStatusCode, FlinksCode: authFlinksCode })
+      amplitude.track({
+        eventType: 'FLINKS_AUTHORIZE_RETURN',
+        userId: user.id,
+        eventProperties: {
+          LoginID: `${LoginId}`, HttpStatusCode: authHttpStatusCode, FlinksCode: authFlinksCode
+        }
+      })
 
       let balance = 0
       let unlinkBank = false
@@ -44,13 +56,25 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpane
           getAccountsDetailBody.DaysOfTransactions = 'Days90'
         }
 
-        mixpanel.track(`User ${user.id}: GetAccountsDetail Called`, { UserID: user.id, RequestBody: getAccountsDetailBody })
+        amplitude.track({
+          eventType: 'FLINKS_GET_ACCOUNTS_CALL',
+          userId: user.id,
+          eventProperties: {
+            RequestBody: getAccountsDetailBody
+          }
+        })
         const { Accounts, HttpStatusCode: fetchHttpStatusCode, FlinksCode: fetchFlinksCode } = await request.post({
           uri: `${process.env.flinksURL}/GetAccountsDetail`,
           body: getAccountsDetailBody,
           json: true
         })
-        mixpanel.track(`User ${user.id}: GetAccountsDetail Returned`, { UserID: user.id, HttpStatusCode: fetchHttpStatusCode, FlinksCode: fetchFlinksCode, AccounsCount: `${Accounts ? Accounts.length : 0}` })
+        amplitude.track({
+          eventType: 'FLINKS_GET_ACCOUNTS_RETURN',
+          userId: user.id,
+          eventProperties: {
+            HttpStatusCode: fetchHttpStatusCode, FlinksCode: fetchFlinksCode, AccounsCount: `${Accounts ? Accounts.length : 0}`
+          }
+        })
 
         if (fetchHttpStatusCode === 200) {
           for (const fetchedAccount of Accounts) {
@@ -68,8 +92,8 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpane
 
             const storedAccount = await Account.findOne({ where: { token: accountToken } })
 
-            if (!storedAccount.transit) {
-              await Account.update({ fullName, institution, number, transit }, { where: { token: accountToken } })
+            if (!storedAccount.transit || !storedAccount.fullName) {
+              await storedAccount.update({ fullName, institution, number, transit }, { where: { token: accountToken } })
             }
 
             transactions = transactions.reverse().map(
@@ -91,20 +115,27 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpane
               })
             )
 
-            mixpanel.track(`User ${user.id}: Transactions Created`, { TransactionsCount: transactions.length })
             await Bluebird.all(transactions.map((item) => Transaction.findOrCreate({ where: { token: item.token }, defaults: item })))
           }
         }
       }
 
-      ctx.body = { data: { balance: balance * 100 } }
+      ctx.body = { data: { balance: parseInt(balance * 100) } }
     },
-    onError (response) {
-      if (response.error) {
-        console.log(response.error)
-        const { options: { body: { LoginId } }, error: { HttpStatusCode, FlinksCode, Institution } } = response
-        mixpanel.track('Error Happened - Fetching User Transactions', { Error: response.error, LoginId, HttpStatusCode, FlinksCode })
-        // TODO: Unlink bank here according to FlinksCode
+    async onError (error) {
+      if (error.error) {
+        const { options: { body: { LoginId } }, error: { HttpStatusCode, FlinksCode, Institution } } = error
+
+        const user = await User.findOne({ where: { loginID: LoginId } })
+        await User.update({ bankLinked: false }, { where: { id: user.id } })
+        amplitude.track({
+          eventType: 'FLINKS_USER_UNLINKED',
+          userId: user.id,
+          eventProperties: {
+            LoginId, HttpStatusCode, FlinksCode, Institution,
+            error
+          }
+        })
       }
     }
   }

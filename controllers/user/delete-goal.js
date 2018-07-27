@@ -1,4 +1,4 @@
-module.exports = (Goal, mixpanel) => ({
+module.exports = (Goal) => ({
   schema: [['data', true, [['goalID', true, 'integer']]]],
   async method (ctx) {
     await Goal.destroy({ where: { id: ctx.request.body.data.goalID } })
@@ -7,7 +7,6 @@ module.exports = (Goal, mixpanel) => ({
     goals.map((goal) => {
       goalDescriptions.push(goal.dataValues.description)
     })
-    await mixpanel.people.set(ctx.authorized.email, {'Goals': goalDescriptions})
 
     ctx.body = { goals: goals.map((item) => ({ description: item.description, id: item.id, image: item.get('image') })) }
   }

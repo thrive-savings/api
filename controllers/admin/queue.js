@@ -1,4 +1,4 @@
-module.exports = (User, Account, Queue, Sequelize, moment, mixpanel) => ({
+module.exports = (User, Account, Queue, Sequelize, moment, amplitude) => ({
   create: {
     schema: [
       ['data', true, [
@@ -21,7 +21,11 @@ module.exports = (User, Account, Queue, Sequelize, moment, mixpanel) => ({
       }
     },
     onError (error) {
-      mixpanel.track('Error Happened - Creating Queue', { Error: error })
+      amplitude.track({
+        eventType: 'QUEUE_CREATE_FAIL',
+        deviceId: "server",
+        eventProperties: { error }
+      })
     }
   }
 })

@@ -1,4 +1,4 @@
-module.exports = (User, Account, Transaction, Bluebird, request, config, mixpanel, scheduler, moment, amplitude) => ({
+module.exports = (User, Account, Transaction, Bluebird, request, config, amplitude, scheduler, moment) => ({
   fetch: {
     schema: [['data', true, [['loginID', true]]]],
     async method (ctx) {
@@ -32,7 +32,11 @@ module.exports = (User, Account, Transaction, Bluebird, request, config, mixpane
         retryNumber++
       }
 
-      mixpanel.track('Fetching Bank Accounts', { Date: `${new Date()}`, UserId: `${ctx.authorized.id}`, LoginId: `${LoginId}`, AccountsCount: `${accounts.length}` })
+      amplitude.track({
+        eventType: 'FLINKS_INITIAL_FETCH',
+        userId: ctx.authorized.id,
+        eventProperties: { LoginId: `${LoginId}`, AccountsCount: `${accounts.length}` }
+      })
 
       await User.update({ loginID: LoginId }, { where: { id: ctx.authorized.id } })
 

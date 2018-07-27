@@ -1,4 +1,4 @@
-module.exports = (User, Account, Queue, request, Bluebird, mixpanel) => ({
+module.exports = (User, Account, Queue, request, Bluebird, amplitude) => ({
   sync: {
     schema: [['data', true, [['userID', 'integer']]]],
     async method (ctx) {
@@ -62,7 +62,11 @@ module.exports = (User, Account, Queue, request, Bluebird, mixpanel) => ({
       ctx.body = { data: { message: `Versapay successfully synced for #${queues.length} of transfers` } }
     },
     onError (error) {
-      mixpanel.track('Error Happened - Syncing Versapay', { Error: error })
+      amplitude.track({
+        eventType: 'VERSAPAY_SYNC_FAIL',
+        deviceId: "server",
+        eventProperties: { error }
+      })
     }
   }
 })

@@ -1,4 +1,4 @@
-module.exports = (User, mixpanel, amplitude) => ({
+module.exports = (User, amplitude) => ({
   setWorkType: {
     schema: [
       ['data', true, [['workType', true]]]
@@ -50,7 +50,7 @@ module.exports = (User, mixpanel, amplitude) => ({
 
       amplitude.track({
         eventType: 'SAVING_FIXED_DETAILS_SET',
-        userId: ctx.authorized.id        
+        userId: ctx.authorized.id
       })
 
       ctx.body = { data: { fixedContribution, frequency } }

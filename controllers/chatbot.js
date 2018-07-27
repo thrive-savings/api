@@ -76,17 +76,9 @@ module.exports = (Sequelize, User, Queue, twilio, amplitude, request, config) =>
 
               // Transfer the amount
               if (amount < balance && amount <= 100000 && amount >= 500) {
-                // Create queue entry
                 await request.post({
-                  uri: `${config.constants.URL}/admin/queue-create`,
-                  body: { secret: process.env.apiSecret, data: { userID: user.id, amountInCents: amount, type: 'debit', requestMethod: 'ThriveBot' } },
-                  json: true
-                })
-
-                // Deposit to VersaPay
-                await request.post({
-                  uri: `${config.constants.URL}/admin/versapay-sync`,
-                  body: { secret: process.env.apiSecret, data: { userID: user.id } },
+                  uri: `${config.constants.URL}/admin/worker-transfer`,
+                  body: { secret: process.env.apiSecret, data: { userID: user.id, amount, type: 'debit', requestMethod: 'ThriveBot' } },
                   json: true
                 })
               } else {
@@ -127,17 +119,10 @@ module.exports = (Sequelize, User, Queue, twilio, amplitude, request, config) =>
                   responseMsg = `The amount of $${getDollarString(amount)} you requested to withdraw exceeds your balance of $${getDollarString(user.balance)}.`
                 }
               } else {
-                // Create queue entry
+                // Transfer the amount
                 await request.post({
-                  uri: `${config.constants.URL}/admin/queue-create`,
-                  body: { secret: process.env.apiSecret, data: { userID: user.id, amountInCents: amount, type: 'credit', requestMethod: 'ThriveBot' } },
-                  json: true
-                })
-
-                // Deposit to VersaPay
-                await request.post({
-                  uri: `${config.constants.URL}/admin/versapay-sync`,
-                  body: { secret: process.env.apiSecret, data: { userID: user.id } },
+                  uri: `${config.constants.URL}/admin/worker-transfer`,
+                  body: { secret: process.env.apiSecret, data: { userID: user.id, amount, type: 'credit', requestMethod: 'ThriveBot' } },
                   json: true
                 })
               }

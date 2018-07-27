@@ -1,7 +1,9 @@
-module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpanel) => ({
+module.exports = (User, Account, Transaction, moment, request, Bluebird, amplitude) => ({
   run: {
     schema: [['data', true, [['userID', true, 'integer']]]],
     async method (ctx) {
+      const MAX_DEBIT_CONTRIBUTION = 10000
+
       const { data: { userID } } = ctx.request.body
       const user = await User.findOne({ include: [{ model: Account, include: [Transaction] }], where: { id: userID } })
 
@@ -19,7 +21,11 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpane
         transactions = await Transaction.findAll({ where: { accountID: account.id, userID } })
       }
 
-      mixpanel.track(`User ${user.id}: Algo Running - Start`, { UserID: `${user.id}`, AccountID: `${account.id}`, TransactionsCount: `${transactions ? transactions.length : 0}` })
+      amplitude.track({
+        eventType: 'ALGO_RUN_START',
+        userId: user.id,
+        eventProperties: { AccountID: `${account.id}`, TransactionsCount: `${transactions ? transactions.length : 0}` }
+      })
 
       let amount = 0
       if (transactions) {
@@ -36,26 +42,34 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, mixpane
             latestBalance = balance
             closestDate = momentDate
           }
-          if (momentDate > lastMonth && type === 'debit' && amount < 20000) {
+          if (momentDate > lastMonth && type === 'debit' && amount < MAX_DEBIT_CONTRIBUTION) {
             debitSum += amount
             debitCount += 1
           }
         }
 
-        amount = Math.floor(debitSum / debitCount)
+        amount = Math.floor(debitSum / debitCount) / 2
         if (latestBalance > amount * 800) amount *= 4
         else if (latestBalance > amount * 400) amount *= 3
         else if (latestBalance > amount * 200) amount *= 2
         else if (latestBalance > amount * 100) amount = Math.floor(amount * 1.5)
         else if (latestBalance > amount * 50) amount = Math.floor(amount * 1.25)
 
-        mixpanel.track(`User ${user.id}: Algo Running - End`, { UserID: `${user.id}`, AccountID: `${account.id}`, Amount: `${amount}`, DebitSum: `${debitSum}`, DebitCount: `${debitCount}`, Balance: `${latestBalance}` })
+        amplitude.track({
+          eventType: 'ALGO_RUN_END',
+          userId: user.id,
+          eventProperties: { AccountID: `${account.id}`, Amount: `${amount}`, DebitSum: `${debitSum}`, DebitCount: `${debitCount}`, Balance: `${latestBalance}` }
+        })
       }
 
       ctx.body = { amount }
     },
     onError (error) {
-      mixpanel.track('Error Happened while Running Algo', { Error: error })
+      amplitude.track({
+        eventType: 'ALGO_RUN_FAIL',
+        deviceId: "server",
+        eventProperties: { error }
+      })
     }
   }
 })

@@ -4,12 +4,10 @@ const request = require('request-promise')
 const scheduler = require('node-schedule')
 const Twilio = require('twilio')
 const uuid = require('uuid/v4')
-const Mixpanel = require('mixpanel')
 const Amplitude = require('amplitude')
 const aws = require('aws-sdk')
 
 const twilio = new Twilio(process.env.twilioSID, process.env.twilioToken)
-const mixpanel = Mixpanel.init(process.env.mixpanelToken)
 const amplitude = new Amplitude(process.env.amplitudeToken)
 
-module.exports = { bcrypt, JWT, request, scheduler, twilio, uuid, mixpanel, amplitude, aws }
+module.exports = { bcrypt, JWT, request, scheduler, twilio, uuid, amplitude, aws }

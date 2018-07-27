@@ -1,4 +1,4 @@
-module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, mixpanel, amplitude, aws) => ({
+module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, amplitude, aws) => ({
   attributes: {
     acceptedAt: {
       type: Sequelize.DATE,

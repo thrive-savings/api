@@ -1,4 +1,4 @@
-module.exports = (fs, path, Sequelize, moment, User, Goal, mixpanel, amplitude) => ({
+module.exports = (fs, path, Sequelize, moment, User, Goal, amplitude) => ({
   create: {
     schema: [
       ['data', true, [
@@ -14,7 +14,6 @@ module.exports = (fs, path, Sequelize, moment, User, Goal, mixpanel, amplitude) 
       goals.map((goal) => {
         goalDescriptions.push(goal.dataValues.description)
       })
-      await mixpanel.people.set(ctx.authorized.email, {'Goals': goalDescriptions})
 
       ctx.body = {}
     }
