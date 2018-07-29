@@ -11,7 +11,7 @@ module.exports = (User, request, amplitude, config) => ({
       const runTime = new Date()
       amplitude.track({
         eventType: 'WORKER_RUN',
-        deviceId: 'server',
+        userId: 'server',
         eventProperties: {
           Frequency: `${frequencyWord}`, UserCount: `${users.length}`
         }
@@ -52,7 +52,7 @@ module.exports = (User, request, amplitude, config) => ({
               eventType: 'WORKER_GOT_AMOUNT',
               userId: user.id,
               eventProperties: {
-                Frequency: `${frequencyWord}`, UserID: `${user.id}`, SavingType: `${user.savingType}`, Amount: `${amount}`, Balance: `${balance}`
+                Frequency: `${frequencyWord}`, SavingType: `${user.savingType}`, Amount: `${amount}`, Balance: `${balance}`
               }
             })
 
@@ -62,6 +62,15 @@ module.exports = (User, request, amplitude, config) => ({
                 uri: `${config.constants.URL}/admin/worker-transfer`,
                 body: { secret: process.env.apiSecret, data: { userID: user.id, amount, type: 'debit', requestMethod: 'Automated' } },
                 json: true
+              })
+            } else {
+              amplitude.track({
+                eventType: 'WORKER_NOT_TRANSFER',
+                userId: user.id,
+                eventProperties: {
+                  Frequency: `${frequencyWord}`, SavingType: `${user.savingType}`, Amount: `${amount}`, Balance: `${balance}`,
+                  Reason: 'Low Balance or High Amount'
+                }
               })
             }
           }
@@ -73,13 +82,13 @@ module.exports = (User, request, amplitude, config) => ({
     onError (error) {
       amplitude.track({
         eventType: 'WORKER_RUN_FAIL',
-        deviceId: "server",
+        userId: "server",
         eventProperties: { error }
       })
     }
   },
   transfer: {
-    schema: [['data', true, [['userID', true], ['amount', true], ['type', true], ['requestMethod', true]]]],
+    schema: [['data', true, [['userID', true, 'integer'], ['amount', true, 'integer'], ['type', true], ['requestMethod', true]]]],
     async method (ctx) {
       const { data: { userID, amount, type, requestMethod } } = ctx.request.body
 
@@ -98,7 +107,9 @@ module.exports = (User, request, amplitude, config) => ({
       })
 
       amplitude.track({
-
+        eventType: 'WORKER_TRANSFER_DONE',
+        userId: userID,
+        eventProperties: { Amount: amount, TransactionType: type, RequestMethod: requestMethod }
       })
 
       ctx.body = {}
@@ -106,7 +117,7 @@ module.exports = (User, request, amplitude, config) => ({
     onError (error) {
       amplitude.track({
         eventType: 'WORKER_TRANSFER_FAIL',
-        deviceId: "server",
+        userId: "server",
         eventProperties: { error }
       })
     }

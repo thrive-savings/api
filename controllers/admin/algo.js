@@ -67,7 +67,7 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, amplitu
     onError (error) {
       amplitude.track({
         eventType: 'ALGO_RUN_FAIL',
-        deviceId: "server",
+        userId: "server",
         eventProperties: { error }
       })
     }

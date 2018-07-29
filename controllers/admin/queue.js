@@ -23,7 +23,7 @@ module.exports = (User, Account, Queue, Sequelize, moment, amplitude) => ({
     onError (error) {
       amplitude.track({
         eventType: 'QUEUE_CREATE_FAIL',
-        deviceId: "server",
+        userId: "server",
         eventProperties: { error }
       })
     }
