@@ -101,14 +101,11 @@ module.exports = (Sequelize, User, Company, Account, Goal, Bonus, moment, Bluebi
   mobileSignUp: {
     schema: [
       ['data', true, [
-        ['email', true], ['password', true], ['firstName', true], ['lastName', true], ['gender', true], ['date', true], ['companyID', true],
-        ['address', true, [
-          ['streetNumber', true], ['streetName', true], ['unit'], ['city', true], ['state', true], ['country', true], ['postalCode', true]
-        ]]
+        ['email', true], ['password', true], ['firstName', true], ['lastName', true], ['companyID', true],
       ]]
     ],
     async method (ctx) {
-      const { data: { email: providedEmail, password, firstName, lastName, gender, date, companyID, address: { streetNumber, streetName, unit, city, state, country, postalCode } } } = ctx.request.body
+      const { data: { email: providedEmail, password, firstName, lastName, companyID } } = ctx.request.body
       const email = providedEmail.toLowerCase()
 
       let user = await User.findOne({ where: { email } })
@@ -118,7 +115,7 @@ module.exports = (Sequelize, User, Company, Account, Goal, Bonus, moment, Bluebi
         user.hashPassword(password)
         await user.save()
       } else {
-        user = await User.create({ email, password, firstName, lastName, gender, dob: date, address: streetNumber + ' ' + streetName, unit, city, province: state, country, postalCode, companyID })
+        user = await User.create({ email, password, firstName, lastName, companyID })
         await Goal.create({ category: 'RainyDay', name: 'Rainy Day Fund', percentage: 100, userID: user.id })
       }
 
