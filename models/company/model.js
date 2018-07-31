@@ -5,6 +5,10 @@ module.exports = (Sequelize) => ({
     },
     name: {
       type: Sequelize.STRING
+    },
+    brandLogoUrl: {
+      type: Sequelize.STRING,
+      field: 'brand_logo_url'
     }
   },
   associations: {

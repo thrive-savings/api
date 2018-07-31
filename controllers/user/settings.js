@@ -1,4 +1,4 @@
-module.exports = (Bluebird, User, Account, Goal, Bonus, Sequelize, amplitude) => ({
+module.exports = (Bluebird, User, Account, Goal, Company, Sequelize, amplitude) => ({
   setPhone: {
     schema: [['data', true, [['phone', true]]]],
     async method (ctx) {
@@ -9,7 +9,7 @@ module.exports = (Bluebird, User, Account, Goal, Bonus, Sequelize, amplitude) =>
         return Bluebird.reject([{ key: 'phone', value: 'This phone already exists in our system. Please use another one.' }])
       }
 
-      user = await User.findOne({ include: [Account, Goal, Bonus], where: { id: ctx.authorized.id } })
+      user = await User.findOne({ include: [Account, Goal, Company], where: { id: ctx.authorized.id } })
       if (user.phone === phone && user.isVerified) {
         return Bluebird.reject([{ key: 'phone', value: 'This phone is already saved as your phone. Please use another one.' }])
       }
@@ -44,7 +44,7 @@ module.exports = (Bluebird, User, Account, Goal, Bonus, Sequelize, amplitude) =>
 
       await User.update({ email }, { where: { id: ctx.authorized.id } })
 
-      user = await User.findOne({ include: [Account, Goal, Bonus], where: { id: ctx.authorized.id } })
+      user = await User.findOne({ include: [Account, Goal, Company], where: { id: ctx.authorized.id } })
       amplitude.track({
         eventType: 'EMAIL_UPDATED',
         userId: user.id,
@@ -61,7 +61,7 @@ module.exports = (Bluebird, User, Account, Goal, Bonus, Sequelize, amplitude) =>
     async method (ctx) {
       const { data: { password, newPassword } } = ctx.request.body
 
-      const user = await User.findOne({ include: [Account, Goal, Bonus], where: { id: ctx.authorized.id } })
+      const user = await User.findOne({ include: [Account, Goal, Company], where: { id: ctx.authorized.id } })
 
       if (!user.checkPassword(password)) {
         return Bluebird.reject([{ key: 'password', value: 'Your original password is incorrect. Please try again or contact support.' }])

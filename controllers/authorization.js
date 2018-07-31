@@ -30,7 +30,7 @@ module.exports = (Sequelize, User, Company, Account, Goal, Bonus, moment, Bluebi
       const { data: { email: providedEmail, password } } = ctx.request.body
       const email = providedEmail.toLowerCase()
 
-      const user = await User.findOne({ include: [Account, Goal, Bonus], where: { email } })
+      const user = await User.findOne({ include: [Account, Goal, Company], where: { email } })
       if (!user) {
         return Bluebird.reject([{ key: 'email', value: 'This email is not registered. Please double check for typos or sign up for an account.' }])
       }
@@ -61,8 +61,15 @@ module.exports = (Sequelize, User, Company, Account, Goal, Bonus, moment, Bluebi
         await user.sendCode()
       }
 
-      const avatar = await user.getAvatar()
-      ctx.body = { data: { authorized: user.getAuthorized() }, avatar }
+      const bonuses = await Bonus.findAll({ where: { userID: user.id, companyID: user.companyID, notificationSeenDate: null } })
+      let totalBonus = 0
+      bonuses.forEach(({ amount }) => { totalBonus += amount })
+
+      const avatar = await user.getAvatar()  
+      const authorizedData = user.getAuthorized()
+      authorizedData.notifications.bonus = totalBonus
+
+      ctx.body = { data: { authorized: authorizedData }, avatar }
     }
   },
   signUp: {
@@ -139,7 +146,7 @@ module.exports = (Sequelize, User, Company, Account, Goal, Bonus, moment, Bluebi
         }
       })
 
-      user = await User.findOne({ include: [Account, Goal, Bonus], where: { email } })
+      user = await User.findOne({ include: [Account, Goal, Company], where: { email } })
       ctx.body = { data: { authorized: user.getAuthorized() } }
     },
     onError (error) {

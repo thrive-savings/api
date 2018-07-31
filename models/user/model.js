@@ -310,7 +310,14 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, am
         )
       }
 
+      let company
+      if (this.company) {
+        const { id: companyId, name: companyName, brandLogoUrl } = this.company
+        company = { companyId, companyName, brandLogoUrl }
+      }
+
       return {
+        company,
         account,
         goals,
         id: this.id,

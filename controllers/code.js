@@ -1,4 +1,4 @@
-module.exports = (Bluebird, User, Company, Account, Goal, Bonus, amplitude) => ({
+module.exports = (Bluebird, User, Company, Account, Goal, amplitude) => ({
   resend: {
     schema: [['data', true, [['email', true], ['phone', true]]]],
     async method (ctx) {
@@ -29,7 +29,7 @@ module.exports = (Bluebird, User, Company, Account, Goal, Bonus, amplitude) => (
     schema: [['data', true, [['code', true]]]],
     async method (ctx) {
       const { data: { code } } = ctx.request.body
-      const user = await User.findOne({ include: [Account, Goal, Bonus], where: { code } })
+      const user = await User.findOne({ include: [Account, Goal, Company], where: { code } })
 
       if (!user) return Bluebird.reject([{ key: 'code', value: 'You provided an incorrect code. Try again or resend.' }])
 
@@ -56,14 +56,16 @@ module.exports = (Bluebird, User, Company, Account, Goal, Bonus, amplitude) => (
 
       let companyName = 'Test Company'
       let companyID = -1
+      let companyLogoUrl
       if (code !== 'testcompany') {
         const company = await Company.findOne({ where: { code } })
         if (!company) return Bluebird.reject([{ key: 'code', value: 'You provided an incorrect code. Try again or connect admin.' }])
         companyID = company.id
         companyName = company.name
+        companyLogoUrl = company.brandLogoUrl
       }
 
-      ctx.body = { data: { companyID, companyName, companyCode: code } }
+      ctx.body = { data: { companyID, companyName, companyCode: code, companyLogoUrl } }
     }
   }
 })
