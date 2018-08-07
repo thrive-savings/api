@@ -12,7 +12,7 @@ module.exports = (Sequelize) => ({
     }
   },
   associations: {
-    hasMany: 'User'
+    hasMany: ['User', 'CompanyAdmin']
   },
   instanceMethods: {
     async generateCode () {
