@@ -46,11 +46,9 @@ module.exports = (Sequelize, User, Queue, twilio, amplitude, request, config) =>
 
           if (withdrawsInProgress && depositsInProgress) {
             responseMsg += ` You also have $${getDollarString(depositsInProgress)} enroute to Thrive Savings and $${getDollarString(withdrawsInProgress)} pending withdrawal.`
-          }
-          else if (withdrawsInProgress) {
+          } else if (withdrawsInProgress) {
             responseMsg += ` You also have $${getDollarString(withdrawsInProgress)} pending withdrawal.`
-          }
-          else if (depositsInProgress) {
+          } else if (depositsInProgress) {
             responseMsg += ` You also have $${getDollarString(depositsInProgress)} enroute to Thrive Savings.`
           }
         } else if (['save', 'Save', 'deposit', 'Deposit'].includes(command)) {

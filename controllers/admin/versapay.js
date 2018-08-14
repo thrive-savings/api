@@ -64,7 +64,7 @@ module.exports = (User, Account, Queue, request, Bluebird, amplitude) => ({
     onError (error) {
       amplitude.track({
         eventType: 'VERSAPAY_SYNC_FAIL',
-        userId: "server",
+        userId: 'server',
         eventProperties: { error }
       })
     }

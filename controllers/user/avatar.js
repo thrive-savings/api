@@ -50,7 +50,7 @@ module.exports = (path, fs, User, aws, amplitude) => ({
       await User.update({ avatar: null }, { where: { id: ctx.authorized.id } })
 
       amplitude.track({
-        eventType: 'AVATAR_DELETED', 
+        eventType: 'AVATAR_DELETED',
         userId: user.id
       })
 

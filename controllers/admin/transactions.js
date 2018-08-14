@@ -45,7 +45,6 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, amplitu
       })
 
       let balance = 0
-      let unlinkBank = false
       if (authHttpStatusCode === 200) {
         const getAccountsDetailBody = { RequestId, WithAccountIdentity: true, WithTransactions: true, AccountsFilter: [defaultAccount.token] }
 
@@ -132,7 +131,10 @@ module.exports = (User, Account, Transaction, moment, request, Bluebird, amplitu
           eventType: 'FLINKS_USER_UNLINKED',
           userId: user.id,
           eventProperties: {
-            LoginId, HttpStatusCode, FlinksCode, Institution,
+            LoginId,
+            HttpStatusCode,
+            FlinksCode,
+            Institution,
             error
           }
         })

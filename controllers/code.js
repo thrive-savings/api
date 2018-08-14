@@ -38,7 +38,7 @@ module.exports = (Bluebird, User, Company, Account, Goal, amplitude) => ({
       await user.save()
 
       amplitude.track({
-        eventType: "ACCOUNT_VERIFIED",
+        eventType: 'ACCOUNT_VERIFIED',
         userId: user.id,
         userProperties: {
           'Account Verified': user.isVerified

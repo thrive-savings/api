@@ -65,7 +65,7 @@ module.exports = (Sequelize, User, Company, Account, Goal, Bonus, moment, Bluebi
       let totalBonus = 0
       bonuses.forEach(({ amount }) => { totalBonus += amount })
 
-      const avatar = await user.getAvatar()  
+      const avatar = await user.getAvatar()
       const authorizedData = user.getAuthorized()
       authorizedData.notifications.bonus = totalBonus
 
@@ -108,7 +108,7 @@ module.exports = (Sequelize, User, Company, Account, Goal, Bonus, moment, Bluebi
   mobileSignUp: {
     schema: [
       ['data', true, [
-        ['email', true], ['password', true], ['firstName', true], ['lastName', true], ['companyID', true],
+        ['email', true], ['password', true], ['firstName', true], ['lastName', true], ['companyID', true]
       ]]
     ],
     async method (ctx) {
