@@ -1,4 +1,4 @@
-module.exports = (Sequelize, Company, CompanyAdmin, Bluebird) => ({
+module.exports = (Sequelize, Company, CompanyAdmin, User, Queue, Bluebird) => ({
   signIn: {
     schema: [['data', true, [['email', true], ['password', true]]]],
     async method (ctx) {
@@ -48,7 +48,9 @@ module.exports = (Sequelize, Company, CompanyAdmin, Bluebird) => ({
         data: { code, email, firstName, lastName, password }
       } = ctx.request.body
 
-      const company = await Company.findOne({ where: { code } })
+      const company = await Company.findOne({
+        where: { code: code.toLowerCase().trim() }
+      })
       if (!company) {
         return Bluebird.reject([
           {
@@ -57,8 +59,6 @@ module.exports = (Sequelize, Company, CompanyAdmin, Bluebird) => ({
           }
         ])
       }
-
-      console.log(company.id)
 
       const admin = await CompanyAdmin.create({
         companyID: company.id,

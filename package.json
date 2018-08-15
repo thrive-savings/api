@@ -6,7 +6,7 @@
     "convert": "./node_modules/.bin/rs c",
     "reset": "./node_modules/.bin/rs dbr",
     "migrate": "./node_modules/.bin/rs dbc && ./node_modules/.bin/rs dbm",
-    "serve": "node app.js . --exec yarn run lint && node",
+    "serve": "nodemon app.js",
     "prestart": "yarn migrate",
     "start": "node app.js"
   },
