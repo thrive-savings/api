@@ -117,6 +117,46 @@ anymatch@^2.0.0:
     micromatch "^3.1.4"
     normalize-path "^2.1.1"
 
+api-boilerplate@1:
+  version "1.0.42"
+  resolved "https://registry.yarnpkg.com/api-boilerplate/-/api-boilerplate-1.0.42.tgz#288b05c2faa00e5971ebde13af8622a4072cbe1a"
+  dependencies:
+    ajv "5"
+    aws-sdk "2"
+    bluebird "3"
+    bottlejs "1"
+    change-case "3"
+    deepmerge "1"
+    ejs "2"
+    kcors "2"
+    koa "2"
+    koa-body "2"
+    koa-morgan "1"
+    koa-router "7"
+    lodash "4"
+    mjml "3"
+    moment "2"
+    moment-timezone "^0.5.11"
+    nodemailer "4"
+    nodemailer-smtp-transport "2"
+    parse-function "3"
+    pg "6"
+    pg-connection-string "^0.1.3"
+    pg-hstore "2"
+    pg-monitor "^0.6.1"
+    pg-promise "5"
+    pluralize "3"
+    sequelize "4"
+    socket.io "2"
+
+api-db-cli@0:
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/api-db-cli/-/api-db-cli-0.1.0.tgz#7ba58900a3f5c03f286c15708da58d6ef2b42e55"
+  dependencies:
+    api-boilerplate "1"
+    change-case "3"
+    vorpal "1"
+
 append-field@^0.1.0:
   version "0.1.0"
   resolved "https://registry.yarnpkg.com/append-field/-/append-field-0.1.0.tgz#6ddc58fa083c7bc545d3c5995b2830cc2366d44a"
@@ -4049,38 +4089,6 @@ rimraf@^2.2.8, rimraf@^2.6.1:
   dependencies:
     glob "^7.0.5"
 
-rocketstation-api@1:
-  version "1.0.41"
-  resolved "https://registry.yarnpkg.com/rocketstation-api/-/rocketstation-api-1.0.41.tgz#50aedd3abc573d0821a44a3ebb85f1ca29d2e752"
-  dependencies:
-    ajv "5"
-    aws-sdk "2"
-    bluebird "3"
-    bottlejs "1"
-    change-case "3"
-    deepmerge "1"
-    ejs "2"
-    kcors "2"
-    koa "2"
-    koa-body "2"
-    koa-morgan "1"
-    koa-router "7"
-    lodash "4"
-    mjml "3"
-    moment "2"
-    moment-timezone "^0.5.11"
-    nodemailer "4"
-    nodemailer-smtp-transport "2"
-    parse-function "3"
-    pg "6"
-    pg-connection-string "^0.1.3"
-    pg-hstore "2"
-    pg-monitor "^0.6.1"
-    pg-promise "5"
-    pluralize "3"
-    sequelize "4"
-    socket.io "2"
-
 rootpath@0.1.2:
   version "0.1.2"
   resolved "https://registry.yarnpkg.com/rootpath/-/rootpath-0.1.2.tgz#5b379a87dca906e9b91d690a599439bef267ea6b"
@@ -4868,14 +4876,6 @@ verror@1.10.0:
     assert-plus "^1.0.0"
     core-util-is "1.0.2"
     extsprintf "^1.2.0"
-
-"vinyl-api-cli@git+https://2680d900d14b9746903be541aa2faa25924f8c14:x-oauth-basic@github.com/rocketstation/vinyl-api-cli.git":
-  version "0.1.0"
-  resolved "git+https://2680d900d14b9746903be541aa2faa25924f8c14:x-oauth-basic@github.com/rocketstation/vinyl-api-cli.git#2cfa25afab266750b7e1fd397ee86e82191330d2"
-  dependencies:
-    change-case "3"
-    rocketstation-api "1"
-    vorpal "1"
 
 vorpal@1:
   version "1.12.0"

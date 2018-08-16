@@ -13,6 +13,8 @@
   "author": "Naib Baghirov <naib.baghirov@gmail.com> (https://www.linkedin.com/in/naib-baghirov-03182170/)",
   "license": "MIT",
   "dependencies": {
+    "api-boilerplate": "1",
+    "api-db-cli": "0",
     "amplitude": "^3.5.0",
     "aws-sdk": "^2.226.1",
     "bcryptjs": "2",
@@ -23,10 +25,8 @@
     "node-schedule": "^1.2.4",
     "request": "2",
     "request-promise": "4",
-    "rocketstation-api": "1",
     "twilio": "3",
-    "uuid": "3",
-    "vinyl-api-cli": "git+https://2680d900d14b9746903be541aa2faa25924f8c14:x-oauth-basic@github.com/rocketstation/vinyl-api-cli.git"
+    "uuid": "3"
   },
   "devDependencies": {
     "eslint": "4.11.0",
