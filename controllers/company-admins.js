@@ -1,4 +1,4 @@
-module.exports = (Sequelize, Company, CompanyAdmin, User, Queue, Bluebird) => ({
+module.exports = (Sequelize, Company, CompanyAdmin, Bluebird) => ({
   signIn: {
     schema: [['data', true, [['email', true], ['password', true]]]],
     async method (ctx) {
