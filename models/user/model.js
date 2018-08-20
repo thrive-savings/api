@@ -1,4 +1,15 @@
-module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, amplitude, aws) => ({
+module.exports = (
+  bcrypt,
+  config,
+  JWT,
+  mail,
+  moment,
+  Sequelize,
+  twilio,
+  uuid,
+  amplitude,
+  aws
+) => ({
   attributes: {
     acceptedAt: {
       type: Sequelize.DATE,
@@ -211,6 +222,19 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, am
       defaultValue: false,
       type: Sequelize.BOOLEAN,
       field: 'saving_preferences_set'
+    },
+
+    userType: {
+      type: Sequelize.ENUM,
+      values: ['regular', 'vip', 'tester', 'admin'],
+      defaultValue: 'regular',
+      field: 'user_type'
+    },
+
+    requireApproval: {
+      type: Sequelize.BOOLEAN,
+      defaultValue: false,
+      field: 'require_approval'
     }
   },
   instanceMethods: {
@@ -218,7 +242,9 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, am
       twilio.messages.create({
         from: process.env.twilioNumber,
         to: this.phone,
-        body: `Welcome ${this.firstName}! You're now part of the Thrive family. My name is Thrivebot and I'm your personal assistant.\n\nFeel free to message me anytime, ask for your balance, withdraw your money, or just say hi!\n\nHappy saving! ;)`
+        body: `Welcome ${
+          this.firstName
+        }! You're now part of the Thrive family. My name is Thrivebot and I'm your personal assistant.\n\nFeel free to message me anytime, ask for your balance, withdraw your money, or just say hi!\n\nHappy saving! ;)`
       })
     },
     checkPassword (password) {
@@ -229,14 +255,18 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, am
     },
     async generateRestorePasswordToken () {
       this.restorePasswordToken = uuid().replace(/-/g, '')
-      this.restorePasswordTokenExpiresAt = moment().add(60, 'm').toDate()
+      this.restorePasswordTokenExpiresAt = moment()
+        .add(60, 'm')
+        .toDate()
       await this.save()
       mail.send({
         from: 'restore@thrivesavings.com',
         html: `
           <html>
             <div>
-              <p>To reset your Thrive Savings password, go to ${config.constants.CLIENT_URL}/restore/${this.restorePasswordToken} </p>
+              <p>To reset your Thrive Savings password, go to ${
+  config.constants.CLIENT_URL
+  }/restore/${this.restorePasswordToken} </p>
               <p>The link will expire after an hour</p>
               <p>If you haven't requested a password reset, you can ignore this message</p>
               <p>-The team at Thrive</p>
@@ -249,21 +279,25 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, am
     async generateRestorePasswordCode () {
       const random = () => Math.floor(1000 + Math.random() * 9000)
       const users = await this.constructor.findAll()
-      const codes = users.map((item) => item.code)
+      const codes = users.map(item => item.code)
       let code = random()
 
       while (codes.includes(code)) {
         code = random()
       }
       this.restorePasswordToken = code
-      this.restorePasswordTokenExpiresAt = moment().add(60, 'm').toDate()
+      this.restorePasswordTokenExpiresAt = moment()
+        .add(60, 'm')
+        .toDate()
       await this.save()
       mail.send({
         from: 'restore@thrivesavings.com',
         html: `
           <html>
             <div>
-              <p>To reset your Thrive Savings password, type <b>${this.restorePasswordToken}</b> in your app. </p>
+              <p>To reset your Thrive Savings password, type <b>${
+  this.restorePasswordToken
+  }</b> in your app. </p>
               <p>The code will expire after an hour</p>
               <p>If you haven't requested a password reset, you can ignore this message</p>
               <p>-The team at Thrive</p>
@@ -304,9 +338,28 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, am
 
       let goals
       if (this.goals) {
-        goals = this.goals.sort(({id: id0}, {id: id1}) => (id0 - id1))
+        goals = this.goals.sort(({ id: id0 }, { id: id1 }) => id0 - id1)
         goals = goals.map(
-          ({ id, category, name, amount, percentage, desiredDate, createdAt, userID }) => ({ id, category, name, amount, savedAmount: Math.round(this.balance * (percentage / 100)), percentage, desiredDate, createdAt, userID })
+          ({
+            id,
+            category,
+            name,
+            amount,
+            percentage,
+            desiredDate,
+            createdAt,
+            userID
+          }) => ({
+            id,
+            category,
+            name,
+            amount,
+            savedAmount: Math.round(this.balance * (percentage / 100)),
+            percentage,
+            desiredDate,
+            createdAt,
+            userID
+          })
         )
       }
 
@@ -348,19 +401,46 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, am
     getProfile () {
       const profile = {}
       const dataValues = this.dataValues
-      Object.keys(dataValues).forEach((item) => {
+      Object.keys(dataValues).forEach(item => {
         const value = dataValues[item]
-        if ([
-          'firstName', 'middleName', 'lastName', 'dob', 'occupation', 'unit', 'address', 'city', 'province',
-          'country', 'postalCode', 'isCanadianResident', 'isUSResident', 'isPoliticallyExposed', 'isOpeningForThirdParty',
-          'isTOSAccepted', 'isPPAccepted', 'signature'
-        ].includes(item) && value !== null) profile[item] = value
+        if (
+          [
+            'firstName',
+            'middleName',
+            'lastName',
+            'dob',
+            'occupation',
+            'unit',
+            'address',
+            'city',
+            'province',
+            'country',
+            'postalCode',
+            'isCanadianResident',
+            'isUSResident',
+            'isPoliticallyExposed',
+            'isOpeningForThirdParty',
+            'isTOSAccepted',
+            'isPPAccepted',
+            'signature'
+          ].includes(item) &&
+          value !== null
+        ) {
+          profile[item] = value
+        }
       })
       let step = 1
       if (profile.lastName) step = 2
       if (profile.occupation) step = 3
       if (profile.postalCode) step = 5
-      if (profile.isCanadianResident || profile.isUSResident || profile.isPoliticallyExposed || profile.isOpeningForThirdParty) step = 6
+      if (
+        profile.isCanadianResident ||
+        profile.isUSResident ||
+        profile.isPoliticallyExposed ||
+        profile.isOpeningForThirdParty
+      ) {
+        step = 6
+      }
       profile.step = step
       return profile
     },
@@ -370,7 +450,7 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, am
     async sendCode () {
       const random = () => Math.floor(1000 + Math.random() * 9000)
       const users = await this.constructor.findAll()
-      const codes = users.map((item) => item.code)
+      const codes = users.map(item => item.code)
       let code = random()
 
       while (codes.includes(code)) {
@@ -382,7 +462,9 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, am
       twilio.messages.create({
         from: process.env.twilioNumber,
         to: this.phone,
-        body: `Hi ${this.firstName}, ${code} is your Thrive Savings verification code. Please enter that code on the number verification screen to confirm this phone number is yours.`
+        body: `Hi ${
+          this.firstName
+        }, ${code} is your Thrive Savings verification code. Please enter that code on the number verification screen to confirm this phone number is yours.`
       })
     },
     notifyUserAboutTransaction (type, state, amount) {
@@ -390,23 +472,35 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, am
 
       let dollars = amount / 100
       dollars = dollars % 1 === 0 ? dollars : dollars.toFixed(2)
-      dollars.toLocaleString('en-US', {style: 'currency', currency: 'USD'})
+      dollars.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 
       let balance = this.balance / 100
       balance = balance % 1 === 0 ? balance : balance.toFixed(2)
-      balance.toLocaleString('en-US', {style: 'currency', currency: 'USD'})
+      balance.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 
       if (state === 'invalid_amount') {
-        msg = `Hi ${this.firstName}, the amount of $${dollars} you requested to withdraw exceeds your balance of $${balance}`
+        msg = `Hi ${
+          this.firstName
+        }, the amount of $${dollars} you requested to withdraw exceeds your balance of $${balance}`
       } else {
         if (state === 'in_progress') {
-          msg = type === 'direct_debit'
-            ? `Hi ${this.firstName}! You've got $${dollars} enroute to Thrive Savings. Keep it up, great job saving!`
-            : `Hi ${this.firstName}! You've withdrawn $${dollars} You’ll see this amount back in your chequing account in 1 business day. Have a great day!`
+          msg =
+            type === 'direct_debit'
+              ? `Hi ${
+                this.firstName
+              }! You've got $${dollars} enroute to Thrive Savings. Keep it up, great job saving!`
+              : `Hi ${
+                this.firstName
+              }! You've withdrawn $${dollars} You’ll see this amount back in your chequing account in 1 business day. Have a great day!`
         } else {
-          msg = type === 'direct_debit'
-            ? `Hi ${this.firstName}. You’ve got an updated balance at Thrive Savings, reply back with ‘Balance’ to check your progress. Have a great day!`
-            : `Hi ${this.firstName}. Your withdrawal request has settled. As a good friend, I’d love to know what you are spending it on?`
+          msg =
+            type === 'direct_debit'
+              ? `Hi ${
+                this.firstName
+              }. You’ve got an updated balance at Thrive Savings, reply back with ‘Balance’ to check your progress. Have a great day!`
+              : `Hi ${
+                this.firstName
+              }. Your withdrawal request has settled. As a good friend, I’d love to know what you are spending it on?`
         }
       }
 
@@ -420,22 +514,32 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, am
         eventType: 'BOT SENT MESSAGE',
         userId: this.id,
         eventProperties: {
-          'Message': msg,
-          'Phone': this.phone,
+          Message: msg,
+          Phone: this.phone,
           'Message Type': 'Automatic'
         }
       })
     },
     sendBonusNotification (amount) {
       let amountDollars = amount / 100
-      amountDollars = amountDollars % 1 === 0 ? amountDollars : amountDollars.toFixed(2)
-      amountDollars.toLocaleString('en-US', {style: 'currency', currency: 'USD'})
+      amountDollars =
+        amountDollars % 1 === 0 ? amountDollars : amountDollars.toFixed(2)
+      amountDollars.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD'
+      })
 
       let balanceDollars = this.balance / 100
-      balanceDollars = balanceDollars % 1 === 0 ? balanceDollars : balanceDollars.toFixed(2)
-      balanceDollars.toLocaleString('en-US', {style: 'currency', currency: 'USD'})
+      balanceDollars =
+        balanceDollars % 1 === 0 ? balanceDollars : balanceDollars.toFixed(2)
+      balanceDollars.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD'
+      })
 
-      const msg = `Hi ${this.firstName}! Your employer had contributed $${amountDollars} to your Thrive savings amount. Your updated balance is $${balanceDollars}. Have a great day!`
+      const msg = `Hi ${
+        this.firstName
+      }! Your employer had contributed $${amountDollars} to your Thrive savings amount. Your updated balance is $${balanceDollars}. Have a great day!`
 
       twilio.messages.create({
         from: process.env.twilioNumber,
@@ -447,8 +551,8 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, am
         eventType: 'BOT SENT MESSAGE',
         userId: this.id,
         eventProperties: {
-          'Message': msg,
-          'Phone': this.phone,
+          Message: msg,
+          Phone: this.phone,
           'Message Type': 'Automatic'
         }
       })
@@ -463,9 +567,7 @@ module.exports = (bcrypt, config, JWT, mail, moment, Sequelize, twilio, uuid, am
       instance.hashPassword(instance.password)
     }
   },
-  indexes: [
-    { fields: ['code', 'company_id'] }
-  ],
+  indexes: [{ fields: ['code', 'company_id'] }],
   timestamps: true,
   createdAt: 'createdAt',
   updatedAt: false
