@@ -83,13 +83,41 @@ module.exports = (Bluebird, User, amplitude, twilio, request, config) => ({
     }
   },
 
+  apiCall: {
+    schema: [['data', true, [['url', true], ['body', true, 'object']]]],
+    async method (ctx) {
+      const {
+        data: { url, body }
+      } = ctx.request.body
+
+      await request.post({
+        uri: `${config.constants.SLACK_API_URL}/${url}`,
+        headers: {
+          Authorization: `Bearer ${process.env.slackApiKey}`
+        },
+        body,
+        json: true
+      })
+
+      ctx.body = {}
+    }
+  },
+
   requestApproval: {
     schema: [
-      ['data', true, [['userID', true, 'integer'], ['amount', true, 'integer']]]
+      [
+        'data',
+        true,
+        [
+          ['userID', true, 'integer'],
+          ['amount', true, 'integer'],
+          ['uri', 'string']
+        ]
+      ]
     ],
     async method (ctx) {
       const {
-        data: { userID, amount }
+        data: { userID, amount, uri }
       } = ctx.request.body
 
       const user = await User.findOne({ where: { id: userID } })
@@ -107,7 +135,7 @@ module.exports = (Bluebird, User, amplitude, twilio, request, config) => ({
       }
 
       await request.post({
-        uri: process.env.slackWebhookURL,
+        uri: uri || process.env.slackWebhookURL,
         body: {
           text: `Algorithm has choosen $${getDollarString(
             amount
@@ -137,6 +165,12 @@ module.exports = (Bluebird, User, amplitude, twilio, request, config) => ({
                   text: "Don't ask again",
                   type: 'button',
                   value: 'auto'
+                },
+                {
+                  name: 'change',
+                  text: 'Change amount',
+                  type: 'button',
+                  value: 'change'
                 }
               ]
             }
@@ -151,28 +185,49 @@ module.exports = (Bluebird, User, amplitude, twilio, request, config) => ({
 
   interaction: {
     async method (ctx) {
-      const {
-        actions: [{ value }],
-        callback_id: callbackId,
-        original_message: originalMessage
-      } = JSON.parse(ctx.request.body.payload)
+      const payload = JSON.parse(ctx.request.body.payload)
+      console.log(payload)
 
-      const [command, ...params] = callbackId.split('_')
+      let replyMessage
+      if (payload.type === 'interactive_message') {
+        const command = payload.callback_id.split('_')[0]
 
-      let replyMessage = originalMessage
-      if (command === 'approvalRequest') {
-        replyMessage = await request.post({
-          uri: `${config.constants.URL}/admin/worker-handle-approval`,
-          body: {
-            secret: process.env.apiSecret,
-            data: {
-              value,
-              params,
-              originalMessage
-            }
-          },
-          json: true
-        })
+        replyMessage = payload.original_message
+        if (command === 'approvalRequest') {
+          replyMessage = await request.post({
+            uri: `${config.constants.URL}/admin/worker-handle-approval`,
+            body: {
+              secret: process.env.apiSecret,
+              data: { payload }
+            },
+            json: true
+          })
+        }
+      } else if (payload.type === 'dialog_submission') {
+        const command = payload.callback_id.split('_')[0]
+
+        if (command === 'changeAmount') {
+          const {
+            callback_id,
+            submission: { amount },
+            state: approvalMessageUrl
+          } = payload
+
+          const userID = callback_id.split('_')[1]
+
+          await request.post({
+            uri: `${config.constants.URL}/slack-request-approval`,
+            body: {
+              data: {
+                userID: parseInt(userID),
+                amount: parseInt((amount + 0) * 100),
+                uri: approvalMessageUrl
+              }
+            },
+            json: true
+          })
+          replyMessage = {}
+        }
       }
 
       ctx.body = replyMessage

@@ -65,7 +65,7 @@ module.exports = (Bluebird, User, request, amplitude, config) => ({
         })
 
         amplitude.track({
-          eventType: 'WORKER_GOT_BALANCE',
+          eventType: 'WORKER_FETCHED_TRANSACTIONS',
           userId: user.id,
           eventProperties: {
             Frequency: `${frequencyWord}`,
@@ -103,13 +103,22 @@ module.exports = (Bluebird, User, request, amplitude, config) => ({
 
         // Transfer the amount
         if (balance > BALANCE_LOWER_THRESHOLD && amount < MAX_DEPOSIT_AMOUNT) {
+          amplitude.track({
+            eventType: 'WORKER_REQUESTED_APPROVAL',
+            userId: user.id,
+            eventProperties: {
+              SavingType: `${user.savingType}`,
+              Amount: `${amount}`,
+              Balance: `${balance}`
+            }
+          })
           if (user.requireApproval || user.userType === 'vip') {
             await request.post({
               uri: `${config.constants.URL}/slack-request-approval`,
               body: {
                 data: {
                   userID: user.id,
-                  amount
+                  amount: parseInt(amount)
                 }
               },
               json: true
@@ -221,25 +230,21 @@ module.exports = (Bluebird, User, request, amplitude, config) => ({
   },
 
   handleApproval: {
-    schema: [
-      [
-        'data',
-        true,
-        [
-          ['value', true],
-          ['params', true, 'array'],
-          ['originalMessage', true, 'object']
-        ]
-      ]
-    ],
+    schema: [['data', true, [['payload', true, 'object']]]],
     async method (ctx) {
       const {
-        data: {
-          value,
-          params: [userID, amount],
-          originalMessage
-        }
+        data: { payload }
       } = ctx.request.body
+
+      const {
+        actions: [{ value }],
+        original_message: originalMessage,
+        callback_id: callbackId,
+        trigger_id,
+        response_url: responseUrl
+      } = payload
+
+      const [, userID, amount] = callbackId.split('_')
 
       const user = await User.findOne({ where: { id: userID } })
       if (!user) {
@@ -248,7 +253,8 @@ module.exports = (Bluebird, User, request, amplitude, config) => ({
         ])
       }
 
-      originalMessage.attachments = []
+      let replyMessage = Object.assign({}, originalMessage)
+      replyMessage.attachments = []
 
       if (value === 'yes') {
         request.post({
@@ -264,15 +270,45 @@ module.exports = (Bluebird, User, request, amplitude, config) => ({
           },
           json: true
         })
-        originalMessage.text += '\n*Proceeding the transfer.*'
+        replyMessage.text += '\n*Proceeding the transfer.*'
       } else if (value === 'no') {
-        originalMessage.text += '\n*Transfer cancelled.*'
-      } else {
+        replyMessage.text += '\n*Transfer cancelled.*'
+      } else if (value === 'auto') {
         user.update({ requireApproval: false })
-        originalMessage.text += '\n*Understood.*'
+        replyMessage.text += '\n*Understood.*'
+      } else {
+        request.post({
+          uri: `${config.constants.URL}/slack-api-call`,
+          body: {
+            data: {
+              url: 'dialog.open',
+              body: {
+                dialog: JSON.stringify({
+                  callback_id: `changeAmount_${userID}`,
+                  title: 'Choose a new amount',
+                  submit_label: 'Transfer',
+                  elements: [
+                    {
+                      type: 'text',
+                      label: 'Amount:',
+                      name: 'amount',
+                      hint: 'Example amount format: 10.25',
+                      max_length: 6,
+                      min_length: 1
+                    }
+                  ],
+                  state: responseUrl
+                }),
+                trigger_id
+              }
+            }
+          },
+          json: true
+        })
+        replyMessage = originalMessage
       }
 
-      ctx.body = originalMessage
+      ctx.body = replyMessage
     }
   }
 })
