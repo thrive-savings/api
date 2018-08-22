@@ -186,7 +186,6 @@ module.exports = (Bluebird, User, amplitude, twilio, request, config) => ({
   interaction: {
     async method (ctx) {
       const payload = JSON.parse(ctx.request.body.payload)
-      console.log(payload)
 
       let replyMessage
       if (payload.type === 'interactive_message') {

@@ -1,11 +1,23 @@
-module.exports = (Bluebird, User, request, amplitude, config) => ({
+module.exports = (Bluebird, Sequelize, User, request, amplitude, config) => ({
   runFrequency: {
     schema: [['data', true, [['frequencyWord', true]]]],
     async method (ctx) {
       const { frequencyWord } = ctx.request.body.data
 
+      // Condition Explanation: (forcedFetchFrequency = frequencyWord or (fetchFrequency = frequencyword and forcedFetchFrequency = null))
       const users = await User.findAll({
-        where: { fetchFrequency: frequencyWord, bankLinked: true }
+        where: {
+          [Sequelize.Op.or]: [
+            { forcedFetchFrequency: frequencyWord },
+            {
+              [Sequelize.Op.and]: [
+                { fetchFrequency: frequencyWord },
+                { forcedFetchFrequency: null }
+              ]
+            }
+          ],
+          bankLinked: true
+        }
       })
       amplitude.track({
         eventType: 'WORKER_RUN_FREQUENCY',
@@ -75,10 +87,11 @@ module.exports = (Bluebird, User, request, amplitude, config) => ({
         })
 
         // Get  saving amount
+        let safeBalance = balance
         let amount
         if (user.savingType === 'Thrive Flex') {
           const algoResult = await request.post({
-            uri: `${config.constants.URL}/admin/algo-run`,
+            uri: `${config.constants.URL}/admin/algo-run-new`,
             body: {
               secret: process.env.apiSecret,
               data: { userID: user.id }
@@ -86,6 +99,7 @@ module.exports = (Bluebird, User, request, amplitude, config) => ({
             json: true
           })
           amount = algoResult.amount
+          safeBalance = algoResult.safeBalance || balance
         } else {
           amount = user.fixedContribution
         }
@@ -102,17 +116,26 @@ module.exports = (Bluebird, User, request, amplitude, config) => ({
         })
 
         // Transfer the amount
-        if (balance > BALANCE_LOWER_THRESHOLD && amount < MAX_DEPOSIT_AMOUNT) {
-          amplitude.track({
-            eventType: 'WORKER_REQUESTED_APPROVAL',
-            userId: user.id,
-            eventProperties: {
-              SavingType: `${user.savingType}`,
-              Amount: `${amount}`,
-              Balance: `${balance}`
-            }
-          })
+        if (
+          safeBalance > BALANCE_LOWER_THRESHOLD &&
+          amount < MAX_DEPOSIT_AMOUNT
+        ) {
+          // Reset user forced frequency
+          if (user.forcedFetchFrequency) {
+            user.update({ forcedFetchFrequency: null })
+          }
+
           if (user.requireApproval || user.userType === 'vip') {
+            amplitude.track({
+              eventType: 'WORKER_REQUESTED_APPROVAL',
+              userId: user.id,
+              eventProperties: {
+                SavingType: `${user.savingType}`,
+                Amount: `${amount}`,
+                Balance: `${balance}`,
+                SafeBalance: `${safeBalance}`
+              }
+            })
             await request.post({
               uri: `${config.constants.URL}/slack-request-approval`,
               body: {
@@ -147,9 +170,13 @@ module.exports = (Bluebird, User, request, amplitude, config) => ({
               SavingType: `${user.savingType}`,
               Amount: `${amount}`,
               Balance: `${balance}`,
+              SafeBalance: `${safeBalance}`,
               Reason: 'Low Balance or High Amount'
             }
           })
+
+          // Schedule user to run daily till we are able to pull
+          await user.update({ forcedFetchFrequency: 'ONCEDAILY' })
         }
       } catch (error) {
         console.log('------Catched inside WORK_RUN_USER------')

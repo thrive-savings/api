@@ -180,6 +180,11 @@ module.exports = (
       field: 'fetch_frequency'
     },
 
+    forcedFetchFrequency: {
+      type: Sequelize.STRING,
+      field: 'forced_fetch_frequency'
+    },
+
     loginID: {
       type: Sequelize.STRING,
       field: 'login_id'
