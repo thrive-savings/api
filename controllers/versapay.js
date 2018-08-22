@@ -21,7 +21,13 @@ module.exports = (User, Account, Queue, config) => ({
         const expectedSignature = encodeURI(Buffer.from(hash).toString('base64'))
         console.log(expectedSignature)
         */
-        const { token, state, transaction_type: transactionType, unique_reference: uuid, amount_in_cents: amountInCents } = req
+        const {
+          token,
+          state,
+          transaction_type: transactionType,
+          unique_reference: uuid,
+          amount_in_cents: amountInCents
+        } = req
         const queue = await Queue.findOne({ where: { uuid } })
         if (queue) {
           if (!queue.processed) queue.processed = true
@@ -30,50 +36,42 @@ module.exports = (User, Account, Queue, config) => ({
           queue.state = state
           const savedQueue = await queue.save()
 
-          const accountToken = transactionType === 'direct_debit' ? req.from_fund_token : req.to_fund_token
-          const account = await Account.findOne({ where: { id: savedQueue.accountID } })
+          const accountToken =
+            transactionType === 'direct_debit'
+              ? req.from_fund_token
+              : req.to_fund_token
+          const account = await Account.findOne({
+            where: { id: savedQueue.accountID }
+          })
           if (account.versapay_token !== accountToken) {
             account.versapay_token = accountToken
             await account.save()
           }
 
           if (state === 'in_progress' || state === 'completed') {
-            const user = await User.findOne({ where: { id: savedQueue.userID } })
+            const user = await User.findOne({
+              where: { id: savedQueue.userID }
+            })
 
             if (state === 'completed') {
-              const deltaAmount = transactionType === 'direct_debit' ? parseInt(amountInCents) : -1 * parseInt(amountInCents)
+              const deltaAmount =
+                transactionType === 'direct_debit'
+                  ? parseInt(amountInCents)
+                  : -1 * parseInt(amountInCents)
               user.balance = parseInt(user.balance) + deltaAmount
               await user.save()
             }
 
-            user.notifyUserAboutTransaction(transactionType, state, amountInCents)
+            user.notifyUserAboutTransaction(
+              transactionType,
+              state,
+              amountInCents
+            )
           }
         }
       }
 
       ctx.body = { data: { message: 'Successful VersaPay Hook' } }
-    }
-  },
-  updateQueues: {
-    async method (ctx) {
-      const queues = await Queue.findAll({where: {processed: false}})
-      queues.forEach(async queue => {
-        queue.setUUID()
-        await queue.save()
-      })
-
-      ctx.body = { data: { message: 'Success' } }
-    }
-  },
-  uploadQueues: {
-    async method (ctx) {
-      const queuesArr = ctx.request.body
-      queuesArr.forEach(async ({ name, type, amount, accountID, userID, transactionRef: transactionReference }) => {
-        const amountInCents = parseFloat(amount) * 100
-        const requestMethod = 'ManualQueueUpload'
-        await Queue.create({ userID, accountID, amount: amountInCents, type, requestMethod, transactionReference })
-      })
-      ctx.body = { data: { message: 'All Requests Successfully Queued' } }
     }
   }
 })
