@@ -43,9 +43,8 @@ module.exports = (User, Account, Queue, Sequelize, moment, amplitude) => ({
             transactionReference
           })
 
-          ctx.body = { data: { sucess: true } }
+          ctx.body = {}
         } catch (error) {
-          console.log('------Catched inside QUEUE_CREATE------')
           amplitude.track({
             eventType: 'QUEUE_CREATE_FAIL',
             userId: userID,

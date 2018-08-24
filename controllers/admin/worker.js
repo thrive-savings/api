@@ -179,7 +179,6 @@ module.exports = (Bluebird, Sequelize, User, request, amplitude, config) => ({
           await user.update({ forcedFetchFrequency: 'ONCEDAILY' })
         }
       } catch (error) {
-        console.log('------Catched inside WORK_RUN_USER------')
         amplitude.track({
           eventType: 'WORKER_RUN_USER_FAIL',
           userId: user.id,
@@ -244,7 +243,6 @@ module.exports = (Bluebird, Sequelize, User, request, amplitude, config) => ({
           }
         })
       } catch (error) {
-        console.log('------Catched inside WORKER_TRANSFER------')
         amplitude.track({
           eventType: 'WORKER_TRANSFER_FAIL',
           userId: user.id,

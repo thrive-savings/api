@@ -71,7 +71,7 @@ module.exports = (User, Account, Queue, config) => ({
         }
       }
 
-      ctx.body = { data: { message: 'Successful VersaPay Hook' } }
+      ctx.body = {}
     }
   }
 })

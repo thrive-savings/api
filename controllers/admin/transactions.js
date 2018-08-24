@@ -193,8 +193,6 @@ module.exports = (
         }
         ctx.body = { data: { balance: parseInt(balance * 100) } }
       } catch ({ error, options }) {
-        console.log('-----Catched inside TRANSACTIONS_FETCH------')
-
         // Force user to relink
         await user.update({ bankLinked: false })
 

@@ -82,7 +82,6 @@ module.exports = (User, Account, Queue, request, Bluebird, amplitude) => ({
           }
         }
       } catch (error) {
-        console.log('------Catched inside VERSAPAY_SYNC------')
         amplitude.track({
           eventType: 'VERSAPAY_SYNC_FAIL',
           userId: providedUserID || 'server',

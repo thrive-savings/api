@@ -11,10 +11,6 @@ module.exports = request => ({
       })
 
       ctx.body = { data: { token } }
-    },
-    onError (error) {
-      console.log('Error Happened - Creating Quovo UI Token')
-      console.log(error)
     }
   }
 })

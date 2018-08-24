@@ -71,7 +71,6 @@ module.exports = (Sequelize, Company, CompanyAdmin, Bluebird) => ({
       ctx.body = { data: admin.getData() }
     },
     onError (error) {
-      console.log(error)
       if (error instanceof Sequelize.UniqueConstraintError) {
         const fields = Object.keys(error.fields)
         if (fields.includes('email')) {
