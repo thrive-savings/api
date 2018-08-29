@@ -103,7 +103,66 @@ module.exports = (Bluebird, User, amplitude, twilio, request, config) => ({
     }
   },
 
-  requestApproval: {
+  requestNotificationApproval: {
+    schema: [
+      [
+        'data',
+        true,
+        [['userID', true, 'integer'], ['text', true], ['uri', 'string']]
+      ]
+    ],
+    async method (ctx) {
+      const {
+        data: { userID, text, uri }
+      } = ctx.request.body
+
+      const user = await User.findOne({ where: { id: userID } })
+      if (!user) {
+        return Bluebird.reject([
+          { key: 'user', value: `User not found for ID: ${userID}` }
+        ])
+      }
+
+      await request.post({
+        uri: uri || process.env.slackWebhookURL,
+        body: {
+          text: `We lost the bank connection for ${user.firstName} ${
+            user.lastName
+          } | ${user.phone} | ID${user.id}`,
+          attachments: [
+            {
+              title:
+                'Do you want to send out the following notification message?',
+              text,
+              fallback: 'You are unable to approve the request',
+              callback_id: `unlinkNotificationApproval_${userID}`,
+              color: '#2CC197',
+              actions: [
+                {
+                  name: 'yes',
+                  text: 'Yes',
+                  type: 'button',
+                  style: 'danger',
+                  value: 'yes'
+                },
+                {
+                  name: 'no',
+                  text: 'No',
+                  type: 'button',
+                  value: 'no'
+                }
+              ]
+            }
+          ]
+        },
+        json: true
+      })
+
+      ctx.body = {}
+    }
+  },
+
+  requestAlgoApproval: {
     schema: [
       [
         'data',
@@ -139,12 +198,14 @@ module.exports = (Bluebird, User, amplitude, twilio, request, config) => ({
         body: {
           text: `Algorithm has choosen $${getDollarString(
             amount
-          )} to transfer for ${user.firstName} | ${user.phone} | ID${user.id}`,
+          )} to transfer for ${user.firstName} ${user.lastName} | ${
+            user.phone
+          } | ID${user.id}`,
           attachments: [
             {
               title: 'Do you approve?',
               fallback: 'You are unable to approve the request',
-              callback_id: `approvalRequest_${userID}_${amount}`,
+              callback_id: `algoResultApproval_${userID}_${amount}`,
               color: '#2CC197',
               actions: [
                 {
@@ -192,9 +253,18 @@ module.exports = (Bluebird, User, amplitude, twilio, request, config) => ({
         const command = payload.callback_id.split('_')[0]
 
         replyMessage = payload.original_message
-        if (command === 'approvalRequest') {
+        if (command === 'algoResultApproval') {
           replyMessage = await request.post({
-            uri: `${config.constants.URL}/admin/worker-handle-approval`,
+            uri: `${config.constants.URL}/admin/approved-algo-result`,
+            body: {
+              secret: process.env.apiSecret,
+              data: { payload }
+            },
+            json: true
+          })
+        } else if (command === 'unlinkNotificationApproval') {
+          replyMessage = await request.post({
+            uri: `${config.constants.URL}/admin/approved-unlink-text`,
             body: {
               secret: process.env.apiSecret,
               data: { payload }
@@ -215,7 +285,7 @@ module.exports = (Bluebird, User, amplitude, twilio, request, config) => ({
           const userID = callback_id.split('_')[1]
 
           await request.post({
-            uri: `${config.constants.URL}/slack-request-approval`,
+            uri: `${config.constants.URL}/slack-request-algo-approval`,
             body: {
               data: {
                 userID: parseInt(userID),

@@ -80,10 +80,10 @@ module.exports = (
           }
         } else if (['save', 'Save', 'deposit', 'Deposit'].includes(command)) {
           analyticsEvent = 'Bot Received Save Command'
-          if (!user.bankLinked) {
+          if (!user.bankLinked || user.relinkRequired) {
             responseMsg = `Hi ${
               user.name
-            }, it looks like you haven’t connected a bank account yet. Please  go to the app to link your primary chequing account.`
+            }, it looks like you haven’t connected a bank account yet or we lost the connection to your bank. Please  go to the app to link your primary chequing account.`
           } else {
             let amount = +params[0]
             if (isNaN(amount) || amount <= 0) {
@@ -139,10 +139,10 @@ module.exports = (
           }
         } else if (['withdraw', 'Withdraw', 'move', 'Move'].includes(command)) {
           analyticsEvent = 'Bot Received Withdraw Command'
-          if (!user.bankLinked) {
+          if (!user.bankLinked || user.relinkRequired) {
             responseMsg = `Hi ${
               user.name
-            }, it looks like you haven’t connected a bank account yet. Please  go to the app to link your primary chequing account.`
+            }, it looks like you haven’t connected a bank account yet or we lost the connection to your bank. Please  go to the app to link your primary chequing account.`
           } else {
             let amount = +params[0]
             if (isNaN(amount) || amount <= 0) {

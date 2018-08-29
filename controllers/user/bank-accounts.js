@@ -162,9 +162,15 @@ module.exports = (User, Account, Bluebird, request, amplitude) => ({
       await account.save()
 
       const user = await User.findOne({ where: { id: ctx.authorized.id } })
-      user.bankLinked = true
+
+      if (user.bankLinked && user.relinkRequired) {
+        user.relinkRequired = false
+      } else if (!user.bankLinked) {
+        user.bankLinked = true
+        user.onboardingStep = 'SavingPreferences'
+        user.greet()
+      }
       await user.save()
-      user.greet()
 
       amplitude.track({
         eventType: 'DEFAULT_ACCOUNT_SET',

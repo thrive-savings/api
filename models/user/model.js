@@ -196,6 +196,12 @@ module.exports = (
       defaultValue: false
     },
 
+    relinkRequired: {
+      defaultValue: false,
+      type: Sequelize.BOOLEAN,
+      field: 'relink_required'
+    },
+
     companyID: {
       type: Sequelize.INTEGER,
       defaultValue: 1,
@@ -240,6 +246,11 @@ module.exports = (
       type: Sequelize.BOOLEAN,
       defaultValue: false,
       field: 'require_approval'
+    },
+
+    onboardingStep: {
+      type: Sequelize.STRING,
+      field: 'onboarding_step'
     }
   },
   instanceMethods: {
@@ -332,10 +343,12 @@ module.exports = (
       }
     },
     getAuthorized () {
+      let bank
       let account
       if (this.accounts) {
         account = this.accounts.filter(item => !!item.isDefault)[0]
         if (account) {
+          bank = account.bank
           account = account.toAuthorized()
           account.flLoginID = this.loginID
         }
@@ -377,17 +390,20 @@ module.exports = (
       return {
         company,
         account,
+        bank,
         goals,
         id: this.id,
         bankLinked: this.bankLinked,
+        relinkRequired: this.relinkRequired,
         didSign: !!this.signature,
-        firstName: this.firstName,
         jwt: this.generateJWT(),
         isWelcomed: this.isWelcomed,
+        isVerified: this.isVerified,
+        onboardingStep: this.onboardingStep,
+        firstName: this.firstName,
         lastName: this.lastName,
         email: this.email,
         phone: this.phone,
-        isVerified: this.isVerified,
         balance: this.balance,
         savingPreferences: {
           workType: this.workType,
@@ -560,6 +576,13 @@ module.exports = (
           Phone: this.phone,
           'Message Type': 'Automatic'
         }
+      })
+    },
+    sendMessage (msg) {
+      twilio.messages.create({
+        from: process.env.twilioNumber,
+        to: this.phone,
+        body: msg
       })
     }
   },

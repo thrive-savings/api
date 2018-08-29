@@ -1,10 +1,10 @@
 module.exports = (User, amplitude) => ({
   setWorkType: {
-    schema: [
-      ['data', true, [['workType', true]]]
-    ],
+    schema: [['data', true, [['workType', true]]]],
     async method (ctx) {
-      const { data: { workType } } = ctx.request.body
+      const {
+        data: { workType }
+      } = ctx.request.body
 
       await User.update({ workType }, { where: { id: ctx.authorized.id } })
 
@@ -20,11 +20,11 @@ module.exports = (User, amplitude) => ({
     }
   },
   setSavingType: {
-    schema: [
-      ['data', true, [['savingType', true]]]
-    ],
+    schema: [['data', true, [['savingType', true]]]],
     async method (ctx) {
-      const { data: { savingType } } = ctx.request.body
+      const {
+        data: { savingType }
+      } = ctx.request.body
 
       await User.update({ savingType }, { where: { id: ctx.authorized.id } })
 
@@ -44,9 +44,14 @@ module.exports = (User, amplitude) => ({
       ['data', true, [['fixedContribution', true], ['frequency', true]]]
     ],
     async method (ctx) {
-      const { data: { fixedContribution, frequency } } = ctx.request.body
+      const {
+        data: { fixedContribution, frequency }
+      } = ctx.request.body
 
-      await User.update({ fixedContribution, fetchFrequency: frequency }, { where: { id: ctx.authorized.id } })
+      await User.update(
+        { fixedContribution, fetchFrequency: frequency },
+        { where: { id: ctx.authorized.id } }
+      )
 
       amplitude.track({
         eventType: 'SAVING_FIXED_DETAILS_SET',
@@ -58,7 +63,11 @@ module.exports = (User, amplitude) => ({
   },
   initialSetDone: {
     async method (ctx) {
-      await User.update({ savingPreferencesSet: true }, { where: { id: ctx.authorized.id } })
+      const onboardingStep = 'SavingGoals'
+      await User.update(
+        { savingPreferencesSet: true, onboardingStep },
+        { where: { id: ctx.authorized.id } }
+      )
 
       amplitude.identify({
         userId: ctx.authorized.id,
@@ -67,7 +76,7 @@ module.exports = (User, amplitude) => ({
         }
       })
 
-      ctx.body = {}
+      ctx.body = { data: { onboardingStep } }
     }
   }
 })
