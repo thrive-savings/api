@@ -584,6 +584,16 @@ module.exports = (
         to: this.phone,
         body: msg
       })
+
+      amplitude.track({
+        eventType: 'BOT SENT MESSAGE',
+        userId: this.id,
+        eventProperties: {
+          Message: msg,
+          Phone: this.phone,
+          'Message Type': 'Automatic'
+        }
+      })
     }
   },
   associations: {

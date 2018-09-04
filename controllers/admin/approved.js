@@ -1,4 +1,4 @@
-module.exports = (Bluebird, User, request, config) => ({
+module.exports = (Bluebird, User, request, config, amplitude) => ({
   algoResult: {
     schema: [['data', true, [['payload', true, 'object']]]],
     async method (ctx) {
@@ -22,6 +22,14 @@ module.exports = (Bluebird, User, request, config) => ({
           { key: 'user', value: `User not found for ID: ${userID}` }
         ])
       }
+
+      amplitude.track({
+        eventType: 'ALGO_APPROVAL_REQUEST_RETURNED',
+        userId: user.id,
+        eventProperties: {
+          Value: `${value}`
+        }
+      })
 
       let replyMessage = Object.assign({}, originalMessage)
       replyMessage.attachments = []
