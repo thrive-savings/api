@@ -45,69 +45,36 @@ module.exports = (fs, path, Sequelize, moment, User, Goal, amplitude) => ({
         order: Sequelize.col('id')
       })
       const user = await User.findOne({ where: { id: ctx.authorized.id } })
+      const savedAmount = Math.round(user.balance / goals.length)
       ctx.body = {
         data: {
-          goals: goals.map(
-            ({
-              id,
-              category,
-              name,
-              amount,
-              percentage,
-              desiredDate,
-              createdAt,
-              userID
-            }) => ({
-              id,
-              category,
-              name,
-              amount,
-              savedAmount: Math.round(user.balance * (percentage / 100)),
-              percentage,
-              desiredDate,
-              createdAt,
-              userID
-            })
-          )
+          goals: goals.map(({ id, category, name, amount, userID }) => ({
+            id,
+            category,
+            name,
+            amount,
+            savedAmount,
+            userID
+          }))
         }
       }
     }
   },
   add: {
     schema: [
-      [
-        'data',
-        true,
-        [
-          ['category', true],
-          ['name', true],
-          ['amount', true],
-          ['desiredDate', true],
-          ['percentage', true]
-        ]
-      ]
+      ['data', true, [['category', true], ['name', true], ['amount', true]]]
     ],
     async method (ctx) {
       const {
-        data: { category, name, amount, desiredDate, percentage }
+        data: { category, name, amount }
       } = ctx.request.body
 
-      // await Goal.create({ category: 'RainyDay', name: 'Rainy Day Fund', percentage: 100 - percentage, userID: ctx.authorized.id })
-
-      const newGoal = await Goal.create({
+      await Goal.create({
         category,
         name,
         amount,
-        desiredDate: desiredDate === 'infinite' ? null : moment(desiredDate),
-        percentage,
         userID: ctx.authorized.id
       })
-
-      await Goal.adjustOtherGoalPercentages(
-        ctx.authorized.id,
-        newGoal.id,
-        percentage
-      )
 
       const goals = await Goal.findAll({
         where: { userID: ctx.authorized.id },
@@ -126,30 +93,17 @@ module.exports = (fs, path, Sequelize, moment, User, Goal, amplitude) => ({
         }
       })
 
+      const savedAmount = Math.round(user.balance / goals.length)
       ctx.body = {
         data: {
-          goals: goals.map(
-            ({
-              id,
-              category,
-              name,
-              amount,
-              percentage,
-              desiredDate,
-              createdAt,
-              userID
-            }) => ({
-              id,
-              category,
-              name,
-              amount,
-              savedAmount: Math.round(user.balance * (percentage / 100)),
-              percentage,
-              desiredDate,
-              createdAt,
-              userID
-            })
-          )
+          goals: goals.map(({ id, category, name, amount, userID }) => ({
+            id,
+            category,
+            name,
+            amount,
+            savedAmount,
+            userID
+          }))
         }
       }
     }
@@ -159,45 +113,29 @@ module.exports = (fs, path, Sequelize, moment, User, Goal, amplitude) => ({
       [
         'data',
         true,
-        [
-          ['category', true],
-          ['id', true],
-          ['name', true],
-          ['amount', true],
-          ['desiredDate', true],
-          ['percentage', true]
-        ]
+        [['category', true], ['id', true], ['name', true], ['amount', true]]
       ]
     ],
     async method (ctx) {
       const {
-        data: { category, id, name, amount, desiredDate, percentage }
+        data: { category, id, name, amount }
       } = ctx.request.body
 
-      const goal = await Goal.findOne({ where: { id } })
       await Goal.update(
         {
           category,
           name,
-          amount,
-          desiredDate: desiredDate === 'infinite' ? null : moment(desiredDate),
-          percentage
+          amount
         },
         { where: { id, userID: ctx.authorized.id } }
       )
 
-      await Goal.adjustOtherGoalPercentages(
-        ctx.authorized.id,
-        goal.id,
-        Math.abs(percentage - goal.percentage),
-        goal.percentage > percentage
-      )
+      const user = await User.findOne({ where: { id: ctx.authorized.id } })
 
       const goals = await Goal.findAll({
         where: { userID: ctx.authorized.id },
         order: Sequelize.col('id')
       })
-      const user = await User.findOne({ where: { id: ctx.authorized.id } })
       amplitude.track({
         eventType: 'GOAL_UPDATED',
         userId: user.id,
@@ -206,30 +144,17 @@ module.exports = (fs, path, Sequelize, moment, User, Goal, amplitude) => ({
         }
       })
 
+      const savedAmount = Math.round(user.balance / goals.length)
       ctx.body = {
         data: {
-          goals: goals.map(
-            ({
-              id,
-              category,
-              name,
-              amount,
-              percentage,
-              desiredDate,
-              createdAt,
-              userID
-            }) => ({
-              id,
-              category,
-              name,
-              amount,
-              savedAmount: Math.round(user.balance * (percentage / 100)),
-              percentage,
-              desiredDate,
-              createdAt,
-              userID
-            })
-          )
+          goals: goals.map(({ id, category, name, amount, userID }) => ({
+            id,
+            category,
+            name,
+            amount,
+            savedAmount,
+            userID
+          }))
         }
       }
     }
@@ -241,21 +166,14 @@ module.exports = (fs, path, Sequelize, moment, User, Goal, amplitude) => ({
         data: { goalID: id }
       } = ctx.request.body
 
-      const deletedGoal = await Goal.findOne({ where: { id } })
       await Goal.destroy({ where: { id, userID: ctx.authorized.id } })
 
-      await Goal.adjustOtherGoalPercentages(
-        ctx.authorized.id,
-        deletedGoal.id,
-        deletedGoal.percentage,
-        true
-      )
+      const user = await User.findOne({ where: { id: ctx.authorized.id } })
 
       const goals = await Goal.findAll({
         where: { userID: ctx.authorized.id },
         order: Sequelize.col('id')
       })
-      const user = await User.findOne({ where: { id: ctx.authorized.id } })
       amplitude.track({
         eventType: 'GOAL_DELETED',
         userId: user.id,
@@ -264,30 +182,17 @@ module.exports = (fs, path, Sequelize, moment, User, Goal, amplitude) => ({
         }
       })
 
+      const savedAmount = Math.round(user.balance / goals.length)
       ctx.body = {
         data: {
-          goals: goals.map(
-            ({
-              id,
-              category,
-              name,
-              amount,
-              percentage,
-              desiredDate,
-              createdAt,
-              userID
-            }) => ({
-              id,
-              category,
-              name,
-              amount,
-              savedAmount: Math.round(user.balance * (percentage / 100)),
-              percentage,
-              desiredDate,
-              createdAt,
-              userID
-            })
-          )
+          goals: goals.map(({ id, category, name, amount, userID }) => ({
+            id,
+            category,
+            name,
+            amount,
+            savedAmount,
+            userID
+          }))
         }
       }
     }
