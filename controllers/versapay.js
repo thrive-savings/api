@@ -1,6 +1,6 @@
 // const crypto = require('crypto')
 
-module.exports = (User, Account, Queue, config) => ({
+module.exports = (User, Account, Queue, Goal) => ({
   hook: {
     async method (ctx) {
       const req = ctx.request.body
@@ -60,6 +60,7 @@ module.exports = (User, Account, Queue, config) => ({
                   : -1 * parseInt(amountInCents)
               user.balance = parseInt(user.balance) + deltaAmount
               await user.save()
+              await Goal.distributeAmount(deltaAmount, user.id)
             }
 
             user.notifyUserAboutTransaction(

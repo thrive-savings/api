@@ -1,4 +1,13 @@
-module.exports = (fs, path, Sequelize, moment, User, Goal, amplitude) => ({
+module.exports = (
+  fs,
+  path,
+  Sequelize,
+  Bluebird,
+  User,
+  Goal,
+  Queue,
+  amplitude
+) => ({
   create: {
     schema: [
       ['data', true, [['goal', true, [['description', true], ['image', true]]]]]
@@ -44,35 +53,56 @@ module.exports = (fs, path, Sequelize, moment, User, Goal, amplitude) => ({
         where: { userID: ctx.authorized.id },
         order: Sequelize.col('id')
       })
-      const user = await User.findOne({ where: { id: ctx.authorized.id } })
-      const savedAmount = Math.round(user.balance / goals.length)
       ctx.body = {
         data: {
-          goals: goals.map(({ id, category, name, amount, userID }) => ({
-            id,
-            category,
-            name,
-            amount,
-            savedAmount,
-            userID
-          }))
+          goals: goals.map(
+            ({
+              id,
+              category,
+              name,
+              amount,
+              progress,
+              weeksLeft,
+              boosted,
+              userID
+            }) => ({
+              id,
+              category,
+              name,
+              amount,
+              progress,
+              weeksLeft,
+              boosted,
+              userID
+            })
+          )
         }
       }
     }
   },
   add: {
     schema: [
-      ['data', true, [['category', true], ['name', true], ['amount', true]]]
+      [
+        'data',
+        true,
+        [
+          ['category', true],
+          ['name', true],
+          ['amount', true],
+          ['boosted', true, 'boolean']
+        ]
+      ]
     ],
     async method (ctx) {
       const {
-        data: { category, name, amount }
+        data: { category, name, amount, boosted }
       } = ctx.request.body
 
       await Goal.create({
         category,
         name,
         amount,
+        boosted,
         userID: ctx.authorized.id
       })
 
@@ -93,17 +123,29 @@ module.exports = (fs, path, Sequelize, moment, User, Goal, amplitude) => ({
         }
       })
 
-      const savedAmount = Math.round(user.balance / goals.length)
       ctx.body = {
         data: {
-          goals: goals.map(({ id, category, name, amount, userID }) => ({
-            id,
-            category,
-            name,
-            amount,
-            savedAmount,
-            userID
-          }))
+          goals: goals.map(
+            ({
+              id,
+              category,
+              name,
+              amount,
+              progress,
+              weeksLeft,
+              boosted,
+              userID
+            }) => ({
+              id,
+              category,
+              name,
+              amount,
+              progress,
+              weeksLeft,
+              boosted,
+              userID
+            })
+          )
         }
       }
     }
@@ -113,19 +155,26 @@ module.exports = (fs, path, Sequelize, moment, User, Goal, amplitude) => ({
       [
         'data',
         true,
-        [['category', true], ['id', true], ['name', true], ['amount', true]]
+        [
+          ['category', true],
+          ['id', true],
+          ['name', true],
+          ['amount', true],
+          ['boosted', true, 'boolean']
+        ]
       ]
     ],
     async method (ctx) {
       const {
-        data: { category, id, name, amount }
+        data: { category, id, name, amount, boosted }
       } = ctx.request.body
 
       await Goal.update(
         {
           category,
           name,
-          amount
+          amount,
+          boosted
         },
         { where: { id, userID: ctx.authorized.id } }
       )
@@ -144,17 +193,29 @@ module.exports = (fs, path, Sequelize, moment, User, Goal, amplitude) => ({
         }
       })
 
-      const savedAmount = Math.round(user.balance / goals.length)
       ctx.body = {
         data: {
-          goals: goals.map(({ id, category, name, amount, userID }) => ({
-            id,
-            category,
-            name,
-            amount,
-            savedAmount,
-            userID
-          }))
+          goals: goals.map(
+            ({
+              id,
+              category,
+              name,
+              amount,
+              progress,
+              weeksLeft,
+              boosted,
+              userID
+            }) => ({
+              id,
+              category,
+              name,
+              amount,
+              progress,
+              weeksLeft,
+              boosted,
+              userID
+            })
+          )
         }
       }
     }
@@ -166,7 +227,15 @@ module.exports = (fs, path, Sequelize, moment, User, Goal, amplitude) => ({
         data: { goalID: id }
       } = ctx.request.body
 
-      await Goal.destroy({ where: { id, userID: ctx.authorized.id } })
+      const goal = await Goal.findOne({
+        where: { id, userID: ctx.authorized.id }
+      })
+      if (!goal) {
+        return Bluebird.reject([{ key: 'goal', value: 'Goal not found' }])
+      }
+      const progress = goal.progress
+      await goal.destroy()
+      await Goal.distributeAmount(progress, ctx.authorized.id)
 
       const user = await User.findOne({ where: { id: ctx.authorized.id } })
 
@@ -182,17 +251,29 @@ module.exports = (fs, path, Sequelize, moment, User, Goal, amplitude) => ({
         }
       })
 
-      const savedAmount = Math.round(user.balance / goals.length)
       ctx.body = {
         data: {
-          goals: goals.map(({ id, category, name, amount, userID }) => ({
-            id,
-            category,
-            name,
-            amount,
-            savedAmount,
-            userID
-          }))
+          goals: goals.map(
+            ({
+              id,
+              category,
+              name,
+              amount,
+              progress,
+              weeksLeft,
+              boosted,
+              userID
+            }) => ({
+              id,
+              category,
+              name,
+              amount,
+              progress,
+              weeksLeft,
+              boosted,
+              userID
+            })
+          )
         }
       }
     }

@@ -363,19 +363,18 @@ module.exports = (
             category,
             name,
             amount,
-            percentage,
-            desiredDate,
-            createdAt,
+            progress,
+            weeksLeft,
+            boosted,
             userID
           }) => ({
             id,
             category,
             name,
             amount,
-            savedAmount: Math.round(this.balance * (percentage / 100)),
-            percentage,
-            desiredDate,
-            createdAt,
+            progress,
+            weeksLeft,
+            boosted,
             userID
           })
         )

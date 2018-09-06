@@ -58,7 +58,6 @@ module.exports = (Sequelize, uuid) => ({
       allowNull: true
     }
   },
-
   instanceMethods: {
     setUUID () {
       this.uuid = uuid().replace(/-/g, '')
@@ -72,9 +71,7 @@ module.exports = (Sequelize, uuid) => ({
   associations: {
     belongsTo: 'User'
   },
-  indexes: [
-    { fields: ['user_id'] }
-  ],
+  indexes: [{ fields: ['user_id'] }],
   timestamps: true,
   processedDate: false,
   updatedAt: false

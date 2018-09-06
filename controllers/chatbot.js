@@ -92,9 +92,11 @@ module.exports = (
             } else {
               amount *= 100
 
-              slackMsg = `Processing Save Command from ${user.phone} | ${
-                user.firstName
-              } ${user.lastName} | Balance ${user.balance} | ${msg}`
+              slackMsg = `Processing Save Command from ${user.phone} | ID ${
+                user.id
+              } | ${user.firstName} ${user.lastName} | Balance ${
+                user.balance
+              } | ${msg}`
               setGenericSlackMsg = false
 
               // Fetch new transactions for user
@@ -151,9 +153,11 @@ module.exports = (
             } else {
               amount *= 100
 
-              slackMsg = `Processing Withdraw Command from ${user.phone} | ${
-                user.firstName
-              } ${user.lastName} | Balance ${user.balance} | ${msg}`
+              slackMsg = `Processing Withdraw Command from ${user.phone} | ID ${
+                user.id
+              } | ${user.firstName} ${user.lastName} | Balance ${
+                user.balance
+              } | ${msg}`
               setGenericSlackMsg = false
 
               let withdrawsInProgress = 0
@@ -265,7 +269,7 @@ module.exports = (
           // Send to Slack
           slackMsg = `Incoming message from ${user.phone} | ${user.firstName} ${
             user.lastName
-          } | Balance ${user.balance} | ${msg}`
+          } | Balance ${user.balance} | ID ${user.id} | ${msg}`
         }
       }
 
