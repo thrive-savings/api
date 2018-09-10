@@ -188,7 +188,7 @@ module.exports = (
 
           safeBalance = latestBalance - (dsAvg * 7 + ldsAvg * 7)
 
-          amount = dsAvg
+          amount = Math.floor(dsAvg * (user.algoBoost / 100))
 
           amplitude.track({
             eventType: 'ALGO_RAN',

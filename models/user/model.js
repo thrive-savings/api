@@ -251,6 +251,12 @@ module.exports = (
     onboardingStep: {
       type: Sequelize.STRING,
       field: 'onboarding_step'
+    },
+
+    algoBoost: {
+      type: Sequelize.INTEGER,
+      defaultValue: 100,
+      field: 'algo_boost'
     }
   },
   instanceMethods: {
@@ -593,6 +599,17 @@ module.exports = (
           'Message Type': 'Automatic'
         }
       })
+    },
+    updateAlgoBoost (scale) {
+      const xIndex = scale.indexOf('x')
+      if (xIndex) {
+        scale = scale.substr(0, xIndex)
+      }
+
+      this.algoBoost *= scale
+      this.save()
+
+      return `Done! We will adjust your next savings by ${scale + 'x'}`
     }
   },
   associations: {

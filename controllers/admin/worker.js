@@ -1,4 +1,12 @@
-module.exports = (Bluebird, Sequelize, User, request, amplitude, config) => ({
+module.exports = (
+  Bluebird,
+  Sequelize,
+  User,
+  request,
+  amplitude,
+  config,
+  emoji
+) => ({
   runFrequency: {
     schema: [['data', true, [['frequencyWord', true]]]],
     async method (ctx) {
@@ -111,7 +119,8 @@ module.exports = (Bluebird, Sequelize, User, request, amplitude, config) => ({
             Frequency: `${frequencyWord}`,
             SavingType: `${user.savingType}`,
             Amount: `${amount}`,
-            Balance: `${balance}`
+            Balance: `${balance}`,
+            SafeBalance: `${safeBalance}`
           }
         })
 
@@ -249,6 +258,26 @@ module.exports = (Bluebird, Sequelize, User, request, amplitude, config) => ({
           eventProperties: { error }
         })
       }
+
+      ctx.body = {}
+    }
+  },
+
+  sendBoostNotification: {
+    async method (ctx) {
+      const MIN_BALANCE_TO_SEND_BOOST = 3000
+      const users = await User.findAll()
+
+      const onMissing = name =>
+        name === 'thumbsup' ? '1:' : name === 'fire' ? '2:' : '3:'
+      const msg =
+        'Are we saving the right amount for you?\n\nYou can change how much to save next time by replying with one of the options below:\n\n:thumbsup: "Boost 1.5x" - Save 1.5x more\n:fire: "Boost 2x" - Save twice as much\n:thumbsdown: "Reduce 0.5x" - Save 50% less'
+
+      users.forEach(user => {
+        if (user.balance >= MIN_BALANCE_TO_SEND_BOOST) {
+          user.sendMessage(emoji.emojify(msg, onMissing))
+        }
+      })
 
       ctx.body = {}
     }

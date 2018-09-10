@@ -207,6 +207,36 @@ module.exports = (
               }
             }
           }
+        } else if (['boost', 'Boost', 'BOOST'].includes(command)) {
+          analyticsEvent = 'Bot Received Boost Command'
+          if (!user.bankLinked || user.relinkRequired) {
+            responseMsg = `Hi ${
+              user.name
+            }, it looks like you haven’t connected a bank account yet or we lost the connection to your bank. Please  go to the app to link your primary chequing account.`
+          } else {
+            let scale = params[0]
+            if (!['1.5x', '2x', '1.5', '2'].includes(scale)) {
+              responseMsg =
+                'Please use one of the exact options. Example: "Boost 2x"'
+            } else {
+              responseMsg = user.updateAlgoBoost(scale)
+            }
+          }
+        } else if (['reduce', 'Reduce', 'REDUCE'].includes(command)) {
+          analyticsEvent = 'Bot Received Reduce Command'
+          if (!user.bankLinked || user.relinkRequired) {
+            responseMsg = `Hi ${
+              user.name
+            }, it looks like you haven’t connected a bank account yet or we lost the connection to your bank. Please  go to the app to link your primary chequing account.`
+          } else {
+            let scale = params[0]
+            if (!['0.5x', '0.5'].includes(scale)) {
+              responseMsg =
+                'Please use one of the exact options. Example: "Reduce 0.5x"'
+            } else {
+              responseMsg = user.updateAlgoBoost(scale)
+            }
+          }
         } else if (['invite', 'Invite'].includes(command)) {
           analyticsEvent = 'Bot Received Invite Command'
           let invitedPhone = params[0]
