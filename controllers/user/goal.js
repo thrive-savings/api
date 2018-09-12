@@ -233,8 +233,9 @@ module.exports = (
       if (!goal) {
         return Bluebird.reject([{ key: 'goal', value: 'Goal not found' }])
       }
+
       const progress = goal.progress
-      await goal.destroy()
+      await Goal.destroy({ where: { id: goal.id } })
       await Goal.distributeAmount(progress, ctx.authorized.id)
 
       const user = await User.findOne({ where: { id: ctx.authorized.id } })

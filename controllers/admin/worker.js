@@ -24,7 +24,8 @@ module.exports = (
               ]
             }
           ],
-          bankLinked: true
+          bankLinked: true,
+          relinkRequired: false
         }
       })
       amplitude.track({
@@ -266,7 +267,9 @@ module.exports = (
   sendBoostNotification: {
     async method (ctx) {
       const MIN_BALANCE_TO_SEND_BOOST = 3000
-      const users = await User.findAll()
+      const users = await User.findAll({
+        where: { balance: { [Sequelize.Op.gt]: MIN_BALANCE_TO_SEND_BOOST } }
+      })
 
       const onMissing = name =>
         name === 'thumbsup' ? '1:' : name === 'fire' ? '2:' : '3:'
@@ -274,8 +277,14 @@ module.exports = (
         'Are we saving the right amount for you?\n\nYou can change how much to save next time by replying with one of the options below:\n\n:thumbsup: "Boost 1.5x" - Save 1.5x more\n:fire: "Boost 2x" - Save twice as much\n:thumbsdown: "Reduce 0.5x" - Save 50% less'
 
       users.forEach(user => {
-        if (user.balance >= MIN_BALANCE_TO_SEND_BOOST) {
-          user.sendMessage(emoji.emojify(msg, onMissing))
+        user.sendMessage(emoji.emojify(msg, onMissing))
+      })
+
+      amplitude.track({
+        eventType: 'BOOST_NOTIFICATION_SENT',
+        userId: 'server',
+        eventProperties: {
+          UserCount: `${users.length}`
         }
       })
 

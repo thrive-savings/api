@@ -123,7 +123,7 @@ module.exports = (Sequelize, User, Company, Account, Goal, Bonus, moment, Bluebi
         await user.save()
       } else {
         user = await User.create({ email, password, firstName, lastName, companyID })
-        await Goal.create({ category: 'RainyDay', name: 'Rainy Day Fund', percentage: 100, userID: user.id })
+        await Goal.create({ category: 'RainyDay', name: 'Rainy Day Fund', userID: user.id })
       }
 
       const company = await Company.findOne({ where: { id: user.companyID } })
