@@ -168,16 +168,9 @@ module.exports = (User, Account, Bluebird, request, amplitude, config) => ({
         user.relinkRequired = false
         analyticsEvent = 'NEW_' + analyticsEvent
 
-        // Run worker if too much left till pull
+        // Schedule worker to run next day if too much left till pull
         if (user.daysLeftToNextPull() > 3) {
-          request.post({
-            uri: `${config.constants.URL}/admin/worker-run-user`,
-            body: {
-              secret: process.env.apiSecret,
-              data: { userID: user.id, frequencyWord: 'AFTER_RELINK' }
-            },
-            json: true
-          })
+          user.forcedFetchFrequency = 'ONCEDAILY'
         }
       } else if (!user.bankLinked) {
         user.bankLinked = true
