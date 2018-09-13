@@ -610,6 +610,40 @@ module.exports = (
       this.save()
 
       return `Done! We will adjust your next savings by ${scale + 'x'}`
+    },
+    daysLeftToNextPull () {
+      let frequency = this.forcedFetchFrequency
+      if (!frequency) {
+        frequency = this.fetchFrequency
+      }
+
+      let nextRunMoment = moment()
+      const dateOfMonth = nextRunMoment.date()
+      switch (frequency) {
+        case 'ONCEWEEKLY':
+          nextRunMoment = nextRunMoment.add(1, 'weeks').day(1)
+          break
+        case 'BIWEEKLY':
+          nextRunMoment =
+            dateOfMonth < 15
+              ? nextRunMoment.date(15)
+              : nextRunMoment.add(1, 'months').date(1)
+          break
+        case 'ONCEMONTHLY':
+          nextRunMoment = nextRunMoment.add(1, 'months').date(1)
+          break
+        case 'SPECIALMONTHLY':
+          nextRunMoment =
+            dateOfMonth < 15
+              ? nextRunMoment.date(15)
+              : nextRunMoment.add(1, 'months').date(15)
+          break
+        default:
+          nextRunMoment = nextRunMoment.add(1, 'days')
+          break
+      }
+
+      return nextRunMoment.diff(moment(), 'days')
     }
   },
   associations: {

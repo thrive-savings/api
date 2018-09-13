@@ -68,7 +68,9 @@ module.exports = (
       const BALANCE_LOWER_THRESHOLD = 15000
       const MAX_DEPOSIT_AMOUNT = 100000
 
-      const user = await User.findOne({ where: { id: userID } })
+      const user = await User.findOne({
+        where: { id: userID, bankLinked: true, relinkRequired: false }
+      })
       if (!user) {
         return Bluebird.reject([
           { key: 'User', value: `User not found for ID: ${userID}` }

@@ -1,4 +1,4 @@
-module.exports = (User, Account, Bluebird, request, amplitude) => ({
+module.exports = (User, Account, Bluebird, request, amplitude, config) => ({
   fetch: {
     schema: [['data', true, [['loginID', true]]]],
     async method (ctx) {
@@ -163,17 +163,32 @@ module.exports = (User, Account, Bluebird, request, amplitude) => ({
 
       const user = await User.findOne({ where: { id: ctx.authorized.id } })
 
+      let analyticsEvent = 'DEFAULT_ACCOUNT_SET'
       if (user.bankLinked && user.relinkRequired) {
         user.relinkRequired = false
+        analyticsEvent = 'NEW_' + analyticsEvent
+
+        // Run worker if too much left till pull
+        if (user.daysLeftToNextPull() > 3) {
+          request.post({
+            uri: `${config.constants.URL}/admin/worker-run-user`,
+            body: {
+              secret: process.env.apiSecret,
+              data: { userID: user.id, frequencyWord: 'AFTER_RELINK' }
+            },
+            json: true
+          })
+        }
       } else if (!user.bankLinked) {
         user.bankLinked = true
         user.onboardingStep = 'SavingPreferences'
         user.greet()
+        analyticsEvent = 'INITIAL_' + analyticsEvent
       }
       await user.save()
 
       amplitude.track({
-        eventType: 'DEFAULT_ACCOUNT_SET',
+        eventType: analyticsEvent,
         userId: ctx.authorized.id,
         userProperties: { 'Bank Linked': true }
       })
