@@ -7,6 +7,7 @@ const uuid = require('uuid/v4')
 const Amplitude = require('amplitude')
 const aws = require('aws-sdk')
 const emoji = require('node-emoji')
+const { Expo } = require('expo-server-sdk')
 
 const twilio = new Twilio(process.env.twilioSID, process.env.twilioToken)
 const amplitude = new Amplitude(process.env.amplitudeToken)
@@ -20,5 +21,6 @@ module.exports = {
   uuid,
   amplitude,
   aws,
-  emoji
+  emoji,
+  Expo
 }

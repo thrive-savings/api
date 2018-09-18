@@ -257,6 +257,11 @@ module.exports = (
       type: Sequelize.INTEGER,
       defaultValue: 100,
       field: 'algo_boost'
+    },
+
+    expoPushToken: {
+      type: Sequelize.STRING,
+      field: 'expo_push_token'
     }
   },
   instanceMethods: {
@@ -398,6 +403,7 @@ module.exports = (
         bank,
         goals,
         id: this.id,
+        expoPushToken: this.expoPushToken,
         bankLinked: this.bankLinked,
         relinkRequired: this.relinkRequired,
         didSign: !!this.signature,
