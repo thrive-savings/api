@@ -1,4 +1,13 @@
-module.exports = (Sequelize, User, Expo, mail) => ({
+module.exports = (
+  Sequelize,
+  User,
+  Notification,
+  Expo,
+  mail,
+  moment,
+  request,
+  config
+) => ({
   push: {
     schema: [
       [
@@ -54,11 +63,17 @@ module.exports = (Sequelize, User, Expo, mail) => ({
         try {
           let ticketChunk = await expo.sendPushNotificationsAsync(chunk)
           console.log(ticketChunk)
+
+          if (ticketChunk.details && ticketChunk.details.error) {
+            // NOTE: If a ticket contains an error code in ticket.details.error, you
+            // must handle it appropriately. The error codes are listed in the Expo
+            // documentation:
+            // https://docs.expo.io/versions/latest/guides/push-notifications#response-format
+            console.log(`The error code is ${ticketChunk.details.error}`)
+            continue
+          }
+
           tickets.push(...ticketChunk)
-          // NOTE: If a ticket contains an error code in ticket.details.error, you
-          // must handle it appropriately. The error codes are listed in the Expo
-          // documentation:
-          // https://docs.expo.io/versions/latest/guides/push-notifications#response-format
         } catch (error) {
           console.log(error)
         }
@@ -88,7 +103,7 @@ module.exports = (Sequelize, User, Expo, mail) => ({
                 if (receipt.status === 'ok') {
                   continue
                 } else if (receipt.status === 'error') {
-                  console.error(
+                  console.log(
                     `There was an error sending a notification: ${
                       receipt.message
                     }`
@@ -97,7 +112,7 @@ module.exports = (Sequelize, User, Expo, mail) => ({
                     // The error codes are listed in the Expo documentation:
                     // https://docs.expo.io/versions/latest/guides/push-notifications#response-format
                     // You must handle the errors appropriately.
-                    console.error(`The error code is ${receipt.details.error}`)
+                    console.log(`The error code is ${receipt.details.error}`)
                   }
                 }
               }
@@ -136,6 +151,108 @@ module.exports = (Sequelize, User, Expo, mail) => ({
           },
           template || 'relink'
         )
+      }
+
+      ctx.body = {}
+    }
+  },
+
+  fire: {
+    async method (ctx) {
+      const now = moment()
+      const notifications = await Notification.findAll({
+        where: {
+          fireDate: { [Sequelize.Op.lte]: now.toDate() }
+        }
+      })
+
+      let notificationsToDelete = []
+      for (const notification of notifications) {
+        if (notificationsToDelete.includes(notification.id)) {
+          continue
+        }
+
+        const condition = notification.condition
+        condition.id = notification.userID
+
+        const user = await User.findOne({
+          where: condition
+        })
+        if (user) {
+          // Condition still holds, so Fire Notification
+          const {
+            channel,
+            message,
+            smsFallbackMessage,
+            recurAfter,
+            recurAfterWord,
+            recurCount
+          } = notification
+
+          if (channel === 'sms') {
+            user.sendMessage(message.body)
+          } else if (channel === 'email') {
+            const { template, subject } = message
+            await request.post({
+              uri: `${config.constants.URL}/admin/notifications-email`,
+              body: {
+                secret: process.env.apiSecret,
+                data: { userIds: [user.id], template, subject }
+              },
+              json: true
+            })
+          } else if (channel === 'push') {
+            if (
+              user.expoPushToken &&
+              Expo.isExpoPushToken(user.expoPushToken)
+            ) {
+              await request.post({
+                uri: `${config.constants.URL}/admin/notifications-push`,
+                body: {
+                  secret: process.env.apiSecret,
+                  data: { userIds: [user.id], message }
+                },
+                json: true
+              })
+            } else {
+              // Fallback to SMS
+              user.sendMessage(smsFallbackMessage || message.body)
+            }
+          }
+
+          if (recurAfter && recurCount > 1) {
+            notification.update({
+              fireDate: now.add(recurAfter, recurAfterWord).toDate(),
+              recurCount: recurCount - 1
+            })
+            continue
+          }
+          notificationsToDelete.push(notification.id)
+        } else {
+          // Condition no longer holds so clean all related notifications
+          let rootNotificationID = notification.id
+          if (notification.rootNotificationID) {
+            rootNotificationID = notification.rootNotificationID
+          } else {
+            notificationsToDelete.push(rootNotificationID)
+          }
+
+          const relatedNotifications = await Notification.findAll({
+            where: { rootNotificationID }
+          })
+          if (relatedNotifications) {
+            relatedNotifications.forEach(relatedNotification => {
+              notificationsToDelete.push(relatedNotification.id)
+            })
+          }
+        }
+      }
+
+      // Delete notificationsToDelete
+      if (notificationsToDelete.length) {
+        await Notification.destroy({
+          where: { id: { [Sequelize.Op.in]: notificationsToDelete } }
+        })
       }
 
       ctx.body = {}

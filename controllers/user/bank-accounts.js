@@ -183,7 +183,7 @@ module.exports = (User, Account, Bluebird, request, amplitude, config) => ({
       amplitude.track({
         eventType: analyticsEvent,
         userId: ctx.authorized.id,
-        userProperties: { 'Bank Linked': true }
+        userProperties: { 'Bank Linked': true, 'Relink Required': false }
       })
 
       let authorizedAccount = account.toAuthorized()

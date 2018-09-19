@@ -8,7 +8,9 @@ module.exports = (
   twilio,
   uuid,
   amplitude,
-  aws
+  aws,
+  request,
+  Notification
 ) => ({
   attributes: {
     acceptedAt: {
@@ -650,10 +652,99 @@ module.exports = (
       }
 
       return nextRunMoment.diff(moment(), 'days')
+    },
+    async unlink ({ error = '', options = {} } = {}) {
+      this.relinkRequired = true
+      await this.save()
+
+      amplitude.track({
+        eventType: 'FLINKS_USER_UNLINKED',
+        userId: this.id,
+        userProperties: {
+          'Relink Required': this.relinkRequired
+        },
+        eventProperties: {
+          error,
+          options
+        }
+      })
+
+      const notificationMsg = `Hi ${
+        this.firstName
+      }. We lost connection to your bank account. Please open the Thrive app to log into your bank again.`
+
+      if (this.requireApproval || this.userType === 'vip') {
+        await request.post({
+          uri: `${config.constants.URL}/slack-request-notification-approval`,
+          body: {
+            data: {
+              userID: this.id,
+              text: notificationMsg
+            }
+          },
+          json: true
+        })
+      } else {
+        this.sendMessage(notificationMsg)
+      }
+
+      if ([2].includes(this.companyID)) {
+        // Schedule future notifications
+        const condition = {
+          $or: {
+            bankLinked: false,
+            relinkRequired: true
+          }
+        }
+
+        let fireDate = moment().add(1, 'days')
+        const rootNotification = await Notification.create({
+          userID: this.id,
+          channel: 'push',
+          message: {
+            title: 'Relink Bank',
+            body: 'Relink Bank Notification Body',
+            data: { x: 1 }
+          },
+          condition,
+          fireDate: fireDate.toDate(),
+          description: 'Relink Bank Push Notification',
+          smsFallbackMessage: 'Relink Bank SMS Body'
+        })
+
+        fireDate.add(2, 'days')
+        await Notification.create({
+          userID: this.id,
+          channel: 'email',
+          message: {
+            template: 'relink'
+          },
+          condition,
+          fireDate: fireDate.toDate(),
+          description: 'Relink Bank Email Notification',
+          rootNotificationID: rootNotification.id
+        })
+
+        fireDate.add(3, 'days')
+        await Notification.create({
+          userID: this.id,
+          channel: 'sms',
+          message: {
+            body: 'Recurring SMS body'
+          },
+          condition,
+          fireDate: fireDate.toDate(),
+          description: 'Relink Bank Weekly SMS Notification',
+          rootNotificationID: rootNotification.id,
+          recurAfter: 1,
+          recurCount: 3,
+          recurAfterWord: 'days'
+        })
+      }
     }
   },
   associations: {
-    hasMany: ['Account', 'Goal', 'Bonus'],
+    hasMany: ['Account', 'Goal', 'Bonus', 'Notification'],
     belongsTo: 'Company'
   },
   hooks: {

@@ -195,35 +195,7 @@ module.exports = (
         ctx.body = { data: { balance: parseInt(balance * 100) } }
       } catch ({ error, options }) {
         // Force user to relink
-        await user.update({ relinkRequired: true })
-
-        amplitude.track({
-          eventType: 'FLINKS_USER_UNLINKED',
-          userId: user.id,
-          eventProperties: {
-            error,
-            options
-          }
-        })
-
-        const notificationMsg = `Hi ${
-          user.firstName
-        }. We lost connection to your bank account. Please open the Thrive app to log into your bank again.`
-
-        if (user.requireApproval || user.userType === 'vip') {
-          await request.post({
-            uri: `${config.constants.URL}/slack-request-notification-approval`,
-            body: {
-              data: {
-                userID: user.id,
-                text: notificationMsg
-              }
-            },
-            json: true
-          })
-        } else {
-          user.sendMessage(notificationMsg)
-        }
+        user.unlink({ error, options })
 
         ctx.body = { error: true }
       }
