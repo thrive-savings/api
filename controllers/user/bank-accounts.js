@@ -2,6 +2,8 @@ module.exports = (User, Account, Bluebird, request, amplitude, config) => ({
   fetch: {
     schema: [['data', true, [['loginID', true]]]],
     async method (ctx) {
+      ctx.request.socket.setTimeout(5 * 60 * 1000)
+
       const delay = (ms = 1000) =>
         new Promise(resolve => setTimeout(resolve, ms))
 
