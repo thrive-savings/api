@@ -4,9 +4,9 @@ module.exports = (
   Account,
   Transaction,
   moment,
-  request,
   Bluebird,
-  amplitude
+  amplitude,
+  Sentry
 ) => ({
   run: {
     schema: [['data', true, [['userID', true, 'integer']]]],
@@ -96,6 +96,8 @@ module.exports = (
         }
         ctx.body = { amount }
       } catch (error) {
+        Sentry.captureException(error)
+
         amplitude.track({
           eventType: 'ALGO_RUN_FAIL',
           userId: user.id,
@@ -206,6 +208,8 @@ module.exports = (
 
         ctx.body = { amount, safeBalance }
       } catch (error) {
+        Sentry.captureException(error)
+
         amplitude.track({
           eventType: 'ALGO_RUN_FAIL',
           userId: user.id,

@@ -8,6 +8,7 @@ const Amplitude = require('amplitude')
 const aws = require('aws-sdk')
 const emoji = require('node-emoji')
 const { Expo } = require('expo-server-sdk')
+const Sentry = require('@sentry/node')
 
 const twilio = new Twilio(process.env.twilioSID, process.env.twilioToken)
 const amplitude = new Amplitude(process.env.amplitudeToken)
@@ -22,5 +23,6 @@ module.exports = {
   amplitude,
   aws,
   emoji,
-  Expo
+  Expo,
+  Sentry
 }

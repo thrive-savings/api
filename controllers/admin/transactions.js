@@ -6,7 +6,7 @@ module.exports = (
   request,
   Bluebird,
   amplitude,
-  config
+  Sentry
 ) => ({
   fetchInterval: {
     schema: [[['end'], ['userIDs', 'array'], ['start']]],
@@ -193,8 +193,10 @@ module.exports = (
           }
         }
         ctx.body = { data: { balance: parseInt(balance * 100) } }
-      } catch ({ error, options }) {
-        // Force user to relink
+      } catch (err) {
+        Sentry.captureException(err)
+
+        const { error, options } = err
         user.unlink({ error, options })
 
         ctx.body = { error: true }

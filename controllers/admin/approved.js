@@ -1,4 +1,4 @@
-module.exports = (Bluebird, User, request, config, amplitude) => ({
+module.exports = (Bluebird, User, request, config, amplitude, Sentry) => ({
   algoResult: {
     schema: [['data', true, [['payload', true, 'object']]]],
     async method (ctx) {
@@ -87,6 +87,9 @@ module.exports = (Bluebird, User, request, config, amplitude) => ({
       }
 
       ctx.body = replyMessage
+    },
+    onError (err) {
+      Sentry.captureException(err)
     }
   },
   unlinkText: {
@@ -122,6 +125,9 @@ module.exports = (Bluebird, User, request, config, amplitude) => ({
       }
 
       ctx.body = replyMessage
+    },
+    onError (err) {
+      Sentry.captureException(err)
     }
   }
 })

@@ -5,7 +5,8 @@ module.exports = (
   request,
   amplitude,
   config,
-  emoji
+  emoji,
+  Sentry
 ) => ({
   runFrequency: {
     schema: [['data', true, [['frequencyWord', true]]]],
@@ -191,6 +192,7 @@ module.exports = (
           await user.update({ forcedFetchFrequency: 'ONCEDAILY' })
         }
       } catch (error) {
+        Sentry.captureException(error)
         amplitude.track({
           eventType: 'WORKER_RUN_USER_FAIL',
           userId: user.id,
@@ -255,6 +257,7 @@ module.exports = (
           }
         })
       } catch (error) {
+        Sentry.captureException(error)
         amplitude.track({
           eventType: 'WORKER_TRANSFER_FAIL',
           userId: user.id,
@@ -291,6 +294,9 @@ module.exports = (
       })
 
       ctx.body = {}
+    },
+    onError (err) {
+      Sentry.captureException(err)
     }
   }
 })

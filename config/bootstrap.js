@@ -1,4 +1,6 @@
-module.exports = request => async () => {
+module.exports = (request, Sentry) => async () => {
+  Sentry.init({ dsn: process.env.sentryDsn })
+
   if (process.env.NODE_ENV === 'production') {
     await request.post({
       uri: process.env.slackWebhookURL,

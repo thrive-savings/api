@@ -1,4 +1,4 @@
-module.exports = (User, Account, Queue, Sequelize, moment, amplitude) => ({
+module.exports = (Account, Queue, moment, amplitude, Sentry) => ({
   create: {
     schema: [
       [
@@ -45,6 +45,8 @@ module.exports = (User, Account, Queue, Sequelize, moment, amplitude) => ({
 
           ctx.body = {}
         } catch (error) {
+          Sentry.captureException(error)
+
           amplitude.track({
             eventType: 'QUEUE_CREATE_FAIL',
             userId: userID,

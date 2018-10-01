@@ -13,6 +13,7 @@
   "author": "Naib Baghirov <naib.baghirov@gmail.com> (https://www.linkedin.com/in/naib-baghirov-03182170/)",
   "license": "MIT",
   "dependencies": {
+    "@sentry/node": "4.0.6",
     "amplitude": "^3.5.0",
     "api-boilerplate": "1",
     "api-db-cli": "0",

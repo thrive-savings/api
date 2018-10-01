@@ -1,4 +1,4 @@
-module.exports = (User, Account, Queue, request, Bluebird, amplitude) => ({
+module.exports = (User, Account, Queue, request, Sentry, amplitude) => ({
   sync: {
     schema: [['data', true, [['userID', 'integer']]]],
     async method (ctx) {
@@ -82,6 +82,8 @@ module.exports = (User, Account, Queue, request, Bluebird, amplitude) => ({
           }
         }
       } catch (error) {
+        Sentry.captureException(error)
+
         amplitude.track({
           eventType: 'VERSAPAY_SYNC_FAIL',
           userId: providedUserID || 'server',

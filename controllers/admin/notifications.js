@@ -6,7 +6,8 @@ module.exports = (
   mail,
   moment,
   request,
-  config
+  config,
+  Sentry
 ) => ({
   push: {
     schema: [
@@ -69,13 +70,14 @@ module.exports = (
             // must handle it appropriately. The error codes are listed in the Expo
             // documentation:
             // https://docs.expo.io/versions/latest/guides/push-notifications#response-format
+            Sentry.captureException(ticketChunk.details.error)
             console.log(`The error code is ${ticketChunk.details.error}`)
             continue
           }
 
           tickets.push(...ticketChunk)
         } catch (error) {
-          console.log(error)
+          Sentry.captureException(error)
         }
       }
 
@@ -112,12 +114,13 @@ module.exports = (
                     // The error codes are listed in the Expo documentation:
                     // https://docs.expo.io/versions/latest/guides/push-notifications#response-format
                     // You must handle the errors appropriately.
+                    Sentry.captureException(receipt.details.error)
                     console.log(`The error code is ${receipt.details.error}`)
                   }
                 }
               }
             } catch (error) {
-              console.log(error)
+              Sentry.captureException(error)
             }
           }
         },
@@ -154,6 +157,9 @@ module.exports = (
       }
 
       ctx.body = {}
+    },
+    onError (err) {
+      Sentry.captureException(err)
     }
   },
 
@@ -256,6 +262,9 @@ module.exports = (
       }
 
       ctx.body = {}
+    },
+    onError (err) {
+      Sentry.captureException(err)
     }
   }
 })

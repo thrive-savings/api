@@ -1,4 +1,4 @@
-module.exports = (User, Account, Bluebird, request, amplitude, config) => ({
+module.exports = (User, Account, Bluebird, request, amplitude, Sentry) => ({
   fetch: {
     schema: [['data', true, [['loginID', true]]]],
     async method (ctx) {
@@ -126,7 +126,9 @@ module.exports = (User, Account, Bluebird, request, amplitude, config) => ({
 
       ctx.body = { data: { accounts, questions, bank } }
     },
-    onError ({ error: { FlinksCode: code } = {} }) {
+    onError (err) {
+      Sentry.captureException(err)
+      const { error: { FlinksCode: code } = {} } = err
       if (code) return [{ key: 'flinks', value: code }]
     }
   },
@@ -147,6 +149,9 @@ module.exports = (User, Account, Bluebird, request, amplitude, config) => ({
       })
 
       ctx.body = {}
+    },
+    onError (err) {
+      Sentry.captureException(err)
     }
   },
 
@@ -192,6 +197,9 @@ module.exports = (User, Account, Bluebird, request, amplitude, config) => ({
       authorizedAccount.flLoginID = user.loginID
 
       ctx.body = { data: { authorized: { account: authorizedAccount } } }
+    },
+    onError (err) {
+      Sentry.captureException(err)
     }
   }
 })
