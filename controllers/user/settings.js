@@ -5,7 +5,8 @@ module.exports = (
   Goal,
   Company,
   Sequelize,
-  amplitude
+  amplitude,
+  moment
 ) => ({
   setPhone: {
     schema: [['data', true, [['phone', true]]]],
@@ -41,12 +42,12 @@ module.exports = (
         ])
       }
 
-      user.phone = phone
-
       if (phone === '9991239876') {
+        user.phone = `${phone}-${moment().unix()}`
         user.isVerified = 1
         await user.save()
       } else {
+        user.phone = phone
         user.isVerified = 0
         await user.sendCode()
       }

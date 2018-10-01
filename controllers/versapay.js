@@ -1,6 +1,6 @@
 // const crypto = require('crypto')
 
-module.exports = (User, Account, Queue, Goal) => ({
+module.exports = (User, Account, Queue, Goal, amplitude) => ({
   hook: {
     async method (ctx) {
       const req = ctx.request.body
@@ -61,6 +61,14 @@ module.exports = (User, Account, Queue, Goal) => ({
               user.balance = parseInt(user.balance) + deltaAmount
               await user.save()
               await Goal.distributeAmount(deltaAmount, user.id)
+
+              amplitude.track({
+                eventType: 'BALANCE_UPDATED',
+                userId: user.id,
+                userProperties: {
+                  'Balance on Thrive': user.balance
+                }
+              })
             }
 
             user.notifyUserAboutTransaction(

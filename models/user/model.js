@@ -671,7 +671,7 @@ module.exports = (
 
       const notificationMsg = `Hi ${
         this.firstName
-      }. We lost connection to your bank account. Please open the Thrive app to log into your bank again.`
+      }. For your security, we need you to authenticate your bank account again. Please open the Thrive app to continue saving.`
 
       if (this.requireApproval || this.userType === 'vip') {
         await request.post({
@@ -688,59 +688,62 @@ module.exports = (
         this.sendMessage(notificationMsg)
       }
 
-      if ([2].includes(this.companyID)) {
-        // Schedule future notifications
-        const condition = {
-          $or: {
-            bankLinked: false,
-            relinkRequired: true
-          }
+      // Schedule future notifications
+      const condition = {
+        $or: {
+          bankLinked: false,
+          relinkRequired: true
         }
-
-        let fireDate = moment().add(1, 'days')
-        const rootNotification = await Notification.create({
-          userID: this.id,
-          channel: 'push',
-          message: {
-            title: 'Relink Bank',
-            body: 'Relink Bank Notification Body',
-            data: { x: 1 }
-          },
-          condition,
-          fireDate: fireDate.toDate(),
-          description: 'Relink Bank Push Notification',
-          smsFallbackMessage: 'Relink Bank SMS Body'
-        })
-
-        fireDate.add(2, 'days')
-        await Notification.create({
-          userID: this.id,
-          channel: 'email',
-          message: {
-            template: 'relink'
-          },
-          condition,
-          fireDate: fireDate.toDate(),
-          description: 'Relink Bank Email Notification',
-          rootNotificationID: rootNotification.id
-        })
-
-        fireDate.add(3, 'days')
-        await Notification.create({
-          userID: this.id,
-          channel: 'sms',
-          message: {
-            body: 'Recurring SMS body'
-          },
-          condition,
-          fireDate: fireDate.toDate(),
-          description: 'Relink Bank Weekly SMS Notification',
-          rootNotificationID: rootNotification.id,
-          recurAfter: 1,
-          recurCount: 3,
-          recurAfterWord: 'days'
-        })
       }
+
+      let fireDate = moment().add(2, 'days')
+      const rootNotification = await Notification.create({
+        userID: this.id,
+        channel: 'push',
+        message: {
+          title: 'Relink Bank',
+          body:
+            'For your security, we need you to authenticate your bank account again. Please open the Thrive app to continue saving.',
+          data: { x: 1 }
+        },
+        condition,
+        fireDate: fireDate.toDate(),
+        description: 'Relink Bank Push Notification',
+        smsFallbackMessage: `Hi ${
+          this.firstName
+        }. For your security, we need you to authenticate your bank account again. Please open the Thrive app to continue saving.`
+      })
+
+      fireDate.add(3, 'days')
+      await Notification.create({
+        userID: this.id,
+        channel: 'email',
+        message: {
+          template: 'relink'
+        },
+        condition,
+        fireDate: fireDate.toDate(),
+        description: 'Relink Bank Email Notification',
+        rootNotificationID: rootNotification.id
+      })
+
+      fireDate.add(3, 'days')
+      await Notification.create({
+        userID: this.id,
+        channel: 'sms',
+        message: {
+          body: `Hi ${
+            this.firstName
+          }. For your security, we need you to authenticate your bank account again. Please open the Thrive app to continue saving.`
+        },
+        condition,
+        fireDate: fireDate.toDate(),
+        description: 'Relink Bank Weekly SMS Notification',
+        rootNotificationID: rootNotification.id,
+        recurAfter: 7,
+        recurCount: 3,
+        recurAfterWord: 'days'
+      })
     }
   },
   associations: {
