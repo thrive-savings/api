@@ -1,4 +1,4 @@
-module.exports = (Sequelize, bcrypt, JWT) => ({
+module.exports = Sequelize => ({
   attributes: {
     channel: {
       type: Sequelize.ENUM,
@@ -14,6 +14,11 @@ module.exports = (Sequelize, bcrypt, JWT) => ({
     },
     condition: {
       type: Sequelize.JSON
+    },
+    conditionModel: {
+      type: Sequelize.STRING,
+      defaultValue: 'users',
+      field: 'condition_model'
     },
     fireDate: {
       type: Sequelize.DATE,
@@ -48,10 +53,8 @@ module.exports = (Sequelize, bcrypt, JWT) => ({
     description: {
       type: Sequelize.STRING
     },
-    rootNotificationID: {
-      type: Sequelize.INTEGER,
-      allowNull: true,
-      field: 'root_notification_id'
+    event: {
+      type: Sequelize.STRING
     },
     userID: {
       type: Sequelize.INTEGER,
@@ -72,7 +75,6 @@ module.exports = (Sequelize, bcrypt, JWT) => ({
   associations: {
     belongsTo: 'User'
   },
-  instanceMethods: {},
   indexes: [{ fields: ['user_id'] }],
   timestamps: true,
   createdAt: 'createdAt',

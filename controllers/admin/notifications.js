@@ -63,15 +63,23 @@ module.exports = (
       for (let chunk of chunks) {
         try {
           let ticketChunk = await expo.sendPushNotificationsAsync(chunk)
-          console.log(ticketChunk)
+          if (ticketChunk.constructor === Array && ticketChunk.length) {
+            ticketChunk = ticketChunk[0]
+          }
 
           if (ticketChunk.details && ticketChunk.details.error) {
             // NOTE: If a ticket contains an error code in ticket.details.error, you
             // must handle it appropriately. The error codes are listed in the Expo
             // documentation:
             // https://docs.expo.io/versions/latest/guides/push-notifications#response-format
-            Sentry.captureException(ticketChunk.details.error)
-            console.log(`The error code is ${ticketChunk.details.error}`)
+            const errorCode = ticketChunk.details.error
+            if (errorCode === 'DeviceNotRegistered') {
+              await User.update(
+                { expoPushToken: 'DeviceNotRegistered' },
+                { where: { expoPushToken: chunk[0].to } }
+              )
+            }
+            Sentry.captureException(ticketChunk.details)
             continue
           }
 
@@ -105,17 +113,18 @@ module.exports = (
                 if (receipt.status === 'ok') {
                   continue
                 } else if (receipt.status === 'error') {
-                  console.log(
-                    `There was an error sending a notification: ${
-                      receipt.message
-                    }`
-                  )
                   if (receipt.details && receipt.details.error) {
                     // The error codes are listed in the Expo documentation:
                     // https://docs.expo.io/versions/latest/guides/push-notifications#response-format
                     // You must handle the errors appropriately.
-                    Sentry.captureException(receipt.details.error)
-                    console.log(`The error code is ${receipt.details.error}`)
+                    const errorCode = receipt.details.error
+                    if (errorCode === 'DeviceNotRegistered') {
+                      await User.update(
+                        { expoPushToken: 'DeviceNotRegistered' },
+                        { where: { expoPushToken: chunk[0].to } }
+                      )
+                    }
+                    Sentry.captureException(receipt.details)
                   }
                 }
               }
@@ -178,13 +187,19 @@ module.exports = (
           continue
         }
 
-        const condition = notification.condition
-        condition.id = notification.userID
+        const { userID, condition, conditionModel, event } = notification
 
-        const user = await User.findOne({
-          where: condition
-        })
-        if (user) {
+        let user = await User.findOne({ where: { id: userID } })
+        let conditionHolds = true
+
+        if (conditionModel === 'users') {
+          condition.id = userID
+          user = await User.findOne({
+            where: condition
+          })
+        }
+
+        if (user && conditionHolds) {
           // Condition still holds, so Fire Notification
           const {
             channel,
@@ -236,21 +251,7 @@ module.exports = (
           notificationsToDelete.push(notification.id)
         } else {
           // Condition no longer holds so clean all related notifications
-          let rootNotificationID = notification.id
-          if (notification.rootNotificationID) {
-            rootNotificationID = notification.rootNotificationID
-          } else {
-            notificationsToDelete.push(rootNotificationID)
-          }
-
-          const relatedNotifications = await Notification.findAll({
-            where: { rootNotificationID }
-          })
-          if (relatedNotifications) {
-            relatedNotifications.forEach(relatedNotification => {
-              notificationsToDelete.push(relatedNotification.id)
-            })
-          }
+          await Notification.destroy({ where: { userID, event } })
         }
       }
 
@@ -265,6 +266,83 @@ module.exports = (
     },
     onError (err) {
       Sentry.captureException(err)
+    }
+  },
+
+  scheduleUnlink: {
+    schema: [['data', true, [['userID', true, 'integer']]]],
+    async method (ctx) {
+      const {
+        data: { userID }
+      } = ctx.request.body
+
+      const event = 'unlink'
+      const user = await User.findOne({ where: { id: userID } })
+
+      // Destroy all related events created on previous schedules
+      await Notification.destroy({
+        where: { userID, event }
+      })
+
+      const msg =
+        'For your security, we need you to authenticate your bank account again. Please open the Thrive app to continue saving.'
+      const condition = {
+        $or: {
+          bankLinked: false,
+          relinkRequired: true
+        }
+      }
+
+      let fireDate = moment().add(2, 'days')
+      await Notification.create({
+        userID,
+        channel: 'push',
+        message: {
+          title: 'Relink Bank',
+          body: msg
+        },
+        condition,
+        fireDate: fireDate.toDate(),
+        description: 'Relink Bank Push Notification',
+        smsFallbackMessage: `Hi ${user.firstName}. ${msg}`,
+        event
+      })
+
+      fireDate.add(3, 'days')
+      await Notification.create({
+        userID,
+        channel: 'email',
+        message: {
+          template: 'relink'
+        },
+        condition,
+        fireDate: fireDate.toDate(),
+        description: 'Relink Bank Email Notification',
+        event
+      })
+
+      fireDate.add(3, 'days')
+      await Notification.create({
+        userID,
+        channel: 'sms',
+        message: {
+          body: `Hi ${user.firstName}. ${msg}`
+        },
+        condition,
+        fireDate: fireDate.toDate(),
+        description: 'Relink Bank Weekly SMS Notification',
+        event,
+        recurAfter: 7,
+        recurCount: 3,
+        recurAfterWord: 'days'
+      })
+
+      ctx.body = {}
+    },
+    onError (err) {
+      console.log('--got error ---')
+      // Sentry.captureException(err)
+      console.log(err)
     }
   }
 })

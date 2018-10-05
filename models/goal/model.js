@@ -1,4 +1,4 @@
-module.exports = (Bluebird, Sequelize, Queue) => ({
+module.exports = (Bluebird, Sequelize, Queue, request, config) => ({
   attributes: {
     description: {
       type: Sequelize.STRING
@@ -71,6 +71,8 @@ module.exports = (Bluebird, Sequelize, Queue) => ({
 
         let breakAfterUpdate = false
         for (const { id, portion, amount, progress } of goalPortions) {
+          const curGoal = await this.findOne({ where: { id } })
+
           const goalLeftover = amount - progress
           let progressDelta = Math.round(
             amountToDistribute * (portion / totalPortionCount)
@@ -90,10 +92,28 @@ module.exports = (Bluebird, Sequelize, Queue) => ({
             lastDebitPortion <= 0
               ? -1
               : Math.ceil(newLeftOver / lastDebitPortion)
-          await this.update(
-            { progress: newProgress, weeksLeft: newWeeksLeft },
-            { where: { id } }
-          )
+
+          curGoal.progress = newProgress
+          curGoal.weeksLeft = newWeeksLeft
+          await curGoal.save()
+
+          // Send push notification
+          request.post({
+            uri: `${config.constants.URL}/admin/notifications-push`,
+            body: {
+              secret: process.env.apiSecret,
+              data: {
+                userIds: [userID],
+                message: {
+                  title: 'Reached a goal',
+                  body: `Hooray! You have reached your '${curGoal.name}' goal`,
+                  data: { event: 'goal_completion', data: { id } }
+                }
+              }
+            },
+            json: true
+          })
+
           if (breakAfterUpdate) {
             break
           }

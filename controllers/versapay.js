@@ -54,21 +54,7 @@ module.exports = (User, Account, Queue, Goal, amplitude) => ({
             })
 
             if (state === 'completed') {
-              const deltaAmount =
-                transactionType === 'direct_debit'
-                  ? parseInt(amountInCents)
-                  : -1 * parseInt(amountInCents)
-              user.balance = parseInt(user.balance) + deltaAmount
-              await user.save()
-              await Goal.distributeAmount(deltaAmount, user.id)
-
-              amplitude.track({
-                eventType: 'BALANCE_UPDATED',
-                userId: user.id,
-                userProperties: {
-                  'Balance on Thrive': user.balance
-                }
-              })
+              await user.updateBalance(amountInCents, transactionType)
             }
 
             user.notifyUserAboutTransaction(
