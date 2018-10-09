@@ -97,22 +97,26 @@ module.exports = (Bluebird, Sequelize, Queue, request, config) => ({
           curGoal.weeksLeft = newWeeksLeft
           await curGoal.save()
 
-          // Send push notification
-          request.post({
-            uri: `${config.constants.URL}/admin/notifications-push`,
-            body: {
-              secret: process.env.apiSecret,
-              data: {
-                userIds: [userID],
-                message: {
-                  title: 'Reached a goal',
-                  body: `Hooray! You have reached your '${curGoal.name}' goal`,
-                  data: { event: 'goal_completion', data: { id } }
+          if (curGoal.progress >= curGoal.amount) {
+            // Send push notification
+            request.post({
+              uri: `${config.constants.URL}/admin/notifications-push`,
+              body: {
+                secret: process.env.apiSecret,
+                data: {
+                  userIds: [userID],
+                  message: {
+                    title: 'Reached a goal',
+                    body: `Hooray! You have reached your '${
+                      curGoal.name
+                    }' goal`,
+                    data: { event: 'goal_completion', data: { id } }
+                  }
                 }
-              }
-            },
-            json: true
-          })
+              },
+              json: true
+            })
+          }
 
           if (breakAfterUpdate) {
             break

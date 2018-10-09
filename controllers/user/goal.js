@@ -5,7 +5,8 @@ module.exports = (
   Bluebird,
   User,
   Goal,
-  Queue,
+  config,
+  request,
   amplitude
 ) => ({
   create: {
@@ -246,6 +247,79 @@ module.exports = (
       })
       amplitude.track({
         eventType: 'GOAL_DELETED',
+        userId: user.id,
+        userProperties: {
+          Goals: goals.length
+        }
+      })
+
+      ctx.body = {
+        data: {
+          goals: goals.map(
+            ({
+              id,
+              category,
+              name,
+              amount,
+              progress,
+              weeksLeft,
+              boosted,
+              userID
+            }) => ({
+              id,
+              category,
+              name,
+              amount,
+              progress,
+              weeksLeft,
+              boosted,
+              userID
+            })
+          )
+        }
+      }
+    }
+  },
+  withdraw: {
+    schema: [['data', true, [['goalID', true]]]],
+    async method (ctx) {
+      const {
+        data: { goalID: id }
+      } = ctx.request.body
+
+      const goal = await Goal.findOne({
+        where: { id, userID: ctx.authorized.id }
+      })
+      if (!goal) {
+        return Bluebird.reject([{ key: 'goal', value: 'Goal not found' }])
+      }
+
+      await request.post({
+        uri: `${config.constants.URL}/admin/worker-transfer`,
+        body: {
+          secret: process.env.apiSecret,
+          data: {
+            userID: goal.userID,
+            amount: goal.progress,
+            type: 'credit',
+            requestMethod: 'InAppRequest'
+          }
+        },
+        json: true
+      })
+
+      const progress = goal.progress
+      await Goal.destroy({ where: { id: goal.id } })
+      await Goal.distributeAmount(progress, ctx.authorized.id)
+
+      const user = await User.findOne({ where: { id: ctx.authorized.id } })
+
+      const goals = await Goal.findAll({
+        where: { userID: ctx.authorized.id },
+        order: Sequelize.col('id')
+      })
+      amplitude.track({
+        eventType: 'GOAL_WITHDRAW_REQUESTED',
         userId: user.id,
         userProperties: {
           Goals: goals.length
