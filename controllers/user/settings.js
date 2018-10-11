@@ -6,7 +6,9 @@ module.exports = (
   Company,
   Sequelize,
   amplitude,
-  moment
+  moment,
+  request,
+  config
 ) => ({
   setPhone: {
     schema: [['data', true, [['phone', true]]]],
@@ -71,6 +73,22 @@ module.exports = (
         data: { email: providedEmail }
       } = ctx.request.body
       const email = providedEmail.toLowerCase()
+
+      const {
+        format_valid: formatValid,
+        mx_found: mxFound,
+        smtp_check: smtpCheck
+      } = await request.get({
+        uri: `${config.constants.API_LAYER_URL}?access_key=${
+          process.env.emailCheckerToken
+        }&email=${email}`,
+        json: true
+      })
+      if (!formatValid || !mxFound || !smtpCheck) {
+        return Bluebird.reject([
+          { key: 'User', value: 'Please provide valid email.' }
+        ])
+      }
 
       let user = await User.findOne({ where: { email } })
 

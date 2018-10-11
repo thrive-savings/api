@@ -1,21 +1,52 @@
-module.exports = (Sequelize, User, Company, Account, Goal, Bonus, moment, Bluebird, amplitude) => ({
+module.exports = (
+  Sequelize,
+  User,
+  Company,
+  Account,
+  Goal,
+  Bonus,
+  moment,
+  Bluebird,
+  amplitude,
+  request,
+  config
+) => ({
   signIn: {
     schema: [['data', true, [['email', true], ['password', true]]]],
     async method (ctx) {
-      const { data: { email, password } } = ctx.request.body
-      const user = await User.findOne({ include: [Account, Goal], where: { email } })
+      const {
+        data: { email, password }
+      } = ctx.request.body
+      const user = await User.findOne({
+        include: [Account, Goal],
+        where: { email }
+      })
       if (!user) {
-        return Bluebird.reject([{ key: 'email', value: 'This email is not registered. Please double check for typos or sign up for an account.' }])
+        return Bluebird.reject([
+          {
+            key: 'email',
+            value:
+              'This email is not registered. Please double check for typos or sign up for an account.'
+          }
+        ])
       }
       if (!user.checkPassword(password)) {
-        return Bluebird.reject([{ key: 'password', value: 'You provided an incorrect password. Please again or reset your password.' }])
+        return Bluebird.reject([
+          {
+            key: 'password',
+            value:
+              'You provided an incorrect password. Please again or reset your password.'
+          }
+        ])
       }
       let body = {}
       if (!user.isVerified) {
         await user.sendCode()
         const data = { PageSignUp: { step: 2 } }
         ;['email', 'firstName', 'lastName', 'phone'].forEach(item => {
-          data[`signUp${item.charAt(0).toUpperCase() + item.slice(1)}Input`] = { value: user.dataValues[item] }
+          data[`signUp${item.charAt(0).toUpperCase() + item.slice(1)}Input`] = {
+            value: user.dataValues[item]
+          }
         })
         body = { data, notVerified: true }
       } else {
@@ -27,15 +58,32 @@ module.exports = (Sequelize, User, Company, Account, Goal, Bonus, moment, Bluebi
   mobileSignIn: {
     schema: [['data', true, [['email', true], ['password', true]]]],
     async method (ctx) {
-      const { data: { email: providedEmail, password } } = ctx.request.body
+      const {
+        data: { email: providedEmail, password }
+      } = ctx.request.body
       const email = providedEmail.toLowerCase()
 
-      const user = await User.findOne({ include: [Account, Goal, Company], where: { email } })
+      const user = await User.findOne({
+        include: [Account, Goal, Company],
+        where: { email }
+      })
       if (!user) {
-        return Bluebird.reject([{ key: 'email', value: 'This email is not registered. Please double check for typos or sign up for an account.' }])
+        return Bluebird.reject([
+          {
+            key: 'email',
+            value:
+              'This email is not registered. Please double check for typos or sign up for an account.'
+          }
+        ])
       }
       if (!user.checkPassword(password)) {
-        return Bluebird.reject([{ key: 'password', value: 'You provided an incorrect password. Please try again or reset your password.' }])
+        return Bluebird.reject([
+          {
+            key: 'password',
+            value:
+              'You provided an incorrect password. Please try again or reset your password.'
+          }
+        ])
       }
 
       const company = await Company.findOne({ where: { id: user.companyID } })
@@ -43,8 +91,8 @@ module.exports = (Sequelize, User, Company, Account, Goal, Bonus, moment, Bluebi
         eventType: 'LOGIN_SUCCESS',
         userId: user.id,
         userProperties: {
-          'Email': user.email,
-          'Phone': user.phone,
+          Email: user.email,
+          Phone: user.phone,
           'First Name': user.firstName,
           'Last Name': user.lastName,
           'Employer Name': company.name,
@@ -61,9 +109,17 @@ module.exports = (Sequelize, User, Company, Account, Goal, Bonus, moment, Bluebi
         await user.sendCode()
       }
 
-      const bonuses = await Bonus.findAll({ where: { userID: user.id, companyID: user.companyID, notificationSeenDate: null } })
+      const bonuses = await Bonus.findAll({
+        where: {
+          userID: user.id,
+          companyID: user.companyID,
+          notificationSeenDate: null
+        }
+      })
       let totalBonus = 0
-      bonuses.forEach(({ amount }) => { totalBonus += amount })
+      bonuses.forEach(({ amount }) => {
+        totalBonus += amount
+      })
 
       const avatar = await user.getAvatar()
       const authorizedData = user.getAuthorized()
@@ -73,9 +129,24 @@ module.exports = (Sequelize, User, Company, Account, Goal, Bonus, moment, Bluebi
     }
   },
   signUp: {
-    schema: [['data', true, [['email', true], ['firstName', true], ['lastName', true], ['password', true], ['phone', true]]]],
+    schema: [
+      [
+        'data',
+        true,
+        [
+          ['email', true],
+          ['firstName', true],
+          ['lastName', true],
+          ['password', true],
+          ['phone', true]
+        ]
+      ]
+    ],
     async method (ctx) {
-      const { data, data: { email, firstName, lastName, password, phone } } = ctx.request.body
+      const {
+        data,
+        data: { email, firstName, lastName, password, phone }
+      } = ctx.request.body
 
       let user
       if (phone === '9991239876') {
@@ -99,21 +170,53 @@ module.exports = (Sequelize, User, Company, Account, Goal, Bonus, moment, Bluebi
     onError (error) {
       if (error instanceof Sequelize.UniqueConstraintError) {
         const fields = Object.keys(error.fields)
-        if (fields.includes('email')) return [{ key: 'email', value: 'This email is already taken.' }]
-        if (fields.includes('phone')) return [{ key: 'phone', value: 'This phone is already taken.' }]
+        if (fields.includes('email')) {
+          return [{ key: 'email', value: 'This email is already taken.' }]
+        }
+        if (fields.includes('phone')) {
+          return [{ key: 'phone', value: 'This phone is already taken.' }]
+        }
       }
-      if (error instanceof Sequelize.ValidationError) return [{ key: 'email', value: 'is not correct' }]
+      if (error instanceof Sequelize.ValidationError) {
+        return [{ key: 'email', value: 'is not correct' }]
+      }
     }
   },
   mobileSignUp: {
     schema: [
-      ['data', true, [
-        ['email', true], ['password', true], ['firstName', true], ['lastName', true], ['companyID', true]
-      ]]
+      [
+        'data',
+        true,
+        [
+          ['email', true],
+          ['password', true],
+          ['firstName', true],
+          ['lastName', true],
+          ['companyID', true]
+        ]
+      ]
     ],
     async method (ctx) {
-      const { data: { email: providedEmail, password, firstName, lastName, companyID } } = ctx.request.body
+      const {
+        data: { email: providedEmail, password, firstName, lastName, companyID }
+      } = ctx.request.body
       const email = providedEmail.toLowerCase()
+
+      const {
+        format_valid: formatValid,
+        mx_found: mxFound,
+        smtp_check: smtpCheck
+      } = await request.get({
+        uri: `${config.constants.API_LAYER_URL}?access_key=${
+          process.env.emailCheckerToken
+        }&email=${email}`,
+        json: true
+      })
+      if (!formatValid || !mxFound || !smtpCheck) {
+        return Bluebird.reject([
+          { key: 'User', value: 'Please provide valid email.' }
+        ])
+      }
 
       let user = await User.findOne({ where: { email } })
       if (user) {
@@ -122,8 +225,18 @@ module.exports = (Sequelize, User, Company, Account, Goal, Bonus, moment, Bluebi
         user.hashPassword(password)
         await user.save()
       } else {
-        user = await User.create({ email, password, firstName, lastName, companyID })
-        await Goal.create({ category: 'RainyDay', name: 'Rainy Day Fund', userID: user.id })
+        user = await User.create({
+          email,
+          password,
+          firstName,
+          lastName,
+          companyID
+        })
+        await Goal.create({
+          category: 'RainyDay',
+          name: 'Rainy Day Fund',
+          userID: user.id
+        })
       }
 
       const company = await Company.findOne({ where: { id: user.companyID } })
@@ -131,8 +244,8 @@ module.exports = (Sequelize, User, Company, Account, Goal, Bonus, moment, Bluebi
         eventType: 'PERSONAL_DETAILS_SET',
         userId: user.id,
         userProperties: {
-          'Email': user.email,
-          'Phone': user.phone,
+          Email: user.email,
+          Phone: user.phone,
           'First Name': user.firstName,
           'Last Name': user.lastName,
           'Employer Name': company.name,
@@ -142,19 +255,26 @@ module.exports = (Sequelize, User, Company, Account, Goal, Bonus, moment, Bluebi
           'Saving Type': user.savingType,
           'Saving Frequency': user.fetchFrequency,
           'Account Verified': user.isVerified,
-          'Goals': 1
+          Goals: 1
         }
       })
 
-      user = await User.findOne({ include: [Account, Goal, Company], where: { email } })
+      user = await User.findOne({
+        include: [Account, Goal, Company],
+        where: { email }
+      })
       ctx.body = { data: { authorized: user.getAuthorized() } }
     },
     onError (error) {
       if (error instanceof Sequelize.UniqueConstraintError) {
         const fields = Object.keys(error.fields)
-        if (fields.includes('email')) return [{ key: 'email', value: 'This email is already taken.' }]
+        if (fields.includes('email')) {
+          return [{ key: 'email', value: 'This email is already taken.' }]
+        }
       }
-      if (error instanceof Sequelize.ValidationError) return [{ key: 'email', value: 'This email is not valid.' }]
+      if (error instanceof Sequelize.ValidationError) {
+        return [{ key: 'email', value: 'This email is not valid.' }]
+      }
     }
   }
 })
