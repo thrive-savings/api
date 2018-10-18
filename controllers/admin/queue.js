@@ -40,7 +40,8 @@ module.exports = (Account, Queue, moment, amplitude, Sentry) => ({
             amount: amountInCents,
             type,
             requestMethod,
-            transactionReference
+            transactionReference,
+            processed: type === 'Bonus'
           })
 
           ctx.body = {}

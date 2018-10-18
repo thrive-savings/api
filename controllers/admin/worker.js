@@ -2,6 +2,7 @@ module.exports = (
   Bluebird,
   Sequelize,
   User,
+  Account,
   request,
   amplitude,
   config,
@@ -76,6 +77,15 @@ module.exports = (
         return Bluebird.reject([
           { key: 'User', value: `User not found for ID: ${userID}` }
         ])
+      }
+
+      // Don't run for TD users
+      const defaultAccount = await Account.findOne({
+        where: { userID, isDefault: true }
+      })
+      if (defaultAccount && defaultAccount.bank === 'TD') {
+        ctx.body = {}
+        return
       }
 
       try {
