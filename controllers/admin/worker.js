@@ -84,6 +84,10 @@ module.exports = (
         where: { userID, isDefault: true }
       })
       if (defaultAccount && defaultAccount.bank === 'TD') {
+        amplitude.track({
+          eventType: 'TD_USER',
+          userId: user.id
+        })
         ctx.body = {}
         return
       }
@@ -140,7 +144,9 @@ module.exports = (
 
         // Transfer the amount
         if (
+          safeBalance &&
           safeBalance > BALANCE_LOWER_THRESHOLD &&
+          amount &&
           amount < MAX_DEPOSIT_AMOUNT
         ) {
           // Reset user forced frequency
