@@ -592,7 +592,7 @@ module.exports = (
         }
       })
     },
-    sendMessage (msg) {
+    sendMessage (msg, type = 'Automatic') {
       twilio.messages.create({
         from: process.env.twilioNumber,
         to: this.phone,
@@ -605,7 +605,7 @@ module.exports = (
         eventProperties: {
           Message: msg,
           Phone: this.phone,
-          'Message Type': 'Automatic'
+          'Message Type': type
         }
       })
     },

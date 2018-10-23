@@ -1,8 +1,13 @@
 module.exports = (Bluebird, User, amplitude, twilio, request, config) => ({
   sendSms: {
     async method (ctx) {
-      const requestBody = ctx.request.body
-      const { text } = requestBody
+      const { token, text } = ctx.request.body
+
+      if (token !== process.env.slackVerificationToken) {
+        return Bluebird.reject([
+          { key: 'Access Denied', value: `Incorrect Verification Token` }
+        ])
+      }
 
       let [phone, ...msg] = text.split(' ')
 
@@ -49,6 +54,54 @@ module.exports = (Bluebird, User, amplitude, twilio, request, config) => ({
     }
   },
 
+  sendSmsNew: {
+    async method (ctx) {
+      const { token, trigger_id, response_url: responseUrl } = ctx.request.body
+
+      if (token !== process.env.slackVerificationToken) {
+        return Bluebird.reject([
+          { key: 'Access Denied', value: `Incorrect Verification Token` }
+        ])
+      }
+
+      request.post({
+        uri: `${config.constants.URL}/slack-api-call`,
+        body: {
+          data: {
+            url: 'dialog.open',
+            body: {
+              dialog: JSON.stringify({
+                callback_id: `sendSms`,
+                title: 'Send SMS',
+                submit_label: 'Send',
+                elements: [
+                  {
+                    type: 'text',
+                    subtype: 'number',
+                    label: 'User ID:',
+                    name: 'userID',
+                    max_length: 10,
+                    min_length: 1
+                  },
+                  {
+                    type: 'textarea',
+                    label: 'Message:',
+                    name: 'message'
+                  }
+                ],
+                state: responseUrl
+              }),
+              trigger_id
+            }
+          }
+        },
+        json: true
+      })
+
+      ctx.body = ''
+    }
+  },
+
   addCompany: {
     async method (ctx) {
       let { text: companyNames } = ctx.request.body
@@ -83,23 +136,105 @@ module.exports = (Bluebird, User, amplitude, twilio, request, config) => ({
     }
   },
 
-  apiCall: {
-    schema: [['data', true, [['url', true], ['body', true, 'object']]]],
+  addCompanyNew: {
     async method (ctx) {
-      const {
-        data: { url, body }
-      } = ctx.request.body
+      let { token, trigger_id, response_url: responseUrl } = ctx.request.body
 
-      await request.post({
-        uri: `${config.constants.SLACK_API_URL}/${url}`,
-        headers: {
-          Authorization: `Bearer ${process.env.slackApiKey}`
+      if (token !== process.env.slackVerificationToken) {
+        return Bluebird.reject([
+          { key: 'Access Denied', value: `Incorrect Verification Token` }
+        ])
+      }
+
+      request.post({
+        uri: `${config.constants.URL}/slack-api-call`,
+        body: {
+          data: {
+            url: 'dialog.open',
+            body: {
+              dialog: JSON.stringify({
+                callback_id: `addCompany`,
+                title: 'Add Company',
+                submit_label: 'Send',
+                elements: [
+                  {
+                    type: 'text',
+                    label: 'Company Name(s):',
+                    name: 'names',
+                    hint: 'Separate by comma to add multiple companies.'
+                  }
+                ],
+                state: responseUrl
+              }),
+              trigger_id
+            }
+          }
         },
-        body,
         json: true
       })
 
-      ctx.body = {}
+      ctx.body = ''
+    }
+  },
+
+  manualTransfer: {
+    async method (ctx) {
+      const { token, trigger_id, response_url: responseUrl } = ctx.request.body
+
+      if (token !== process.env.slackVerificationToken) {
+        return Bluebird.reject([
+          { key: 'Access Denied', value: `Incorrect Verification Token` }
+        ])
+      }
+
+      request.post({
+        uri: `${config.constants.URL}/slack-api-call`,
+        body: {
+          data: {
+            url: 'dialog.open',
+            body: {
+              dialog: JSON.stringify({
+                callback_id: `manualTransfer`,
+                title: 'Manual Transfer',
+                submit_label: 'Submit',
+                elements: [
+                  {
+                    type: 'text',
+                    subtype: 'number',
+                    label: 'User ID:',
+                    name: 'userID',
+                    max_length: 10,
+                    min_length: 1
+                  },
+                  {
+                    label: 'Transaction Type:',
+                    type: 'select',
+                    subtype: 'text',
+                    name: 'type',
+                    options: [
+                      { label: 'Debit', value: 'debit' },
+                      { label: 'Credit', value: 'credit' }
+                    ]
+                  },
+                  {
+                    type: 'text',
+                    label: 'Amount:',
+                    name: 'amount',
+                    hint: 'Example amount format: 10.25',
+                    max_length: 6,
+                    min_length: 1
+                  }
+                ],
+                state: responseUrl
+              }),
+              trigger_id
+            }
+          }
+        },
+        json: true
+      })
+
+      ctx.body = ''
     }
   },
 
@@ -244,6 +379,26 @@ module.exports = (Bluebird, User, amplitude, twilio, request, config) => ({
     }
   },
 
+  apiCall: {
+    schema: [['data', true, [['url', true], ['body', true, 'object']]]],
+    async method (ctx) {
+      const {
+        data: { url, body }
+      } = ctx.request.body
+
+      await request.post({
+        uri: `${config.constants.SLACK_API_URL}/${url}`,
+        headers: {
+          Authorization: `Bearer ${process.env.slackApiKey}`
+        },
+        body,
+        json: true
+      })
+
+      ctx.body = {}
+    }
+  },
+
   interaction: {
     async method (ctx) {
       const payload = JSON.parse(ctx.request.body.payload)
@@ -296,6 +451,79 @@ module.exports = (Bluebird, User, amplitude, twilio, request, config) => ({
             json: true
           })
           replyMessage = {}
+        } else if (command === 'sendSms') {
+          const {
+            submission: { userID, message }
+          } = payload
+
+          replyMessage = await request.post({
+            uri: `${config.constants.URL}/admin/manual-send-sms`,
+            body: {
+              secret: process.env.apiSecret,
+              data: {
+                userID: parseInt(userID),
+                message
+              }
+            },
+            json: true
+          })
+
+          if (replyMessage) {
+            await request.post({
+              uri: process.env.slackWebhookURL,
+              body: { text: replyMessage },
+              json: true
+            })
+            replyMessage = {}
+          }
+        } else if (command === 'addCompany') {
+          const {
+            submission: { names }
+          } = payload
+
+          replyMessage = await request.post({
+            uri: `${config.constants.URL}/admin/manual-add-company`,
+            body: {
+              secret: process.env.apiSecret,
+              data: { names: names.split(',') }
+            },
+            json: true
+          })
+
+          if (replyMessage) {
+            await request.post({
+              uri: process.env.slackWebhookURL,
+              body: { text: replyMessage },
+              json: true
+            })
+            replyMessage = {}
+          }
+        } else if (command === 'manualTransfer') {
+          const {
+            submission: { userID, type, amount }
+          } = payload
+
+          replyMessage = await request.post({
+            uri: `${config.constants.URL}/admin/manual-transfer`,
+            body: {
+              secret: process.env.apiSecret,
+              data: {
+                userID: parseInt(userID),
+                amount: parseInt((amount + 0) * 100),
+                type
+              }
+            },
+            json: true
+          })
+
+          if (replyMessage) {
+            await request.post({
+              uri: process.env.slackWebhookURL,
+              body: { text: replyMessage },
+              json: true
+            })
+            replyMessage = {}
+          }
         }
       }
 

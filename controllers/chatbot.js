@@ -281,25 +281,12 @@ module.exports = (
 
         // Check if matched any command
         if (responseMsg) {
-          twilio.messages.create({
-            from: process.env.twilioNumber,
-            to: user.phone,
-            body: responseMsg
-          })
-          amplitude.track({
-            eventType: 'BOT SENT MESSAGE',
-            userId: user.id,
-            eventProperties: {
-              Message: responseMsg,
-              Phone: user.phone,
-              'Message Type': 'Automatic'
-            }
-          })
+          user.sendMessage(responseMsg)
         } else if (setGenericSlackMsg) {
           // Send to Slack
-          slackMsg = `Incoming message from ${user.phone} | ${user.firstName} ${
-            user.lastName
-          } | Balance ${user.balance} | ID ${user.id} | ${msg}`
+          slackMsg = `Incoming message from User ${user.id} | ${user.phone} | ${
+            user.firstName
+          } ${user.lastName} | Balance ${user.balance} | ID ${user.id} | ${msg}`
         }
       }
 
