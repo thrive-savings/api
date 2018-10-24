@@ -1,6 +1,6 @@
 // const crypto = require('crypto')
 
-module.exports = (User, Account, Queue, Goal, amplitude) => ({
+module.exports = (User, Account, Queue, request) => ({
   hook: {
     async method (ctx) {
       const req = ctx.request.body
@@ -52,6 +52,21 @@ module.exports = (User, Account, Queue, Goal, amplitude) => ({
             const user = await User.findOne({
               where: { id: savedQueue.userID }
             })
+
+            if (
+              state === 'in_progress' &&
+              savedQueue.requestMethod === 'Manual'
+            ) {
+              await request.post({
+                uri: process.env.slackWebhookURL,
+                body: {
+                  text: `Transaction [QueueID: ${
+                    savedQueue.id
+                  }] Initiated for User ${user.id}`
+                },
+                json: true
+              })
+            }
 
             if (state === 'completed') {
               await user.updateBalance(amountInCents, transactionType)

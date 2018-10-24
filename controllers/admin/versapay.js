@@ -62,15 +62,38 @@ module.exports = (User, Account, Queue, request, Sentry, amplitude) => ({
               body.account_number = account.number
             }
 
-            await request.post({
-              uri: `${process.env.versaPayApiURL}/api/transactions`,
-              auth: {
-                user: process.env.versaPayToken,
-                pass: process.env.versaPayKey
-              },
-              body,
-              json: true
-            })
+            try {
+              await request.post({
+                uri: `${process.env.versaPayApiURL}/api/transactions`,
+                auth: {
+                  user: process.env.versaPayToken,
+                  pass: process.env.versaPayKey
+                },
+                body,
+                json: true
+              })
+            } catch ({ error, message }) {
+              await request.post({
+                uri: process.env.slackWebhookURL,
+                body: {
+                  text: `Versapay API error for User ${user.id}:\n${message} `
+                },
+                json: true
+              })
+
+              queue.processed = true
+              queue.processedDate = Date.now()
+              queue.state = 'failed'
+              await queue.save()
+
+              Sentry.captureException(error)
+
+              amplitude.track({
+                eventType: 'VERSAPAY_API_FAIL',
+                userId: user.id,
+                eventProperties: { error }
+              })
+            }
           }
         })
 

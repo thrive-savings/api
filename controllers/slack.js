@@ -1,4 +1,12 @@
-module.exports = (Bluebird, User, amplitude, twilio, request, config) => ({
+module.exports = (
+  Bluebird,
+  User,
+  Account,
+  amplitude,
+  twilio,
+  request,
+  config
+) => ({
   sendSms: {
     async method (ctx) {
       const { token, text } = ctx.request.body
@@ -223,6 +231,67 @@ module.exports = (Bluebird, User, amplitude, twilio, request, config) => ({
                     hint: 'Example amount format: 10.25',
                     max_length: 6,
                     min_length: 1
+                  }
+                ],
+                state: responseUrl
+              }),
+              trigger_id
+            }
+          }
+        },
+        json: true
+      })
+
+      ctx.body = ''
+    }
+  },
+
+  updateUserBank: {
+    async method (ctx) {
+      const { token, trigger_id, response_url: responseUrl } = ctx.request.body
+
+      if (token !== process.env.slackVerificationToken) {
+        return Bluebird.reject([
+          { key: 'Access Denied', value: `Incorrect Verification Token` }
+        ])
+      }
+
+      request.post({
+        uri: `${config.constants.URL}/slack-api-call`,
+        body: {
+          data: {
+            url: 'dialog.open',
+            body: {
+              dialog: JSON.stringify({
+                callback_id: `updateUserBank`,
+                title: 'Update User Bank',
+                submit_label: 'Submit',
+                elements: [
+                  {
+                    type: 'text',
+                    subtype: 'number',
+                    label: 'User ID:',
+                    name: 'userID',
+                    max_length: 10,
+                    min_length: 1
+                  },
+                  {
+                    type: 'text',
+                    label: 'Institution #:',
+                    name: 'institution',
+                    placeholder: '001'
+                  },
+                  {
+                    type: 'text',
+                    label: 'Transit #:',
+                    name: 'transit',
+                    placeholder: '01234'
+                  },
+                  {
+                    type: 'text',
+                    label: 'Account #:',
+                    name: 'number',
+                    placeholder: '123456789xxx'
                   }
                 ],
                 state: responseUrl
@@ -515,6 +584,29 @@ module.exports = (Bluebird, User, amplitude, twilio, request, config) => ({
             },
             json: true
           })
+
+          if (replyMessage) {
+            await request.post({
+              uri: process.env.slackWebhookURL,
+              body: { text: replyMessage },
+              json: true
+            })
+            replyMessage = {}
+          }
+        } else if (command === 'updateUserBank') {
+          const {
+            submission: { userID, institution, transit, number }
+          } = payload
+
+          replyMessage = `Successful Update for User ${userID}`
+          try {
+            await Account.update(
+              { institution, transit, number },
+              { where: { userID, isDefault: true } }
+            )
+          } catch (e) {
+            replyMessage = `Update Failed for User ${userID}`
+          }
 
           if (replyMessage) {
             await request.post({

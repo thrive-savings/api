@@ -1,4 +1,4 @@
-module.exports = (Sequelize, User, request, config) => ({
+module.exports = (Sequelize, User, Account, request, config) => ({
   unlink: {
     schema: [['data', true, [['userIds', true, 'array']]]],
     async method (ctx) {
@@ -85,7 +85,7 @@ module.exports = (Sequelize, User, request, config) => ({
         data: { userID, amount, type }
       } = ctx.request.body
 
-      let responseMsg = 'Processing the transfer.'
+      let responseMsg = `Processing the transfer for User ${userID}`
       try {
         if (amount >= 5000) {
           await request.post({
@@ -108,14 +108,50 @@ module.exports = (Sequelize, User, request, config) => ({
                 userID,
                 amount,
                 type,
-                requestMethod: 'Automated'
+                requestMethod: 'Manual'
               }
             },
             json: true
           })
         }
       } catch (e) {
-        responseMsg = 'Something went wrong.'
+        responseMsg = `Transfer failed for User ${userID}`
+      }
+
+      ctx.body = responseMsg
+    }
+  },
+
+  updateUserBank: {
+    schema: [
+      [
+        'data',
+        true,
+        [
+          ['userID', true, 'integer'],
+          ['institution', true],
+          ['transit', true],
+          ['number', true]
+        ]
+      ]
+    ],
+    async method (ctx) {
+      console.log(ctx.request.body)
+
+      const {
+        data: { userID, institution, transit, number }
+      } = ctx.request.body
+
+      console.log({ userID, institution, transit, number })
+
+      let responseMsg = `Successful Update for User ${userID}`
+      try {
+        await Account.update(
+          { institution, transit, number },
+          { where: { userID, isDefault: true } }
+        )
+      } catch (e) {
+        responseMsg = `Update Failed for User ${userID}`
       }
 
       ctx.body = responseMsg
