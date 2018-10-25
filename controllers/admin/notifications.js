@@ -154,14 +154,15 @@ module.exports = (
         where: { id: { [Sequelize.Op.in]: userIds } }
       })
 
-      for (const { email } of users) {
+      for (const { email, firstName } of users) {
         mail.send(
           {
             from: 'help@thrivesavings.com',
             subject: subject || 'Thrive Email',
             to: email
           },
-          template || 'relink'
+          template || 'relink',
+          { user: { firstName } }
         )
       }
 

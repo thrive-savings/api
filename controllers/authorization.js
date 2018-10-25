@@ -237,6 +237,15 @@ module.exports = (
           name: 'Rainy Day Fund',
           userID: user.id
         })
+
+        request.post({
+          uri: `${config.constants.URL}/admin/notifications-email`,
+          body: {
+            secret: process.env.apiSecret,
+            data: { userIds: [user.id], template: 'welcome', subject: 'Welcome to Thrive' }
+          },
+          json: true
+        })
       }
 
       const company = await Company.findOne({ where: { id: user.companyID } })
