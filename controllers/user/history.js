@@ -26,9 +26,14 @@ module.exports = (Sequelize, User, Queue, moment) => ({
         order: [['id', 'DESC']]
       })
 
+      let totalSavings = 0
       let balance = user.balance
       if (queues) {
         queues.map(({ type, amount, processedDate }) => {
+          if (type !== 'credit') {
+            totalSavings += amount
+          }
+
           const momentDate = moment(processedDate)
 
           history.push({
@@ -46,7 +51,7 @@ module.exports = (Sequelize, User, Queue, moment) => ({
         })
       }
 
-      ctx.body = { data: { chart: [], history } }
+      ctx.body = { data: { chart: [], history, totalSavings } }
     }
   }
 })
