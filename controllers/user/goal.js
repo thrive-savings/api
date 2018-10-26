@@ -121,6 +121,9 @@ module.exports = (
         userId: user.id,
         userProperties: {
           Goals: goals.length
+        },
+        eventProperties: {
+          Category: category
         }
       })
 
@@ -191,6 +194,9 @@ module.exports = (
         userId: user.id,
         userProperties: {
           Goals: goals.length
+        },
+        eventProperties: {
+          Category: category
         }
       })
 
@@ -235,6 +241,7 @@ module.exports = (
         return Bluebird.reject([{ key: 'goal', value: 'Goal not found' }])
       }
 
+      const category = goal.category
       const progress = goal.progress
       await Goal.destroy({ where: { id: goal.id } })
       await Goal.distributeAmount(progress, ctx.authorized.id)
@@ -250,6 +257,9 @@ module.exports = (
         userId: user.id,
         userProperties: {
           Goals: goals.length
+        },
+        eventProperties: {
+          Category: category
         }
       })
 
@@ -308,6 +318,7 @@ module.exports = (
         json: true
       })
 
+      const category = goal.category
       const progress = goal.progress
       await Goal.destroy({ where: { id: goal.id } })
       await Goal.distributeAmount(progress, ctx.authorized.id)
@@ -323,6 +334,9 @@ module.exports = (
         userId: user.id,
         userProperties: {
           Goals: goals.length
+        },
+        eventProperties: {
+          Category: category
         }
       })
 
