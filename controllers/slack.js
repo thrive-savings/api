@@ -246,9 +246,9 @@ module.exports = (
     }
   },
 
-  updateUserBank: {
+  getUserInfo: {
     async method (ctx) {
-      const { token, trigger_id, response_url: responseUrl } = ctx.request.body
+      const { token, text } = ctx.request.body
 
       if (token !== process.env.slackVerificationToken) {
         return Bluebird.reject([
@@ -256,54 +256,314 @@ module.exports = (
         ])
       }
 
-      request.post({
-        uri: `${config.constants.URL}/slack-api-call`,
-        body: {
-          data: {
-            url: 'dialog.open',
-            body: {
-              dialog: JSON.stringify({
-                callback_id: `updateUserBank`,
-                title: 'Update User Bank',
-                submit_label: 'Submit',
-                elements: [
-                  {
-                    type: 'text',
-                    subtype: 'number',
-                    label: 'User ID:',
-                    name: 'userID',
-                    max_length: 10,
-                    min_length: 1
-                  },
+      let slackReply = ''
+      if (text) {
+        const user = await User.findOne({ where: { id: text } })
+        if (user) {
+          const {
+            id: userID,
+            firstName,
+            lastName,
+            email,
+            phone,
+            balance,
+            fetchFrequency,
+            fixedContribution,
+            savingType,
+            bankLinked,
+            relinkRequired
+          } = user
+
+          slackReply = `*Information for User ${userID}*\n - *Full Name:* ${firstName} ${lastName}\n - *Balance:* ${balance}\n - *Contact:* ${email} ${phone}\n - *Saving Preferences:* On *${savingType}* plan${
+            savingType === 'Thrive Fixed'
+              ? ` with *${fixedContribution}* fixed amount`
+              : ''
+          } every *${fetchFrequency}*\n - *Bank Connection Status:* ${
+            !bankLinked
+              ? 'Not linked'
+              : relinkRequired
+                ? 'Relink required'
+                : 'Linked'
+          }\n`
+
+          const defaultAccount = await Account.findOne({
+            where: { userID, isDefault: true }
+          })
+          if (defaultAccount) {
+            const { id: accountID, transit: accountTransit } = defaultAccount
+            const {
+              title: accountTitle,
+              number: accountNumber
+            } = defaultAccount.toAuthorized()
+            slackReply += `- *Default Account ID[${accountID}]:* ${accountTitle} - ${accountNumber} ${
+              accountTransit
+                ? '(Safe to do manual transfer)'
+                : '(Requires to set transit # before manual transfer)'
+            }\n`
+          } else {
+            slackReply += ` - *!No Default Account found!*`
+          }
+        } else {
+          slackReply = `No user found for ID ${text}`
+        }
+      } else {
+        const usersCount = await User.count()
+        slackReply = `*${usersCount} users* in the system currently.\nTo get information about specific user please use "/userinfo [userID]"`
+      }
+
+      if (slackReply) {
+        await request.post({
+          uri: process.env.slackWebhookURL,
+          body: { text: slackReply },
+          json: true
+        })
+      }
+
+      ctx.body = ''
+    }
+  },
+
+  updateUserInfo: {
+    async method (ctx) {
+      const {
+        token,
+        text,
+        trigger_id,
+        response_url: responseUrl
+      } = ctx.request.body
+
+      if (token !== process.env.slackVerificationToken) {
+        return Bluebird.reject([
+          { key: 'Access Denied', value: `Incorrect Verification Token` }
+        ])
+      }
+
+      const keywords = [
+        'bank',
+        'connection',
+        'general',
+        'preferences',
+        'account'
+      ]
+
+      let slackReply = ''
+      let incorrectSyntax = false
+
+      const [userID, keyword] = text.split(' ')
+
+      let user
+      if (userID && keyword) {
+        user = await User.findOne({ where: { id: userID } })
+      }
+
+      if (user) {
+        if (keywords.includes(keyword)) {
+          let elements = []
+
+          switch (keyword) {
+            default:
+            case 'bank':
+              const defaultAccount = await Account.findOne({
+                where: { userID: user.id, isDefault: true }
+              })
+              if (defaultAccount) {
+                const { institution, transit, number } = defaultAccount
+
+                elements = [
                   {
                     type: 'text',
                     label: 'Institution #:',
                     name: 'institution',
+                    value: institution || '',
                     placeholder: '001'
                   },
                   {
                     type: 'text',
                     label: 'Transit #:',
                     name: 'transit',
+                    value: transit || '',
                     placeholder: '01234'
                   },
                   {
                     type: 'text',
                     label: 'Account #:',
                     name: 'number',
+                    value: number || '',
                     placeholder: '123456789xxx'
                   }
-                ],
-                state: responseUrl
-              }),
-              trigger_id
-            }
-          }
-        },
-        json: true
-      })
+                ]
+              } else {
+                ctx.body = `No default account set for user ${user.id}`
+                return
+              }
+              break
+            case 'connection':
+              const value = !user.bankLinked
+                ? 'neverLinked'
+                : user.relinkRequired
+                  ? 'relinkRequired'
+                  : 'linked'
+              elements = [
+                {
+                  label: 'Connection Status:',
+                  type: 'select',
+                  subtype: 'text',
+                  name: 'connectionStatus',
+                  value,
+                  options: [
+                    { label: 'Linked', value: 'linked' },
+                    { label: 'Require Relink', value: 'relinkRequired' },
+                    { label: 'Never Linked', value: 'neverLinked' }
+                  ]
+                }
+              ]
+              break
+            case 'general':
+              elements = [
+                {
+                  label: 'First Name',
+                  type: 'text',
+                  name: 'firstName',
+                  value: user.firstName
+                },
+                {
+                  label: 'Last Name',
+                  type: 'text',
+                  name: 'lastName',
+                  value: user.lastName
+                },
+                {
+                  label: 'Email',
+                  type: 'text',
+                  name: 'email',
+                  value: user.email
+                },
+                {
+                  label: 'Phone',
+                  type: 'text',
+                  name: 'phone',
+                  value: user.phone
+                }
+              ]
+              break
+            case 'preferences':
+              const getDollarString = amount => {
+                let dollars = amount / 100
+                dollars = dollars % 1 === 0 ? dollars : dollars.toFixed(2)
+                dollars.toLocaleString('en-US', {
+                  style: 'currency',
+                  currency: 'USD'
+                })
+                return dollars
+              }
+              elements = [
+                {
+                  label: 'Saving Type',
+                  type: 'select',
+                  subtype: 'text',
+                  name: 'savingType',
+                  value: user.savingType,
+                  options: [
+                    { label: 'Thrive Fixed', value: 'Thrive Fixed' },
+                    { label: 'Thrive Flex', value: 'Thrive Flex' }
+                  ]
+                },
+                {
+                  label: 'Fetch Frequency',
+                  type: 'select',
+                  subtype: 'text',
+                  name: 'fetchFrequency',
+                  value: user.fetchFrequency,
+                  options: [
+                    { label: 'Once Weekly', value: 'ONCEWEEKLY' },
+                    { label: 'Twice Weekly', value: 'TWICEWEEKLY' },
+                    { label: 'Bi-weekly', value: 'BIWEEKLY' },
+                    { label: 'Once Monthly', value: 'ONCEMONTHLY' },
+                    { label: 'Once Daily', value: 'ONCEDAILY' }
+                  ]
+                },
+                {
+                  label: 'Fixed Contribution',
+                  type: 'text',
+                  name: 'fixedContribution',
+                  value: getDollarString(user.fixedContribution),
+                  hint: 'Example amount format: 10.25',
+                  max_length: 6,
+                  min_length: 1
+                }
+              ]
+              break
+            case 'account':
+              let defaultAccountID = ''
+              const accountOptions = []
 
-      ctx.body = ''
+              const accounts = await Account.findAll({
+                where: { userID: user.id }
+              })
+              if (accounts.length) {
+                for (const account of accounts) {
+                  const {
+                    title: accountTitle,
+                    number: accountNumber
+                  } = account.toAuthorized()
+                  accountOptions.push({
+                    label: `${accountTitle} - ${accountNumber}`,
+                    value: account.id
+                  })
+                  if (account.isDefault) {
+                    defaultAccountID = account.id
+                  }
+                }
+
+                elements = [
+                  {
+                    label: 'Default Account',
+                    type: 'select',
+                    subtype: 'text',
+                    name: 'defaultAccountID',
+                    value: defaultAccountID,
+                    options: accountOptions
+                  }
+                ]
+              } else {
+                ctx.body = `No accounts found for user ${user.id}`
+                return
+              }
+
+              break
+          }
+
+          request.post({
+            uri: `${config.constants.URL}/slack-api-call`,
+            body: {
+              data: {
+                url: 'dialog.open',
+                body: {
+                  dialog: JSON.stringify({
+                    callback_id: `updateUser_${userID}_${keyword}`,
+                    title: 'Update User',
+                    submit_label: 'Update',
+                    elements,
+                    state: responseUrl
+                  }),
+                  trigger_id
+                }
+              }
+            },
+            json: true
+          })
+        } else {
+          incorrectSyntax = true
+        }
+      } else {
+        incorrectSyntax = true
+      }
+
+      if (incorrectSyntax) {
+        slackReply = `Correct Syntax: /updateuser [*userID*] [one of keywords [*${keywords.join()}*]`
+      }
+
+      ctx.body = slackReply
     }
   },
 
@@ -593,20 +853,22 @@ module.exports = (
             })
             replyMessage = {}
           }
-        } else if (command === 'updateUserBank') {
-          const {
-            submission: { userID, institution, transit, number }
-          } = payload
+        } else if (command === 'updateUser') {
+          const { callback_id, submission } = payload
+          const [, userID, keyword] = callback_id.split('_')
 
-          replyMessage = `Successful Update for User ${userID}`
-          try {
-            await Account.update(
-              { institution, transit, number },
-              { where: { userID, isDefault: true } }
-            )
-          } catch (e) {
-            replyMessage = `Update Failed for User ${userID}`
-          }
+          replyMessage = await request.post({
+            uri: `${config.constants.URL}/admin/manual-update-user`,
+            body: {
+              secret: process.env.apiSecret,
+              data: {
+                userID: parseInt(userID),
+                keyword,
+                submission
+              }
+            },
+            json: true
+          })
 
           if (replyMessage) {
             await request.post({

@@ -122,34 +122,95 @@ module.exports = (Sequelize, User, Account, request, config) => ({
     }
   },
 
-  updateUserBank: {
+  updateUser: {
     schema: [
       [
         'data',
         true,
         [
           ['userID', true, 'integer'],
-          ['institution', true],
-          ['transit', true],
-          ['number', true]
+          ['keyword', true],
+          ['submission', true, 'object']
         ]
       ]
     ],
     async method (ctx) {
-      console.log(ctx.request.body)
-
       const {
-        data: { userID, institution, transit, number }
+        data: { userID, keyword, submission }
       } = ctx.request.body
 
-      console.log({ userID, institution, transit, number })
+      let responseMsg = ''
 
-      let responseMsg = `Successful Update for User ${userID}`
       try {
-        await Account.update(
-          { institution, transit, number },
-          { where: { userID, isDefault: true } }
-        )
+        const user = await User.findOne({ where: { id: userID } })
+        if (user) {
+          switch (keyword) {
+            default:
+            case 'bank':
+              const { institution, transit, number } = submission
+              await Account.update(
+                { institution, transit, number },
+                { where: { userID, isDefault: true } }
+              )
+              responseMsg = `Successfully updated bank info for User ${userID}`
+              break
+            case 'connection':
+              const { connectionStatus } = submission
+              switch (connectionStatus) {
+                default:
+                case 'linked':
+                  user.bankLinked = true
+                  user.relinkRequired = false
+                  break
+                case 'relinkRequired':
+                  user.bankLinked = true
+                  user.relinkRequired = true
+                  break
+                case 'neverLinked':
+                  user.bankLinked = false
+                  user.relinkRequired = false
+                  break
+              }
+              await user.save()
+              responseMsg = `Successfully updated connection status for User ${userID}`
+              break
+            case 'general':
+              const { firstName, lastName, email, phone } = submission
+              user.firstName = firstName
+              user.lastName = lastName
+              user.email = email
+              user.phone = phone
+              await user.save()
+              responseMsg = `Successfully updated general info for User ${userID}`
+              break
+            case 'preferences':
+              const {
+                savingType,
+                fetchFrequency,
+                fixedContribution
+              } = submission
+              user.savingType = savingType
+              user.fetchFrequency = fetchFrequency
+              user.fixedContribution = parseInt((fixedContribution + 0) * 100)
+              await user.save()
+              responseMsg = `Successfully updated saving preferences info for User ${userID}`
+              break
+            case 'account':
+              const { defaultAccountID } = submission
+              await Account.update(
+                { isDefault: false },
+                { where: { userID: user.id, isDefault: true } }
+              )
+              await Account.update(
+                { isDefault: true },
+                { where: { userID: user.id, id: defaultAccountID } }
+              )
+              responseMsg = `Successfully updated default account (Account ID ${defaultAccountID}) info for User ${userID}`
+              break
+          }
+        } else {
+          responseMsg = `No user found for ID: ${userID}`
+        }
       } catch (e) {
         responseMsg = `Update Failed for User ${userID}`
       }
