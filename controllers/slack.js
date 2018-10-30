@@ -2,6 +2,7 @@ module.exports = (
   Bluebird,
   User,
   Account,
+  Company,
   amplitude,
   twilio,
   request,
@@ -180,6 +181,36 @@ module.exports = (
         },
         json: true
       })
+
+      ctx.body = ''
+    }
+  },
+
+  listCompanies: {
+    async method (ctx) {
+      let { token } = ctx.request.body
+
+      if (token !== process.env.slackVerificationToken) {
+        return Bluebird.reject([
+          { key: 'Access Denied', value: `Incorrect Verification Token` }
+        ])
+      }
+
+      let slackMsg = '*List of Companies:*\n'
+      const companies = await Company.findAll()
+      for (const { name, code, brandLogoUrl } of companies) {
+        slackMsg += ` - *Name:* ${name}, *Code:* ${code}${
+          brandLogoUrl ? `, *Logo Name:* ${brandLogoUrl}` : ''
+        }\n`
+      }
+
+      if (slackMsg) {
+        await request.post({
+          uri: process.env.slackWebhookURL,
+          body: { text: slackMsg },
+          json: true
+        })
+      }
 
       ctx.body = ''
     }
