@@ -1,5 +1,6 @@
 module.exports = (
   Bluebird,
+  Sequelize,
   User,
   Account,
   Company,
@@ -197,7 +198,7 @@ module.exports = (
       }
 
       let slackMsg = '*List of Companies:*\n'
-      const companies = await Company.findAll()
+      const companies = await Company.findAll({ order: Sequelize.col('name') })
       for (const { name, code, brandLogoUrl } of companies) {
         slackMsg += ` - *Name:* ${name}, *Code:* ${code}${
           brandLogoUrl ? `, *Logo Name:* ${brandLogoUrl}` : ''
@@ -305,7 +306,19 @@ module.exports = (
             relinkRequired
           } = user
 
-          slackReply = `*Information for User ${userID}*\n - *Full Name:* ${firstName} ${lastName}\n - *Balance:* ${balance}\n - *Contact:* ${email} ${phone}\n - *Saving Preferences:* On *${savingType}* plan${
+          const getDollarString = amount => {
+            let dollars = amount / 100
+            dollars = dollars % 1 === 0 ? dollars : dollars.toFixed(2)
+            dollars.toLocaleString('en-US', {
+              style: 'currency',
+              currency: 'USD'
+            })
+            return dollars
+          }
+
+          slackReply = `*Information for User ${userID}*\n - *Full Name:* ${firstName} ${lastName}\n - *Balance:* $${getDollarString(
+            balance
+          )}\n - *Contact:* ${email} ${phone}\n - *Saving Preferences:* On *${savingType}* plan${
             savingType === 'Thrive Fixed'
               ? ` with *${fixedContribution}* fixed amount`
               : ''
