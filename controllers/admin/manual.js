@@ -136,7 +136,7 @@ module.exports = (Sequelize, User, Account, Bluebird, request, config) => ({
 
       let responseMsg = `Processing the transfer for User ${userID}`
       try {
-        if (amount >= 5000) {
+        if (amount >= 5000 && type === 'debit') {
           await request.post({
             uri: `${config.constants.URL}/slack-request-algo-approval`,
             body: {
