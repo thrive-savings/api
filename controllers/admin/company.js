@@ -57,7 +57,7 @@ module.exports = (Bluebird, User, Company, Bonus, request, config) => ({
             userID,
             amountInCents: amount,
             type: 'bonus',
-            requestMethod: 'Bonus'
+            requestMethod: 'EmployerBonus'
           }
         },
         json: true

@@ -9,7 +9,8 @@ module.exports = (Account, Queue, moment, amplitude, Sentry) => ({
           ['accountID', 'integer'],
           ['amountInCents', true, 'integer'],
           ['type', true],
-          ['requestMethod', true]
+          ['requestMethod', true],
+          ['processed', 'boolean']
         ]
       ]
     ],
@@ -20,13 +21,15 @@ module.exports = (Account, Queue, moment, amplitude, Sentry) => ({
           accountID: providedAccountID,
           amountInCents,
           type,
-          requestMethod
+          requestMethod,
+          processed: alreadyProcessed
         }
       } = ctx.request.body
 
       if (userID && amountInCents && type) {
         try {
           let accountID = providedAccountID
+          accountID = 1
           if (!accountID) {
             const account = await Account.findOne({
               where: { userID, isDefault: true }
@@ -34,6 +37,8 @@ module.exports = (Account, Queue, moment, amplitude, Sentry) => ({
             accountID = account.id
           }
           const transactionReference = `THRIVE${userID}_` + moment().format('X')
+
+          const alreadyRan = alreadyProcessed || type === 'bonus'
           await Queue.create({
             userID,
             accountID,
@@ -41,7 +46,8 @@ module.exports = (Account, Queue, moment, amplitude, Sentry) => ({
             type,
             requestMethod,
             transactionReference,
-            processed: type === 'Bonus'
+            processed: alreadyRan,
+            state: alreadyRan ? 'completed' : null
           })
 
           ctx.body = {}

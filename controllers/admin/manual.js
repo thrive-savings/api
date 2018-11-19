@@ -1,4 +1,4 @@
-module.exports = (Sequelize, User, Account, request, config) => ({
+module.exports = (Sequelize, User, Account, Bluebird, request, config) => ({
   unlink: {
     schema: [['data', true, [['userIds', true, 'array']]]],
     async method (ctx) {
@@ -13,6 +13,55 @@ module.exports = (Sequelize, User, Account, request, config) => ({
       for (const user of users) {
         user.unlink()
       }
+
+      ctx.body = {}
+    }
+  },
+
+  updateBalance: {
+    schema: [
+      [
+        'data',
+        true,
+        [
+          ['userID', true, 'integer'],
+          ['amount', true, 'integer'],
+          ['type', true]
+        ]
+      ]
+    ],
+    async method (ctx) {
+      const {
+        data: { userID, amount, type }
+      } = ctx.request.body
+
+      const user = await User.findOne({ where: { id: userID } })
+      if (!user) {
+        return Bluebird.reject([
+          { key: 'User', value: `User not found for ID: ${userID}` }
+        ])
+      }
+
+      // Create queue entry
+      await request.post({
+        uri: `${config.constants.URL}/admin/queue-create`,
+        body: {
+          secret: process.env.apiSecret,
+          data: {
+            userID,
+            amountInCents: amount,
+            type,
+            requestMethod: 'ManualUpdate',
+            processed: true
+          }
+        },
+        json: true
+      })
+
+      await user.updateBalance(
+        amount,
+        type === 'debit' ? 'direct_debit' : 'direct_credit'
+      )
 
       ctx.body = {}
     }
