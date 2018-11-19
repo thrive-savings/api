@@ -26,7 +26,11 @@ module.exports = (User, amplitude) => ({
         data: { savingType }
       } = ctx.request.body
 
-      await User.update({ savingType }, { where: { id: ctx.authorized.id } })
+      let updateData = { savingType }
+      if (savingType === 'Thrive Flex') {
+        updateData.fetchFrequency = 'ONCEWEEKLY'
+      }
+      await User.update(updateData, { where: { id: ctx.authorized.id } })
 
       amplitude.track({
         eventType: 'SAVING_TYPE_SET',
