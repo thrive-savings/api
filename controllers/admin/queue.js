@@ -29,7 +29,6 @@ module.exports = (Account, Queue, moment, amplitude, Sentry) => ({
       if (userID && amountInCents && type) {
         try {
           let accountID = providedAccountID
-          accountID = 1
           if (!accountID) {
             const account = await Account.findOne({
               where: { userID, isDefault: true }

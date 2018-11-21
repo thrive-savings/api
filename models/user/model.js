@@ -289,14 +289,13 @@ module.exports = (
         .add(60, 'm')
         .toDate()
       await this.save()
+      // prettier-ignore
       mail.send({
         from: 'restore@thrivesavings.com',
         html: `
           <html>
             <div>
-              <p>To reset your Thrive Savings password, go to ${
-  config.constants.CLIENT_URL
-  }/restore/${this.restorePasswordToken} </p>
+              <p>To reset your Thrive Savings password, go to ${config.constants.CLIENT_URL}/restore/${this.restorePasswordToken} </p>
               <p>The link will expire after an hour</p>
               <p>If you haven't requested a password reset, you can ignore this message</p>
               <p>-The team at Thrive</p>
