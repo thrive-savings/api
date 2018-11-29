@@ -8,7 +8,8 @@
     "migrate": "./node_modules/.bin/rs dbc && ./node_modules/.bin/rs dbm",
     "serve": "nodemon app.js",
     "prestart": "yarn migrate",
-    "start": "node app.js"
+    "start": "node app.js",
+    "push": "$(aws ecr get-login --no-include-email --region ca-central-1) && docker push 880697311994.dkr.ecr.ca-central-1.amazonaws.com/thrive/api:production"
   },
   "author": "Naib Baghirov <naib.baghirov@gmail.com> (https://www.linkedin.com/in/naib-baghirov-03182170/)",
   "license": "MIT",

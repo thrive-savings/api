@@ -193,6 +193,16 @@ module.exports = (
       field: 'login_id'
     },
 
+    quovoUserID: {
+      type: Sequelize.INTEGER,
+      field: 'quovo_user_id'
+    },
+
+    quovoUserName: {
+      type: Sequelize.STRING,
+      field: 'quovo_user_name'
+    },
+
     bankLinked: {
       type: Sequelize.BOOLEAN,
       field: 'bank_linked',
@@ -718,7 +728,7 @@ module.exports = (
     }
   },
   associations: {
-    hasMany: ['Account', 'Goal', 'Bonus', 'Notification'],
+    hasMany: ['Connection', 'Goal', 'Bonus', 'Notification'],
     belongsTo: 'Company'
   },
   hooks: {
