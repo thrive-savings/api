@@ -2,6 +2,7 @@ module.exports = (
   Sequelize,
   User,
   Company,
+  Connection,
   Account,
   Goal,
   Bonus,
@@ -18,7 +19,7 @@ module.exports = (
         data: { email, password }
       } = ctx.request.body
       const user = await User.findOne({
-        include: [Account, Goal],
+        include: [Goal],
         where: { email }
       })
       if (!user) {
@@ -64,7 +65,7 @@ module.exports = (
       const email = providedEmail.toLowerCase()
 
       const user = await User.findOne({
-        include: [Account, Goal, Company],
+        include: [Connection, Goal, Company],
         where: { email }
       })
       if (!user) {
@@ -242,7 +243,11 @@ module.exports = (
           uri: `${config.constants.URL}/admin/notifications-email`,
           body: {
             secret: process.env.apiSecret,
-            data: { userIds: [user.id], template: 'welcome', subject: 'Welcome to Thrive' }
+            data: {
+              userIds: [user.id],
+              template: 'welcome',
+              subject: 'Welcome to Thrive'
+            }
           },
           json: true
         })

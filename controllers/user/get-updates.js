@@ -1,12 +1,23 @@
-module.exports = (User, Account, Goal, Bonus, Company) => ({
+module.exports = (User, Connection, Goal, Bonus, Company) => ({
   async method (ctx) {
-    const user = await User.findOne({ include: [Account, Goal, Company], where: { id: ctx.authorized.id } })
+    const user = await User.findOne({
+      include: [Connection, Goal, Company],
+      where: { id: ctx.authorized.id }
+    })
 
     const authorizedData = user.getAuthorized()
 
-    const bonuses = await Bonus.findAll({ where: { userID: user.id, companyID: user.companyID, notificationSeenDate: null } })
+    const bonuses = await Bonus.findAll({
+      where: {
+        userID: user.id,
+        companyID: user.companyID,
+        notificationSeenDate: null
+      }
+    })
     let totalBonus = 0
-    bonuses.forEach(({ amount }) => { totalBonus += amount })
+    bonuses.forEach(({ amount }) => {
+      totalBonus += amount
+    })
 
     authorizedData.notifications.bonus = totalBonus
 
