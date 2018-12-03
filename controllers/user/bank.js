@@ -37,9 +37,9 @@ module.exports = (User, Connection, Account, request, config) => ({
       reply.error = quovoUserCreateError
 
       if (!reply.error) {
-        // Create Quovo Connection
+        // Create & Sync Quovo Connection
         const {
-          connection: { id: connectionID, quovoConnectionID },
+          connection: { id: connectionID, quovoConnectionID, sync: syncData },
           error: quovoConnectionError
         } = await request.post({
           uri: `${config.constants.URL}/admin/quovo-create-connection`,
@@ -55,8 +55,12 @@ module.exports = (User, Connection, Account, request, config) => ({
           },
           json: true
         })
-        console.log({ connectionID, quovoConnectionID })
+
+        console.log({ connectionID, quovoConnectionID, sync: syncData })
         reply.error = quovoConnectionError
+        if (!reply.error) {
+          reply.connection = { connectionID, quovoConnectionID, sync: syncData }
+        }
       }
 
       ctx.body = reply

@@ -23,8 +23,9 @@ module.exports = Sequelize => ({
     status: {
       type: Sequelize.STRING
     },
-    challenges: {
-      type: Sequelize.JSON
+    statusDetails: {
+      type: Sequelize.JSON,
+      field: 'status_details'
     },
     quovoConnectionID: {
       allowNull: false,

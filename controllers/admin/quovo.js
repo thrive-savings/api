@@ -66,7 +66,7 @@ module.exports = (Institution, User, Connection, request, config) => ({
       }
 
       if (!user.quovoUserID) {
-        const quovoUserName = `THRIVE${userID}`
+        const quovoUserName = `THRIVE_${userID}`
 
         try {
           const {
@@ -173,10 +173,11 @@ module.exports = (Institution, User, Connection, request, config) => ({
 
         // Sync the connection
         const {
-          progress,
-          status: syncStatus,
-          challenges,
-          config_instructions: syncConfigInstructions
+          sync: {
+            status: syncStatus,
+            config_instructions: userConfigInstructions
+          },
+          challenges
         } = await request.post({
           uri: `${
             config.constants.QUOVO_API_URL
@@ -189,12 +190,69 @@ module.exports = (Institution, User, Connection, request, config) => ({
           },
           json: true
         })
-        console.log(progress)
-        console.log(challenges)
-        console.log({
-          progress,
-          syncStatus,
-          syncConfigInstructions
+
+        let syncRequiresUserAction = false
+        let syncStatusDetails
+        if (syncStatus && syncStatus !== 'good') {
+          switch (syncStatus) {
+            case 'challenges':
+              syncRequiresUserAction = true
+              syncStatusDetails = challenges
+              break
+            case 'incorrect_credentials':
+              syncRequiresUserAction = true
+              syncStatusDetails = {
+                message:
+                  'The login credentials for the connection are incorrect.'
+              }
+              break
+            case 'user_config':
+              syncRequiresUserAction = true
+              syncStatusDetails = userConfigInstructions
+              break
+            case 'resync':
+              syncRequiresUserAction = true
+              syncStatusDetails = {
+                message:
+                  'The connection needs to be resynced to complete the sync process.'
+              }
+              break
+            case 'postponed':
+              syncStatusDetails = {
+                message:
+                  'The institution is inaccessible at the moment. We will attempt another sync at the end of the day.'
+              }
+              break
+            case 'maintenance':
+              syncStatusDetails = {
+                message: 'Our financial data aggregator is under maintenance.'
+              }
+              break
+            case 'no_accounts':
+              syncStatusDetails = {
+                message: 'There were no accounts found within the connection.'
+              }
+              break
+            default:
+            case 'institution_unavailable':
+              syncStatusDetails = {
+                message:
+                  'We are temporarily unable to sync any connections at this institution.'
+              }
+              break
+          }
+        }
+
+        reply.connection.sync = {
+          status: syncStatus,
+          userActionRequired: syncRequiresUserAction,
+          details: syncStatusDetails
+        }
+
+        // Update Connection Instance
+        await connectionInstance.update({
+          status: syncStatus,
+          statusDetails: syncStatusDetails
         })
       } catch (e) {
         reply.error = true
