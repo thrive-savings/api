@@ -61,6 +61,21 @@ module.exports = Sequelize => ({
     belongsTo: 'User',
     hasMany: 'Account'
   },
+  instanceMethods: {
+    getData () {
+      return {
+        id: this.id,
+        quovoConnectionID: this.quovoConnectionID,
+        quovoInstitutionID: this.quovoInstitutionID,
+        sync: {
+          status: this.status,
+          details: this.statusDetails,
+          lastGoodSync: this.lastGoodSync,
+          lastSync: this.lastSync
+        }
+      }
+    }
+  },
   indexes: [{ fields: ['user_id'] }],
   timestamps: true,
   createdAt: 'createdAt',

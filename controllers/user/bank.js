@@ -1,4 +1,4 @@
-module.exports = (User, Connection, Account, request, config) => ({
+module.exports = (Bluebird, request, config) => ({
   link: {
     schema: [
       [
@@ -13,10 +13,10 @@ module.exports = (User, Connection, Account, request, config) => ({
     ],
     async method (ctx) {
       const {
-        data: { username, passcode, institutionID }
+        data: { username, passcode, institutionID: quovoInstitutionID }
       } = ctx.request.body
 
-      console.log({ username, passcode, institutionID })
+      console.log({ username, passcode, quovoInstitutionID })
       const reply = {}
 
       // Get or Create Quovo user
@@ -34,12 +34,18 @@ module.exports = (User, Connection, Account, request, config) => ({
         json: true
       })
       console.log({ userID, quovoUserID })
-      reply.error = quovoUserCreateError
 
-      if (!reply.error) {
+      if (quovoUserCreateError) {
+        return Bluebird.reject([
+          {
+            key: 'QuovoUserCreate',
+            value: 'Something went wrong when creating Quovo user.'
+          }
+        ])
+      } else {
         // Create & Sync Quovo Connection
         const {
-          connection: { id: connectionID, quovoConnectionID, sync: syncData },
+          connection: connectionData,
           error: quovoConnectionError
         } = await request.post({
           uri: `${config.constants.URL}/admin/quovo-create-connection`,
@@ -48,7 +54,7 @@ module.exports = (User, Connection, Account, request, config) => ({
             data: {
               userID,
               quovoUserID,
-              quovoInstitutionID: institutionID,
+              quovoInstitutionID,
               username,
               passcode
             }
@@ -56,10 +62,17 @@ module.exports = (User, Connection, Account, request, config) => ({
           json: true
         })
 
-        console.log({ connectionID, quovoConnectionID, sync: syncData })
-        reply.error = quovoConnectionError
-        if (!reply.error) {
-          reply.connection = { connectionID, quovoConnectionID, sync: syncData }
+        console.log(connectionData)
+
+        if (quovoConnectionError) {
+          return Bluebird.reject([
+            {
+              key: 'QuovoConnectionCreate',
+              value: 'Something went wrong when creating Quovo connection.'
+            }
+          ])
+        } else {
+          reply.connection = connectionData
         }
       }
 

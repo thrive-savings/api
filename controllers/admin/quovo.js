@@ -118,7 +118,7 @@ module.exports = (Institution, User, Connection, request, config) => ({
         data: { userID, quovoUserID, quovoInstitutionID, username, passcode }
       } = ctx.request.body
 
-      const reply = { connection: {} }
+      const reply = {}
 
       try {
         const {
@@ -169,8 +169,6 @@ module.exports = (Institution, User, Connection, request, config) => ({
           await connectionInstance.update(obj)
         }
 
-        reply.connection = { id: connectionInstance.id, quovoConnectionID }
-
         // Sync the connection
         const {
           sync: {
@@ -191,51 +189,55 @@ module.exports = (Institution, User, Connection, request, config) => ({
           json: true
         })
 
-        let syncRequiresUserAction = false
         let syncStatusDetails
         if (syncStatus && syncStatus !== 'good') {
           switch (syncStatus) {
             case 'challenges':
-              syncRequiresUserAction = true
-              syncStatusDetails = challenges
+              syncStatusDetails = { requireUserAction: true, challenges }
               break
             case 'incorrect_credentials':
-              syncRequiresUserAction = true
               syncStatusDetails = {
+                requireUserAction: true,
                 message:
                   'The login credentials for the connection are incorrect.'
               }
               break
             case 'user_config':
-              syncRequiresUserAction = true
-              syncStatusDetails = userConfigInstructions
+              syncStatusDetails = {
+                requireUserAction: true,
+                userConfig: userConfigInstructions
+              }
               break
             case 'resync':
-              syncRequiresUserAction = true
               syncStatusDetails = {
+                requireUserAction: true,
                 message:
                   'The connection needs to be resynced to complete the sync process.'
               }
               break
             case 'postponed':
               syncStatusDetails = {
+                requireUserAction: false,
                 message:
                   'The institution is inaccessible at the moment. We will attempt another sync at the end of the day.'
               }
               break
             case 'maintenance':
               syncStatusDetails = {
+                requireUserAction: false,
                 message: 'Our financial data aggregator is under maintenance.'
               }
               break
             case 'no_accounts':
               syncStatusDetails = {
+                requireUserAction: false,
                 message: 'There were no accounts found within the connection.'
               }
               break
             default:
             case 'institution_unavailable':
               syncStatusDetails = {
+                requireUserAction: false,
                 message:
                   'We are temporarily unable to sync any connections at this institution.'
               }
@@ -243,17 +245,13 @@ module.exports = (Institution, User, Connection, request, config) => ({
           }
         }
 
-        reply.connection.sync = {
-          status: syncStatus,
-          userActionRequired: syncRequiresUserAction,
-          details: syncStatusDetails
-        }
-
         // Update Connection Instance
         await connectionInstance.update({
           status: syncStatus,
           statusDetails: syncStatusDetails
         })
+
+        reply.connection = connectionInstance.getData()
       } catch (e) {
         reply.error = true
         console.log(e)
