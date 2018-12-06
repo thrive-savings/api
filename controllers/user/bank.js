@@ -78,5 +78,28 @@ module.exports = (Bluebird, request, config) => ({
 
       ctx.body = reply
     }
+  },
+
+  fetchAccounts: {
+    schema: [
+      [
+        'data',
+        true,
+        [
+          ['userID', true, 'integer'],
+          ['connectionID', true, 'integer'],
+          ['institutionID', true, 'integer']
+        ]
+      ]
+    ],
+    async method (ctx) {
+      const {
+        data: { userID, connectionID, institutionID }
+      } = ctx.request.body
+
+      console.log({ userID, connectionID, institutionID })
+
+      ctx.body = {}
+    }
   }
 })
