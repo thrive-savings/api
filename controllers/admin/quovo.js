@@ -1,4 +1,4 @@
-module.exports = (Institution, User, Connection, request, config) => ({
+module.exports = (Institution, User, Connection, Account, request, config) => ({
   institutions: {
     async method (ctx) {
       try {
@@ -258,6 +258,149 @@ module.exports = (Institution, User, Connection, request, config) => ({
       }
 
       ctx.body = reply
+    }
+  },
+
+  getConnection: {
+    schema: [
+      [
+        'data',
+        true,
+        [['userID', true, 'integer'], ['quovoConnectionID', true, 'integer']]
+      ]
+    ],
+    async method (ctx) {
+      const {
+        data: { userID, quovoConnectionID }
+      } = ctx.request.body
+
+      const reply = {}
+      try {
+        let connectionInstance = await Connection.findOne({
+          where: { quovoConnectionID }
+        })
+
+        const {
+          connection: {
+            institution_name: institutionName,
+            institution_id: quovoInstitutionID,
+            last_good_sync: lastGoodSync,
+            last_sync: lastSync,
+            status,
+            value
+          }
+        } = await request.get({
+          uri: `${
+            config.constants.QUOVO_API_URL
+          }/connections/${quovoConnectionID}`,
+          headers: {
+            Authorization: `Bearer ${process.env.quovoApiToken}`
+          },
+          json: true
+        })
+
+        const connectionData = {
+          userID,
+          status,
+          value,
+          lastGoodSync,
+          lastSync,
+          institutionName,
+          quovoInstitutionID,
+          quovoConnectionID
+        }
+        if (!connectionInstance) {
+          connectionInstance = await Connection.create(connectionData)
+        } else {
+          await connectionInstance.update(connectionData)
+        }
+
+        reply.connection = connectionInstance.getData()
+      } catch (e) {
+        console.log(e)
+        reply.error = true
+      }
+
+      ctx.body = reply
+    }
+  },
+
+  fetchAccounts: {
+    schema: [['data', true, [['quovoConnectionID', true, 'integer']]]],
+    async method (ctx) {
+      const {
+        data: { quovoConnectionID }
+      } = ctx.request.body
+
+      const reply = {}
+      try {
+        const connectionInstance = await Connection.findOne({
+          where: { quovoConnectionID }
+        })
+
+        const {
+          auth: { accounts }
+        } = await request.get({
+          uri: `${
+            config.constants.QUOVO_API_URL
+          }/connections/${quovoConnectionID}/auth`,
+          headers: {
+            Authorization: `Bearer ${process.env.quovoApiToken}`
+          },
+          json: true
+        })
+        console.log(accounts)
+
+        let accountInstances = []
+        for (const {
+          id: quovoAccountID,
+          available_balance: availableBalance,
+          present_balance: presentBalance,
+          account_name: accountName,
+          account_nickname: accountNickname,
+          account_number: accountNumber,
+          canadian_institution_number: institutionNumber,
+          transit_number: transitNumber,
+          routing: routingNumber,
+          category,
+          type,
+          type_confidence: typeConfidence,
+          owner_details: ownerDetails
+        } of accounts) {
+          console.log(ownerDetails)
+          let accountInstance = await Account.findOne({
+            where: { quovoAccountID }
+          })
+          const accountData = {
+            quovoAccountID,
+            connectionID: connectionInstance.id,
+            category,
+            type,
+            typeConfidence,
+            name: accountName,
+            nickname: accountNickname,
+            institution: institutionNumber,
+            transit: transitNumber,
+            number: accountNumber,
+            routing: routingNumber,
+            availableBalance,
+            presentBalance
+          }
+          accountInstances.push(accountData)
+
+          if (!accountInstance) {
+            accountInstance = await Account.create(accountData)
+          } else {
+            accountInstance.update(accountData)
+          }
+        }
+        reply.accounts = accountInstances
+      } catch (e) {
+        console.log(e)
+        reply.error = true
+      }
+
+      ctx.body = {}
     }
   }
 })

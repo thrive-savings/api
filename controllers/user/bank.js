@@ -94,12 +94,61 @@ module.exports = (Bluebird, request, config) => ({
     ],
     async method (ctx) {
       const {
-        data: { userID, connectionID, institutionID }
+        data: {
+          userID: quovoUserID,
+          connectionID: quovoConnectionID,
+          institutionID: quovoInstitutionID
+        }
       } = ctx.request.body
 
-      console.log({ userID, connectionID, institutionID })
+      console.log({ quovoUserID, quovoConnectionID, quovoInstitutionID })
 
-      ctx.body = {}
+      const {
+        connection: connectionData,
+        error: quovoConnectionError
+      } = await request.post({
+        uri: `${config.constants.URL}/admin/quovo-get-connection`,
+        body: {
+          secret: process.env.apiSecret,
+          data: {
+            userID: ctx.authorized.id,
+            quovoConnectionID
+          }
+        },
+        json: true
+      })
+
+      if (quovoConnectionError) {
+        return Bluebird.reject([
+          {
+            key: 'QuovoGetConnection',
+            value: `Something went wrong when fetching Quovo Connection [${quovoConnectionID}] data.`
+          }
+        ])
+      }
+
+      const { accounts, error: quovoAccountError } = await request.post({
+        uri: `${config.constants.URL}/admin/quovo-fetch-accounts`,
+        body: {
+          secret: process.env.apiSecret,
+          data: {
+            quovoConnectionID
+          }
+        },
+        json: true
+      })
+
+      if (quovoAccountError) {
+        return Bluebird.reject([
+          {
+            key: 'QuovoFetchAccounts',
+            value: `Something went wrong when fetching accounts for Quovo Connection [${quovoConnectionID}].`
+          }
+        ])
+      }
+
+      connectionData.accounts = accounts
+      ctx.body = { connection: connectionData }
     }
   }
 })

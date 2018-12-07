@@ -16,6 +16,16 @@ module.exports = Sequelize => ({
       type: Sequelize.FLOAT,
       defaultValue: 0
     },
+    availableBalance: {
+      type: Sequelize.FLOAT,
+      defaultValue: 0,
+      field: 'available_balance'
+    },
+    presentBalance: {
+      type: Sequelize.FLOAT,
+      defaultValue: 0,
+      field: 'present_balance'
+    },
 
     // Bank numbers
     institution: {
@@ -27,6 +37,9 @@ module.exports = Sequelize => ({
     number: {
       type: Sequelize.STRING
     },
+    routing: {
+      type: Sequelize.STRING
+    },
 
     // Account category and type
     category: {
@@ -34,6 +47,10 @@ module.exports = Sequelize => ({
     },
     type: {
       type: Sequelize.STRING
+    },
+    typeConfidence: {
+      type: Sequelize.STRING,
+      field: 'type_confidence'
     },
     ownerType: {
       type: Sequelize.STRING,

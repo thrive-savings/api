@@ -44,8 +44,6 @@ module.exports = Sequelize => ({
     )
   },
   down (queryInterface) {
-    return queryInterface
-      .dropTable('accounts')
-      .then(() => queryInterface.removeIndex('accounts', ['connection_id']))
+    return queryInterface.removeIndex('accounts', ['connection_id'])
   }
 })
