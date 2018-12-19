@@ -37,20 +37,28 @@
     <script type="text/javascript">
       function sendMessage(msgObj) {
         var msg = JSON.stringify(msgObj);
-        console.log("Sending message to RN");
         window.postMessage(msg);
       }
 
-      function setupConnect(token) {
+      function setupConnect() {
         var handler = Quovo.create({
-          token: token,
+          token: window.token,
           // optional function parameters
           onLoad: function() {
-            handler.open();
+            console.log(window.connectionId);
+            handler.open({ connectionId: window.connectionId });
           },
           onClose: function(err, event) {
             var msgObj = {
               event: "onClose",
+              data: event,
+              error: err
+            };
+            sendMessage(msgObj);
+          },
+          onAuthenticate: function(err, event) {
+            var msgObj = {
+              event: "onAuthenticate",
               data: event,
               error: err
             };
@@ -65,7 +73,7 @@
             sendMessage(msgObj);
           },
           // optional string parameter
-          topInstitutions: ["19219", "4652", "2784", "1249"],
+          topInstitutions: "banks",
           syncType: "auth",
           singleSync: true,
           search: { testInstitutions: window.testInstitutions || false }
@@ -75,8 +83,9 @@
       var urlParams = new URL(window.location.href).searchParams;
       window.token = urlParams.get("token");
       window.testInstitutions = urlParams.get("test");
+      window.connectionId = urlParams.get("connectionId");
 
-      setupConnect(window.token);
+      setupConnect();
     </script>
   </body>
 </html>

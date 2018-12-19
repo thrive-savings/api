@@ -286,6 +286,7 @@ module.exports = (Institution, User, Connection, Account, request, config) => ({
             institution_id: quovoInstitutionID,
             last_good_sync: lastGoodSync,
             last_sync: lastSync,
+            config_instructions: statusDetails,
             status,
             value
           }
@@ -302,6 +303,7 @@ module.exports = (Institution, User, Connection, Account, request, config) => ({
         const connectionData = {
           userID,
           status,
+          statusDetails,
           value,
           lastGoodSync,
           lastSync,
@@ -314,8 +316,6 @@ module.exports = (Institution, User, Connection, Account, request, config) => ({
         } else {
           await connectionInstance.update(connectionData)
         }
-
-        reply.connection = connectionInstance.getData()
       } catch (e) {
         console.log(e)
         reply.error = true
@@ -351,7 +351,6 @@ module.exports = (Institution, User, Connection, Account, request, config) => ({
         })
         console.log(accounts)
 
-        let accountInstances = []
         for (const {
           id: quovoAccountID,
           available_balance: availableBalance,
@@ -374,6 +373,7 @@ module.exports = (Institution, User, Connection, Account, request, config) => ({
           const accountData = {
             quovoAccountID,
             connectionID: connectionInstance.id,
+            userID: connectionInstance.userID,
             category,
             type,
             typeConfidence,
@@ -386,7 +386,6 @@ module.exports = (Institution, User, Connection, Account, request, config) => ({
             availableBalance,
             presentBalance
           }
-          accountInstances.push(accountData)
 
           if (!accountInstance) {
             accountInstance = await Account.create(accountData)
@@ -394,13 +393,39 @@ module.exports = (Institution, User, Connection, Account, request, config) => ({
             accountInstance.update(accountData)
           }
         }
-        reply.accounts = accountInstances
       } catch (e) {
         console.log(e)
         reply.error = true
       }
 
       ctx.body = {}
+    }
+  },
+
+  deleteConnection: {
+    schema: [['data', true, [['quovoConnectionID', true, 'integer']]]],
+    async method (ctx) {
+      const {
+        data: { quovoConnectionID }
+      } = ctx.request.body
+
+      const reply = {}
+      try {
+        await request.delete({
+          uri: `${
+            config.constants.QUOVO_API_URL
+          }/connections/${quovoConnectionID}`,
+          headers: {
+            Authorization: `Bearer ${process.env.quovoApiToken}`
+          },
+          json: true
+        })
+      } catch (e) {
+        console.log(e)
+        reply.error = true
+      }
+
+      ctx.body = reply
     }
   }
 })

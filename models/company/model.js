@@ -1,4 +1,4 @@
-module.exports = (Sequelize) => ({
+module.exports = Sequelize => ({
   attributes: {
     code: {
       type: Sequelize.STRING
@@ -18,7 +18,9 @@ module.exports = (Sequelize) => ({
     async generateCode () {
       const random = () => Math.floor(1000 + Math.random() * 9000)
       const companies = await this.constructor.findAll()
-      const codes = companies.map(item => item.code.substring(item.code.length - 4))
+      const codes = companies.map(item =>
+        item.code.substring(item.code.length - 4)
+      )
 
       let code = random()
       while (codes.includes(code)) {
@@ -29,6 +31,11 @@ module.exports = (Sequelize) => ({
       this.code = chars + code
 
       await this.save()
+    },
+
+    getData () {
+      const { id: companyId, name: companyName, brandLogoUrl } = this.dataValues
+      return { companyId, companyName, brandLogoUrl }
     }
   }
 })

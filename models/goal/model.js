@@ -214,6 +214,31 @@ module.exports = (Bluebird, Sequelize, Queue, request, config) => ({
       }
     }
   },
+  instanceMethods: {
+    getData () {
+      const {
+        id,
+        category,
+        name,
+        amount,
+        progress,
+        weeksLeft,
+        boosted,
+        userID
+      } = this.dataValues
+
+      return {
+        id,
+        category,
+        name,
+        amount,
+        progress,
+        weeksLeft,
+        boosted,
+        userID
+      }
+    }
+  },
   associations: {
     belongsTo: 'User'
   },

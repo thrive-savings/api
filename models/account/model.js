@@ -81,6 +81,11 @@ module.exports = Sequelize => ({
     },
 
     // DB refs
+    userID: {
+      type: Sequelize.INTEGER,
+      allowNull: true,
+      field: 'user_id'
+    },
     connectionID: {
       type: Sequelize.INTEGER,
       field: 'connection_id',
@@ -99,6 +104,30 @@ module.exports = Sequelize => ({
   },
   indexes: [{ fields: ['connection_id'] }],
   instanceMethods: {
+    getData () {
+      const {
+        id,
+        quovoAccountID,
+        name,
+        nickname,
+        category,
+        type,
+        availableBalance,
+        isDefault
+      } = this.dataValues
+
+      return {
+        id,
+        quovoAccountID,
+        name,
+        nickname,
+        category,
+        type,
+        availableBalance,
+        isDefault
+      }
+    },
+
     toAuthorized () {
       const { dataValues } = this
       const bank = dataValues.bank || ''

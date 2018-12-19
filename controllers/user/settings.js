@@ -31,7 +31,7 @@ module.exports = (
       }
 
       user = await User.findOne({
-        include: [Account, Goal, Company],
+        include: [Goal, Company],
         where: { id: ctx.authorized.id }
       })
       if (user.phone === phone && user.isVerified) {
@@ -63,7 +63,7 @@ module.exports = (
         }
       })
 
-      ctx.body = { data: { authorized: user.getAuthorized() } }
+      ctx.body = { data: { authorized: user.getData() } }
     }
   },
   setEmail: {

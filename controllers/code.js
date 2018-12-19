@@ -1,24 +1,15 @@
 module.exports = (Bluebird, User, Company, Account, Goal, amplitude) => ({
   resend: {
-    schema: [['data', true, [['email', true], ['phone', true]]]],
-    async method (ctx) {
-      const { data: { email, phone } } = ctx.request.body
-      const user = await User.findOne({ where: { email, phone } })
-
-      if (!user) return Bluebird.reject([{ key: 'user', value: 'not found' }])
-
-      await user.sendCode()
-
-      ctx.body = {}
-    }
-  },
-  mobileResend: {
     schema: [['data', true, [['phone', true]]]],
     async method (ctx) {
-      const { data: { phone } } = ctx.request.body
+      const {
+        data: { phone }
+      } = ctx.request.body
       const user = await User.findOne({ where: { phone } })
 
-      if (!user) return Bluebird.reject([{ key: 'user', value: 'User not found' }])
+      if (!user) {
+        return Bluebird.reject([{ key: 'user', value: 'User not found' }])
+      }
 
       await user.sendCode()
 
@@ -28,10 +19,22 @@ module.exports = (Bluebird, User, Company, Account, Goal, amplitude) => ({
   verify: {
     schema: [['data', true, [['code', true]]]],
     async method (ctx) {
-      const { data: { code } } = ctx.request.body
-      const user = await User.findOne({ include: [Account, Goal, Company], where: { code } })
+      const {
+        data: { code }
+      } = ctx.request.body
+      const user = await User.findOne({
+        include: [Goal, Company],
+        where: { code }
+      })
 
-      if (!user) return Bluebird.reject([{ key: 'code', value: 'You provided an incorrect code. Try again or resend.' }])
+      if (!user) {
+        return Bluebird.reject([
+          {
+            key: 'code',
+            value: 'You provided an incorrect code. Try again or resend.'
+          }
+        ])
+      }
 
       user.code = null
       user.isVerified = true
@@ -48,10 +51,12 @@ module.exports = (Bluebird, User, Company, Account, Goal, amplitude) => ({
       ctx.body = { data: { authorized: user.getAuthorized() } }
     }
   },
-  verifyReferral: {
+  verifyCompanyCode: {
     schema: [['data', true, [['code', true]]]],
     async method (ctx) {
-      const { data: { code: receivedCode } } = ctx.request.body
+      const {
+        data: { code: receivedCode }
+      } = ctx.request.body
       const code = receivedCode.toLowerCase().trim()
 
       let companyName = 'Test Company'
@@ -59,13 +64,23 @@ module.exports = (Bluebird, User, Company, Account, Goal, amplitude) => ({
       let companyLogoUrl
       if (code !== 'testcompany') {
         const company = await Company.findOne({ where: { code } })
-        if (!company) return Bluebird.reject([{ key: 'code', value: 'You provided an incorrect code. Try again or connect admin.' }])
+        if (!company) {
+          return Bluebird.reject([
+            {
+              key: 'code',
+              value:
+                'You provided an incorrect code. Try again or connect admin.'
+            }
+          ])
+        }
         companyID = company.id
         companyName = company.name
         companyLogoUrl = company.brandLogoUrl
       }
 
-      ctx.body = { data: { companyID, companyName, companyCode: code, companyLogoUrl } }
+      ctx.body = {
+        data: { companyID, companyName, companyCode: code, companyLogoUrl }
+      }
     }
   }
 })

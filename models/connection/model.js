@@ -1,4 +1,4 @@
-module.exports = Sequelize => ({
+module.exports = (Sequelize, Account) => ({
   attributes: {
     value: {
       type: Sequelize.FLOAT,
@@ -63,16 +63,25 @@ module.exports = Sequelize => ({
   },
   instanceMethods: {
     getData () {
+      let accounts
+      if (this.accounts) {
+        accounts = this.accounts
+        accounts = accounts.map(account => account.getData())
+      }
+
       return {
         id: this.id,
         quovoConnectionID: this.quovoConnectionID,
         quovoInstitutionID: this.quovoInstitutionID,
+        institutionName: this.institutionName,
+        isDefault: this.isDefault,
         sync: {
           status: this.status,
           details: this.statusDetails,
           lastGoodSync: this.lastGoodSync,
           lastSync: this.lastSync
-        }
+        },
+        accounts
       }
     }
   },

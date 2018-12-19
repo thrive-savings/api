@@ -6,7 +6,6 @@ module.exports = (
   Account,
   Goal,
   Bonus,
-  moment,
   Bluebird,
   amplitude,
   request,
@@ -16,56 +15,12 @@ module.exports = (
     schema: [['data', true, [['email', true], ['password', true]]]],
     async method (ctx) {
       const {
-        data: { email, password }
-      } = ctx.request.body
-      const user = await User.findOne({
-        include: [Goal],
-        where: { email }
-      })
-      if (!user) {
-        return Bluebird.reject([
-          {
-            key: 'email',
-            value:
-              'This email is not registered. Please double check for typos or sign up for an account.'
-          }
-        ])
-      }
-      if (!user.checkPassword(password)) {
-        return Bluebird.reject([
-          {
-            key: 'password',
-            value:
-              'You provided an incorrect password. Please again or reset your password.'
-          }
-        ])
-      }
-      let body = {}
-      if (!user.isVerified) {
-        await user.sendCode()
-        const data = { PageSignUp: { step: 2 } }
-        ;['email', 'firstName', 'lastName', 'phone'].forEach(item => {
-          data[`signUp${item.charAt(0).toUpperCase() + item.slice(1)}Input`] = {
-            value: user.dataValues[item]
-          }
-        })
-        body = { data, notVerified: true }
-      } else {
-        body = { data: { authorized: user.getAuthorized() } }
-      }
-      ctx.body = body
-    }
-  },
-  mobileSignIn: {
-    schema: [['data', true, [['email', true], ['password', true]]]],
-    async method (ctx) {
-      const {
         data: { email: providedEmail, password }
       } = ctx.request.body
       const email = providedEmail.toLowerCase()
 
       const user = await User.findOne({
-        include: [Connection, Goal, Company],
+        include: [{ model: Connection, include: [Account] }, Goal, Company],
         where: { email }
       })
       if (!user) {
@@ -123,7 +78,7 @@ module.exports = (
       })
 
       const avatar = await user.getAvatar()
-      const authorizedData = user.getAuthorized()
+      const authorizedData = user.getData()
       authorizedData.notifications.bonus = totalBonus
 
       ctx.body = { data: { authorized: authorizedData }, avatar }
@@ -136,70 +91,22 @@ module.exports = (
         true,
         [
           ['email', true],
+          ['password', true],
           ['firstName', true],
           ['lastName', true],
-          ['password', true],
-          ['phone', true]
+          ['companyID', true, 'integer']
         ]
       ]
     ],
     async method (ctx) {
       const {
-        data,
-        data: { email, firstName, lastName, password, phone }
-      } = ctx.request.body
-
-      let user
-      if (phone === '9991239876') {
-        data.phone = `${phone}-${moment().unix()}`
-        data.isVerified = true
-        user = await User.create(data)
-        ctx.body = { data: { authorized: user.getAuthorized() } }
-        return
-      }
-      user = await User.findOne({ where: { email, phone } })
-      if (user && !user.isVerified) {
-        user.firstName = firstName
-        user.lastName = lastName
-        user.hashPassword(password)
-      } else {
-        user = await User.create(data)
-      }
-      await user.sendCode()
-      ctx.body = {}
-    },
-    onError (error) {
-      if (error instanceof Sequelize.UniqueConstraintError) {
-        const fields = Object.keys(error.fields)
-        if (fields.includes('email')) {
-          return [{ key: 'email', value: 'This email is already taken.' }]
+        data: {
+          email: providedEmail,
+          password,
+          firstName,
+          lastName,
+          companyID: providedCompanyID
         }
-        if (fields.includes('phone')) {
-          return [{ key: 'phone', value: 'This phone is already taken.' }]
-        }
-      }
-      if (error instanceof Sequelize.ValidationError) {
-        return [{ key: 'email', value: 'is not correct' }]
-      }
-    }
-  },
-  mobileSignUp: {
-    schema: [
-      [
-        'data',
-        true,
-        [
-          ['email', true],
-          ['password', true],
-          ['firstName', true],
-          ['lastName', true],
-          ['companyID', true]
-        ]
-      ]
-    ],
-    async method (ctx) {
-      const {
-        data: { email: providedEmail, password, firstName, lastName, companyID }
       } = ctx.request.body
       const email = providedEmail.toLowerCase()
 
@@ -219,11 +126,21 @@ module.exports = (
         ])
       }
 
+      let companyID = providedCompanyID
+      let testUser = false
+      if (companyID < 0) {
+        companyID = 1
+        testUser = true
+      }
+
       let user = await User.findOne({ where: { email } })
       if (user) {
         user.firstName = firstName
         user.lastName = lastName
         user.hashPassword(password)
+        if (testUser) {
+          user.userType = 'tester'
+        }
         await user.save()
       } else {
         user = await User.create({
@@ -231,7 +148,8 @@ module.exports = (
           password,
           firstName,
           lastName,
-          companyID
+          companyID,
+          userType: testUser ? 'tester' : 'regular'
         })
         await Goal.create({
           category: 'RainyDay',
@@ -274,10 +192,10 @@ module.exports = (
       })
 
       user = await User.findOne({
-        include: [Account, Goal, Company],
+        include: [Goal, Company],
         where: { email }
       })
-      ctx.body = { data: { authorized: user.getAuthorized() } }
+      ctx.body = { data: { authorized: user.getData() } }
     },
     onError (error) {
       if (error instanceof Sequelize.UniqueConstraintError) {

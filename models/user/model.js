@@ -365,6 +365,56 @@ module.exports = (
         return avatarData
       }
     },
+
+    getData () {
+      let connections
+      if (this.connections) {
+        connections = this.connections.map(connection => connection.getData())
+      }
+      console.log(connections)
+
+      let goals
+      if (this.goals) {
+        goals = this.goals.sort(({ id: id0 }, { id: id1 }) => id0 - id1)
+        goals = goals.map(goal => goal.getData())
+      }
+
+      let company
+      if (this.company) {
+        company = this.company.getData()
+      }
+
+      return {
+        company,
+        connections,
+        goals,
+        id: this.id,
+        expoPushToken: this.expoPushToken,
+        bankLinked: this.bankLinked,
+        jwt: this.generateJWT(),
+        isVerified: this.isVerified,
+        onboardingStep: this.onboardingStep,
+        firstName: this.firstName,
+        lastName: this.lastName,
+        email: this.email,
+        phone: this.phone,
+        balance: this.balance,
+        userType: this.userType,
+        savingPreferences: {
+          workType: this.workType,
+          savingType: this.savingType,
+          savingDetails: {
+            fetchFrequency: this.fetchFrequency,
+            fixedContribution: this.fixedContribution
+          }
+        },
+        notifications: {
+          savingPreferencesSet: this.savingPreferencesSet,
+          bonus: 0
+        }
+      }
+    },
+
     getAuthorized () {
       let bank
       let account
