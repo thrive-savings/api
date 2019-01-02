@@ -10,7 +10,6 @@ module.exports = (
   amplitude,
   aws,
   request,
-  Notification,
   Goal
 ) => ({
   attributes: {

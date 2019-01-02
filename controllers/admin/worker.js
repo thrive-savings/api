@@ -314,5 +314,32 @@ module.exports = (
     onError (err) {
       Sentry.captureException(err)
     }
+  },
+
+  fetchDailyUpdates: {
+    async method (ctx) {
+      const users = await User.findAll({
+        where: { quovoUserID: { [Sequelize.Op.ne]: null } }
+      })
+
+      if (users.length > 0) {
+        Bluebird.all(
+          users.map(user =>
+            request.post({
+              uri: `${config.constants.URL}/admin/quovo-fetch-user-updates`,
+              body: {
+                secret: process.env.apiSecret,
+                data: {
+                  quovoUserID: user.quovoUserID
+                }
+              },
+              json: true
+            })
+          )
+        )
+      }
+
+      ctx.body = {}
+    }
   }
 })

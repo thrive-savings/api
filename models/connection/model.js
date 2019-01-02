@@ -1,7 +1,8 @@
 module.exports = (Sequelize, Account) => ({
   attributes: {
+    // General
     value: {
-      type: Sequelize.FLOAT,
+      type: Sequelize.INTEGER,
       defaultValue: 0
     },
     isDefault: {
@@ -12,6 +13,8 @@ module.exports = (Sequelize, Account) => ({
       type: Sequelize.STRING,
       field: 'institution_name'
     },
+
+    // Sync info
     lastGoodSync: {
       type: Sequelize.DATE,
       field: 'last_good_sync'
@@ -27,16 +30,25 @@ module.exports = (Sequelize, Account) => ({
       type: Sequelize.JSON,
       field: 'status_details'
     },
+
+    // Quovo IDs
     quovoConnectionID: {
       allowNull: false,
-      type: Sequelize.INTEGER,
+      type: Sequelize.BIGINT,
       field: 'quovo_connection_id'
+    },
+    quovoUserID: {
+      allowNull: false,
+      type: Sequelize.BIGINT,
+      field: 'quovo_user_id'
     },
     quovoInstitutionID: {
       allowNull: false,
-      type: Sequelize.INTEGER,
+      type: Sequelize.BIGINT,
       field: 'quovo_institution_id'
     },
+
+    // DB references
     userID: {
       type: Sequelize.INTEGER,
       allowNull: false,
@@ -48,6 +60,8 @@ module.exports = (Sequelize, Account) => ({
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE'
     },
+
+    // Dates
     createdAt: {
       type: Sequelize.DATE,
       field: 'created_at'

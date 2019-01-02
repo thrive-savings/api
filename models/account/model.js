@@ -13,16 +13,16 @@ module.exports = Sequelize => ({
       field: 'is_default'
     },
     value: {
-      type: Sequelize.FLOAT,
+      type: Sequelize.INTEGER,
       defaultValue: 0
     },
     availableBalance: {
-      type: Sequelize.FLOAT,
+      type: Sequelize.INTEGER,
       defaultValue: 0,
       field: 'available_balance'
     },
     presentBalance: {
-      type: Sequelize.FLOAT,
+      type: Sequelize.INTEGER,
       defaultValue: 0,
       field: 'present_balance'
     },
@@ -76,8 +76,19 @@ module.exports = Sequelize => ({
 
     // Quovo IDs
     quovoAccountID: {
-      type: Sequelize.INTEGER,
-      field: 'quovo_account_id'
+      type: Sequelize.BIGINT,
+      field: 'quovo_account_id',
+      allowNull: false
+    },
+    quovoConnectionID: {
+      type: Sequelize.BIGINT,
+      field: 'quovo_connection_id',
+      allowNull: false
+    },
+    quovoUserID: {
+      type: Sequelize.BIGINT,
+      field: 'quovo_user_id',
+      allowNull: false
     },
 
     // DB refs
@@ -119,7 +130,7 @@ module.exports = Sequelize => ({
       return {
         id,
         quovoAccountID,
-        name,
+        name: name.length <= 4 ? name : `xxx${name.slice(-4)}`,
         nickname,
         category,
         type,
