@@ -420,6 +420,8 @@ module.exports = (
             },
             json: true
           })
+        } else {
+          // Schedule notifications about unlink
         }
       } catch (e) {
         reply.error = true

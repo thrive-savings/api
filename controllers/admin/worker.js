@@ -83,137 +83,126 @@ module.exports = (
       const defaultAccount = await Account.findOne({
         where: { userID, isDefault: true }
       })
-      if (defaultAccount && defaultAccount.bank === 'TD') {
-        amplitude.track({
-          eventType: 'TD_USER',
-          userId: user.id
-        })
-        ctx.body = {}
-        return
-      }
 
-      try {
-        // Fetch new transactions for user
-        const {
-          data: { balance }
-        } = await request.post({
-          uri: `${config.constants.URL}/admin/transactions-fetch-user`,
-          body: { secret: process.env.apiSecret, data: { userID: user.id } },
-          json: true
-        })
+      if (defaultAccount) {
+        try {
+          // Get account balance
+          const balance = defaultAccount.value
 
-        amplitude.track({
-          eventType: 'WORKER_FETCHED_TRANSACTIONS',
-          userId: user.id,
-          eventProperties: {
-            Frequency: `${frequencyWord}`,
-            SavingType: `${user.savingType}`,
-            Balance: `${balance}`
-          }
-        })
+          console.log(`------Default Accoiunt - ${defaultAccount.id}`)
 
-        // Get  saving amount
-        let safeBalance = balance
-        let amount
-        if (user.savingType === 'Thrive Flex') {
-          const algoResult = await request.post({
-            uri: `${config.constants.URL}/admin/algo-run-new`,
-            body: {
-              secret: process.env.apiSecret,
-              data: { userID: user.id }
-            },
-            json: true
-          })
-          amount = algoResult.amount
-          safeBalance = algoResult.safeBalance || balance
-        } else {
-          amount = user.fixedContribution
-        }
-
-        amplitude.track({
-          eventType: 'WORKER_GOT_AMOUNT',
-          userId: user.id,
-          eventProperties: {
-            Frequency: `${frequencyWord}`,
-            SavingType: `${user.savingType}`,
-            Amount: `${amount}`,
-            Balance: `${balance}`,
-            SafeBalance: `${safeBalance}`
-          }
-        })
-
-        // Transfer the amount
-        if (
-          safeBalance &&
-          safeBalance > BALANCE_LOWER_THRESHOLD &&
-          amount &&
-          amount < MAX_DEPOSIT_AMOUNT
-        ) {
-          // Reset user forced frequency
-          if (user.forcedFetchFrequency) {
-            user.update({ forcedFetchFrequency: null })
-          }
-
-          if (user.requireApproval || user.userType === 'vip') {
-            amplitude.track({
-              eventType: 'WORKER_REQUESTED_APPROVAL',
-              userId: user.id,
-              eventProperties: {
-                SavingType: `${user.savingType}`,
-                Amount: `${amount}`,
-                Balance: `${balance}`,
-                SafeBalance: `${safeBalance}`
-              }
-            })
-            await request.post({
-              uri: `${config.constants.URL}/slack-request-algo-approval`,
-              body: {
-                data: {
-                  userID: user.id,
-                  amount: parseInt(amount)
-                }
-              },
-              json: true
-            })
-          } else {
-            await request.post({
-              uri: `${config.constants.URL}/admin/worker-transfer`,
+          // Get  saving amount
+          let safeBalance = balance
+          let amount
+          if (user.savingType === 'Thrive Flex') {
+            console.log(`---Running algo for user: ${user.id}`)
+            const algoResult = await request.post({
+              uri: `${config.constants.URL}/admin/algo-run`,
               body: {
                 secret: process.env.apiSecret,
-                data: {
-                  userID: user.id,
-                  amount,
-                  type: 'debit',
-                  requestMethod: 'Automated'
-                }
+                data: { userID: user.id }
               },
               json: true
             })
+            console.log(algoResult)
+            amount = algoResult.amount
+            safeBalance = algoResult.safeBalance || balance
+          } else {
+            amount = user.fixedContribution
           }
-        } else {
+
           amplitude.track({
-            eventType: 'WORKER_NO_TRANSFER',
+            eventType: 'WORKER_GOT_AMOUNT',
             userId: user.id,
             eventProperties: {
               Frequency: `${frequencyWord}`,
               SavingType: `${user.savingType}`,
               Amount: `${amount}`,
               Balance: `${balance}`,
-              SafeBalance: `${safeBalance}`,
-              Reason: 'Low Balance or High Amount'
+              SafeBalance: `${safeBalance}`
             }
           })
 
-          // Schedule user to run daily till we are able to pull
-          await user.update({ forcedFetchFrequency: 'ONCEDAILY' })
+          // Transfer the amount
+          if (
+            safeBalance &&
+            safeBalance > BALANCE_LOWER_THRESHOLD &&
+            amount &&
+            amount < MAX_DEPOSIT_AMOUNT
+          ) {
+            // Reset user forced frequency
+            if (user.forcedFetchFrequency) {
+              user.update({ forcedFetchFrequency: null })
+            }
+
+            if (user.requireApproval || user.userType === 'vip') {
+              amplitude.track({
+                eventType: 'WORKER_REQUESTED_APPROVAL',
+                userId: user.id,
+                eventProperties: {
+                  SavingType: `${user.savingType}`,
+                  Amount: `${amount}`,
+                  Balance: `${balance}`,
+                  SafeBalance: `${safeBalance}`
+                }
+              })
+              await request.post({
+                uri: `${config.constants.URL}/slack-request-algo-approval`,
+                body: {
+                  data: {
+                    userID: user.id,
+                    amount: parseInt(amount)
+                  }
+                },
+                json: true
+              })
+            } else {
+              await request.post({
+                uri: `${config.constants.URL}/admin/worker-transfer`,
+                body: {
+                  secret: process.env.apiSecret,
+                  data: {
+                    userID: user.id,
+                    amount,
+                    type: 'debit',
+                    requestMethod: 'Automated'
+                  }
+                },
+                json: true
+              })
+            }
+          } else {
+            amplitude.track({
+              eventType: 'WORKER_NO_TRANSFER',
+              userId: user.id,
+              eventProperties: {
+                Frequency: `${frequencyWord}`,
+                SavingType: `${user.savingType}`,
+                Amount: `${amount}`,
+                Balance: `${balance}`,
+                SafeBalance: `${safeBalance}`,
+                Reason: 'Low Balance or High Amount'
+              }
+            })
+
+            // Schedule user to run daily till we are able to pull
+            await user.update({ forcedFetchFrequency: 'ONCEDAILY' })
+          }
+        } catch (error) {
+          Sentry.captureException(error)
+          amplitude.track({
+            eventType: 'WORKER_RUN_USER_FAIL',
+            userId: user.id,
+            eventProperties: { error }
+          })
         }
-      } catch (error) {
-        Sentry.captureException(error)
+      } else {
         amplitude.track({
-          eventType: 'WORKER_RUN_USER_FAIL',
-          userId: user.id,
-          eventProperties: { error }
+          eventType: 'WORKER_RUN_NO_DEFAULT_ACCOUNT',
+          userId: user.id
         })
+
+        // Notify user here to set / reconnect default
       }
 
       ctx.body = {}
