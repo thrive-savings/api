@@ -21,7 +21,15 @@ module.exports = (Bluebird, User, Company, Bonus, request, config) => ({
   },
   topUpUser: {
     schema: [
-      ['data', true, [['companyID', true], ['userID', true], ['amount', true]]]
+      [
+        'data',
+        true,
+        [
+          ['companyID', true, 'integer'],
+          ['userID', true, 'integer'],
+          ['amount', true, 'integer']
+        ]
+      ]
     ],
     async method (ctx) {
       const {
@@ -43,11 +51,6 @@ module.exports = (Bluebird, User, Company, Bonus, request, config) => ({
         ])
       }
 
-      user.balance += parseInt(amount)
-      await user.save()
-
-      await Bonus.create({ amount, companyID, userID })
-
       // Create queue entry
       await request.post({
         uri: `${config.constants.URL}/admin/queue-create`,
@@ -62,6 +65,11 @@ module.exports = (Bluebird, User, Company, Bonus, request, config) => ({
         },
         json: true
       })
+
+      user.balance += parseInt(amount)
+      await user.save()
+
+      await Bonus.create({ amount, companyID, userID })
 
       user.sendBonusNotification(amount)
 
