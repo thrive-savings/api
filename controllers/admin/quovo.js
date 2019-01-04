@@ -7,8 +7,60 @@ module.exports = (
   Transaction,
   request,
   config,
-  amplitude
+  amplitude,
+  moment
 ) => ({
+  apiToken: {
+    async method (ctx) {
+      const reply = {}
+
+      try {
+        await request.delete({
+          uri: `${config.constants.QUOVO_API_URL}/tokens`,
+          auth: {
+            user: process.env.quovoApiUsername,
+            pass: process.env.quovoApiPassword
+          },
+          body: {
+            name: process.env.quovoApiTokenName
+          },
+          json: true
+        })
+
+        const {
+          access_token: { token }
+        } = await request.post({
+          uri: `${config.constants.QUOVO_API_URL}/tokens`,
+          auth: {
+            user: process.env.quovoApiUsername,
+            pass: process.env.quovoApiPassword
+          },
+          body: {
+            name: process.env.quovoApiTokenName,
+            expires: moment().add(1, 'd')
+          },
+          json: true
+        })
+        console.log(token)
+
+        process.env['quovoApiToken'] = token
+      } catch (e) {
+        console.log(e)
+        reply.error = true
+
+        amplitude.track({
+          eventType: 'QUOVO_GENERATE_TOKEN_FAIL',
+          userId: 'server',
+          eventProperties: {
+            Error: e
+          }
+        })
+      }
+
+      ctx.body = reply
+    }
+  },
+
   institutions: {
     async method (ctx) {
       try {

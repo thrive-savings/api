@@ -312,6 +312,14 @@ module.exports = (
       })
 
       if (users.length > 0) {
+        await request.post({
+          uri: `${config.constants.URL}/admin/quovo-api-token`,
+          body: {
+            secret: process.env.apiSecret
+          },
+          json: true
+        })
+
         Bluebird.all(
           users.map(user =>
             request.post({
