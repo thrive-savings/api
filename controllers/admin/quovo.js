@@ -1,4 +1,5 @@
 module.exports = (
+  Sequelize,
   Bluebird,
   Institution,
   User,
@@ -64,6 +65,14 @@ module.exports = (
   institutions: {
     async method (ctx) {
       try {
+        await request.post({
+          uri: `${config.constants.URL}/admin/quovo-api-token`,
+          body: {
+            secret: process.env.apiSecret
+          },
+          json: true
+        })
+
         const { institutions } = await request.get({
           uri: `${config.constants.QUOVO_API_URL}/institutions`,
           headers: {
@@ -82,6 +91,10 @@ module.exports = (
           is_available: isAvailable,
           country_code: countryCode
         } of institutions) {
+          if (countryCode !== 'CAN') {
+            continue
+          }
+
           const obj = {
             quovoInstitutionID,
             name,
@@ -103,6 +116,65 @@ module.exports = (
             await institutionInstance.update(obj)
           }
         }
+      } catch (e) {
+        console.log(e)
+      }
+
+      ctx.body = {}
+    }
+  },
+
+  connections: {
+    async method (ctx) {
+      try {
+        await request.post({
+          uri: `${config.constants.URL}/admin/quovo-api-token`,
+          body: {
+            secret: process.env.apiSecret
+          },
+          json: true
+        })
+
+        const users = await User.findAll({
+          where: { quovoUserID: { [Sequelize.Op.ne]: null } }
+        })
+
+        users.forEach(async ({ id: userID, quovoUserID }) => {
+          const { connections } = await request.get({
+            uri: `${
+              config.constants.QUOVO_API_URL
+            }/users/${quovoUserID}/connections`,
+            headers: {
+              Authorization: `Bearer ${process.env.quovoApiToken}`
+            },
+            json: true
+          })
+
+          connections.forEach(async ({ id: quovoConnectionID }) => {
+            await request.post({
+              uri: `${config.constants.URL}/admin/quovo-get-connection`,
+              body: {
+                secret: process.env.apiSecret,
+                data: {
+                  userID,
+                  quovoConnectionID
+                }
+              },
+              json: true
+            })
+
+            await request.post({
+              uri: `${config.constants.URL}/admin/quovo-fetch-accounts-auth`,
+              body: {
+                secret: process.env.apiSecret,
+                data: {
+                  quovoConnectionID
+                }
+              },
+              json: true
+            })
+          })
+        })
       } catch (e) {
         console.log(e)
       }
@@ -210,6 +282,10 @@ module.exports = (
           json: true
         })
 
+        const institutionInstance = await Institution.findOne({
+          where: { quovoInstitutionID }
+        })
+
         const connectionData = {
           userID,
           status,
@@ -220,7 +296,8 @@ module.exports = (
           institutionName,
           quovoConnectionID,
           quovoInstitutionID,
-          quovoUserID
+          quovoUserID,
+          institutionID: institutionInstance ? institutionInstance.id : 1
         }
         if (!connectionInstance) {
           connectionInstance = await Connection.create(connectionData)

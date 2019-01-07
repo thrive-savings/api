@@ -1,4 +1,13 @@
-module.exports = (Bluebird, User, Company, Account, Goal, amplitude) => ({
+module.exports = (
+  Bluebird,
+  User,
+  Institution,
+  Company,
+  Connection,
+  Account,
+  Goal,
+  amplitude
+) => ({
   resend: {
     schema: [['data', true, [['phone', true]]]],
     async method (ctx) {
@@ -23,7 +32,11 @@ module.exports = (Bluebird, User, Company, Account, Goal, amplitude) => ({
         data: { code }
       } = ctx.request.body
       const user = await User.findOne({
-        include: [Goal, Company],
+        include: [
+          { model: Connection, include: [Institution, Account] },
+          Goal,
+          Company
+        ],
         where: { code }
       })
 
@@ -48,7 +61,7 @@ module.exports = (Bluebird, User, Company, Account, Goal, amplitude) => ({
         }
       })
 
-      ctx.body = { data: { authorized: user.getAuthorized() } }
+      ctx.body = { data: { authorized: user.getData() } }
     }
   },
   verifyCompanyCode: {

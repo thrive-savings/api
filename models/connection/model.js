@@ -60,6 +60,15 @@ module.exports = (Sequelize, Account) => ({
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE'
     },
+    institutionID: {
+      type: Sequelize.INTEGER,
+      defaultValue: 1,
+      references: {
+        model: 'institutions',
+        key: 'id'
+      },
+      field: 'institution_id'
+    },
 
     // Dates
     createdAt: {
@@ -71,12 +80,13 @@ module.exports = (Sequelize, Account) => ({
       field: 'updated_at'
     }
   },
-  associations: {
-    belongsTo: 'User',
-    hasMany: 'Account'
-  },
   instanceMethods: {
     getData () {
+      let institution
+      if (this.institution) {
+        institution = this.institution.getData()
+      }
+
       let accounts
       if (this.accounts) {
         accounts = this.accounts
@@ -95,11 +105,16 @@ module.exports = (Sequelize, Account) => ({
           lastGoodSync: this.lastGoodSync,
           lastSync: this.lastSync
         },
-        accounts
+        accounts,
+        institution
       }
     }
   },
-  indexes: [{ fields: ['user_id'] }],
+  associations: {
+    belongsTo: ['User', 'Institution'],
+    hasMany: 'Account'
+  },
+  indexes: [{ fields: ['user_id', 'institution_id'] }],
   timestamps: true,
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'

@@ -89,13 +89,10 @@ module.exports = (
           // Get account balance
           const balance = defaultAccount.value
 
-          console.log(`------Default Accoiunt - ${defaultAccount.id}`)
-
           // Get  saving amount
           let safeBalance = balance
           let amount
           if (user.savingType === 'Thrive Flex') {
-            console.log(`---Running algo for user: ${user.id}`)
             const algoResult = await request.post({
               uri: `${config.constants.URL}/admin/algo-run`,
               body: {
@@ -104,7 +101,6 @@ module.exports = (
               },
               json: true
             })
-            console.log(algoResult)
             amount = algoResult.amount
             safeBalance = algoResult.safeBalance || balance
           } else {

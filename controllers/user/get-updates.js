@@ -1,7 +1,19 @@
-module.exports = (User, Connection, Account, Goal, Bonus, Company) => ({
+module.exports = (
+  User,
+  Institution,
+  Connection,
+  Account,
+  Goal,
+  Bonus,
+  Company
+) => ({
   async method (ctx) {
     const user = await User.findOne({
-      include: [{ model: Connection, include: [Account] }, Goal, Company],
+      include: [
+        { model: Connection, include: [Institution, Account] },
+        Goal,
+        Company
+      ],
       where: { id: ctx.authorized.id }
     })
 

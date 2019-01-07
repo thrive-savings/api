@@ -1,6 +1,7 @@
 module.exports = (
   Sequelize,
   User,
+  Institution,
   Company,
   Connection,
   Account,
@@ -20,7 +21,11 @@ module.exports = (
       const email = providedEmail.toLowerCase()
 
       const user = await User.findOne({
-        include: [{ model: Connection, include: [Account] }, Goal, Company],
+        include: [
+          { model: Connection, include: [Institution, Account] },
+          Goal,
+          Company
+        ],
         where: { email }
       })
       if (!user) {
@@ -192,7 +197,11 @@ module.exports = (
       })
 
       user = await User.findOne({
-        include: [Goal, Company],
+        include: [
+          { model: Connection, include: [Institution, Account] },
+          Goal,
+          Company
+        ],
         where: { email }
       })
       ctx.body = { data: { authorized: user.getData() } }

@@ -1,6 +1,8 @@
 module.exports = (
   Bluebird,
   User,
+  Institution,
+  Connection,
   Account,
   Goal,
   Company,
@@ -31,7 +33,11 @@ module.exports = (
       }
 
       user = await User.findOne({
-        include: [Goal, Company],
+        include: [
+          { model: Connection, include: [Institution, Account] },
+          Goal,
+          Company
+        ],
         where: { id: ctx.authorized.id }
       })
       if (user.phone === phone && user.isVerified) {
@@ -105,7 +111,11 @@ module.exports = (
       await User.update({ email }, { where: { id: ctx.authorized.id } })
 
       user = await User.findOne({
-        include: [Account, Goal, Company],
+        include: [
+          { model: Connection, include: [Institution, Account] },
+          Goal,
+          Company
+        ],
         where: { id: ctx.authorized.id }
       })
       amplitude.track({
@@ -116,7 +126,7 @@ module.exports = (
         }
       })
 
-      ctx.body = { data: { authorized: user.getAuthorized() } }
+      ctx.body = { data: { authorized: user.getData() } }
     }
   },
   setPassword: {
@@ -127,7 +137,11 @@ module.exports = (
       } = ctx.request.body
 
       const user = await User.findOne({
-        include: [Account, Goal, Company],
+        include: [
+          { model: Connection, include: [Institution, Account] },
+          Goal,
+          Company
+        ],
         where: { id: ctx.authorized.id }
       })
 
@@ -149,7 +163,7 @@ module.exports = (
         userId: user.id
       })
 
-      ctx.body = { data: { authorized: user.getAuthorized() } }
+      ctx.body = { data: { authorized: user.getData() } }
     }
   }
 })

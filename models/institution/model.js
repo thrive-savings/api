@@ -13,9 +13,15 @@ module.exports = Sequelize => ({
       type: Sequelize.STRING,
       field: 'website'
     },
-    logo: {
+    logoFolder: {
       type: Sequelize.STRING,
-      field: 'logo'
+      defaultValue: 'ThriveBank',
+      field: 'logo_folder'
+    },
+    brandColor: {
+      type: Sequelize.STRING,
+      defaultValue: '#0089CB',
+      field: 'brand_color'
     },
     details: {
       type: Sequelize.JSON,
@@ -25,22 +31,14 @@ module.exports = Sequelize => ({
       type: Sequelize.JSON,
       field: 'access_info'
     },
-    connectedCount: {
-      type: Sequelize.INTEGER,
-      defaultValue: 0,
-      field: 'connected_count'
-    },
-    displayOnTop: {
-      type: Sequelize.BOOLEAN,
-      defaultValue: false,
-      field: 'display_on_top'
-    },
     isTest: {
       type: Sequelize.BOOLEAN,
+      defaultValue: false,
       field: 'is_test'
     },
     isAvailable: {
       type: Sequelize.BOOLEAN,
+      defaultValue: true,
       field: 'is_available'
     },
     countryCode: {
@@ -56,6 +54,20 @@ module.exports = Sequelize => ({
       type: Sequelize.DATE,
       field: 'updated_at'
     }
+  },
+  instanceMethods: {
+    getData () {
+      return {
+        id: this.id,
+        quovoInstitutionID: this.quovoInstitutionID,
+        name: this.name,
+        logoFolder: this.logoFolder,
+        brandColor: this.brandColor
+      }
+    }
+  },
+  associations: {
+    hasMany: 'Connection'
   },
   timestamps: true,
   createdAt: 'createdAt',
