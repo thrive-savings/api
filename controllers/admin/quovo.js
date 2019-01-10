@@ -413,6 +413,14 @@ module.exports = (
 
       const reply = {}
       try {
+        await request.post({
+          uri: `${config.constants.URL}/admin/quovo-api-token`,
+          body: {
+            secret: process.env.apiSecret
+          },
+          json: true
+        })
+
         await request.delete({
           uri: `${
             config.constants.QUOVO_API_URL

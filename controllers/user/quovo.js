@@ -17,6 +17,14 @@ module.exports = (request, config) => ({
 
       let uiToken
       if (!quovoUserCreateError) {
+        await request.post({
+          uri: `${config.constants.URL}/admin/quovo-api-token`,
+          body: {
+            secret: process.env.apiSecret
+          },
+          json: true
+        })
+
         const {
           ui_token: { token }
         } = await request.post({

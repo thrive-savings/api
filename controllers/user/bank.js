@@ -1,27 +1,22 @@
-module.exports = (User, Connection, Account, Bluebird, request, config) => ({
-  fetchAccounts: {
-    schema: [
-      [
-        'data',
-        true,
-        [
-          ['userID', true, 'integer'],
-          ['connectionID', true, 'integer'],
-          ['institutionID', true, 'integer']
-        ]
-      ]
-    ],
+module.exports = (
+  User,
+  Institution,
+  Connection,
+  Account,
+  Bluebird,
+  request,
+  config
+) => ({
+  fetchConnection: {
+    schema: [['data', true, [['connectionID', true, 'integer']]]],
     async method (ctx) {
+      ctx.request.socket.setTimeout(5 * 60 * 1000)
+
       const {
-        data: {
-          userID: quovoUserID,
-          connectionID: quovoConnectionID,
-          institutionID: quovoInstitutionID
-        }
+        data: { connectionID: quovoConnectionID }
       } = ctx.request.body
 
       const user = await User.findOne({ where: { id: ctx.authorized.id } })
-      console.log({ quovoUserID, quovoConnectionID, quovoInstitutionID })
 
       const { error: quovoConnectionError } = await request.post({
         uri: `${config.constants.URL}/admin/quovo-get-connection`,
@@ -70,7 +65,7 @@ module.exports = (User, Connection, Account, Bluebird, request, config) => ({
 
       const connectionInstance = await Connection.findOne({
         where: { quovoConnectionID },
-        include: [Account]
+        include: [Institution, Account]
       })
       ctx.body = { connection: connectionInstance.getData() }
     }
@@ -101,7 +96,7 @@ module.exports = (User, Connection, Account, Bluebird, request, config) => ({
 
       // Update Connections
       const connections = await Connection.findAll({
-        include: [Account],
+        include: [Institution, Account],
         where: { userID }
       })
       const connectionsData = []

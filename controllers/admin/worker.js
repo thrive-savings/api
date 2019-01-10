@@ -2,6 +2,8 @@ module.exports = (
   Bluebird,
   Sequelize,
   User,
+  Institution,
+  Connection,
   Account,
   request,
   amplitude,
@@ -14,47 +16,58 @@ module.exports = (
     async method (ctx) {
       const { frequencyWord } = ctx.request.body.data
 
-      // Condition Explanation: (forcedFetchFrequency = frequencyWord or (fetchFrequency = frequencyword and forcedFetchFrequency = null))
-      const users = await User.findAll({
-        where: {
-          [Sequelize.Op.or]: [
-            { forcedFetchFrequency: frequencyWord },
-            {
-              [Sequelize.Op.and]: [
-                { fetchFrequency: frequencyWord },
-                { forcedFetchFrequency: null }
-              ]
-            }
-          ],
-          bankLinked: true,
-          relinkRequired: false
-        }
-      })
-      amplitude.track({
-        eventType: 'WORKER_RUN_FREQUENCY',
-        userId: 'server',
-        eventProperties: {
-          Frequency: `${frequencyWord}`,
-          UserCount: `${users.length}`
-        }
-      })
+      const reply = {}
+      try {
+        // Condition Explanation: (forcedFetchFrequency = frequencyWord or (fetchFrequency = frequencyword and forcedFetchFrequency = null))
+        const users = await User.findAll({
+          where: {
+            [Sequelize.Op.or]: [
+              { forcedFetchFrequency: frequencyWord },
+              {
+                [Sequelize.Op.and]: [
+                  { fetchFrequency: frequencyWord },
+                  { forcedFetchFrequency: null }
+                ]
+              }
+            ],
+            bankLinked: true
+          }
+        })
+        amplitude.track({
+          eventType: 'WORKER_RUN_FREQUENCY',
+          userId: 'server',
+          eventProperties: {
+            Frequency: frequencyWord,
+            UserCount: users ? users.length : 0
+          }
+        })
 
-      if (users.length > 0) {
-        Bluebird.all(
-          users.map(user =>
-            request.post({
-              uri: `${config.constants.URL}/admin/worker-run-user`,
-              body: {
-                secret: process.env.apiSecret,
-                data: { userID: user.id, frequencyWord }
-              },
-              json: true
-            })
+        if (users && users.length > 0) {
+          Bluebird.all(
+            users.map(user =>
+              request.post({
+                uri: `${config.constants.URL}/admin/worker-run-user`,
+                body: {
+                  secret: process.env.apiSecret,
+                  data: { userID: user.id, frequencyWord }
+                },
+                json: true
+              })
+            )
           )
-        )
+        }
+      } catch (e) {
+        reply.error = true
+        amplitude.track({
+          eventType: 'WORKER_RUN_FREQUENCY_FAIL',
+          userId: 'server',
+          eventProperties: {
+            Error: e
+          }
+        })
       }
 
-      ctx.body = {}
+      ctx.body = reply
     }
   },
 
@@ -67,141 +80,221 @@ module.exports = (
         data: { userID, frequencyWord }
       } = ctx.request.body
 
-      const BALANCE_LOWER_THRESHOLD = 15000
+      const MIN_BALANCE_THRESHOLD = 10000
+      const MIN_DEPOSIT_AMOUNT = 500
       const MAX_DEPOSIT_AMOUNT = 100000
 
-      const user = await User.findOne({
-        where: { id: userID, bankLinked: true, relinkRequired: false }
-      })
-      if (!user) {
-        return Bluebird.reject([
-          { key: 'User', value: `User not found for ID: ${userID}` }
-        ])
-      }
+      const reply = {}
 
-      // Don't run for TD users
-      const defaultAccount = await Account.findOne({
-        where: { userID, isDefault: true }
-      })
+      try {
+        ctx.request.socket.setTimeout(5 * 60 * 1000)
 
-      if (defaultAccount) {
-        try {
-          // Get account balance
-          const balance = defaultAccount.value
-
-          // Get  saving amount
-          let safeBalance = balance
-          let amount
-          if (user.savingType === 'Thrive Flex') {
-            const algoResult = await request.post({
-              uri: `${config.constants.URL}/admin/algo-run`,
-              body: {
-                secret: process.env.apiSecret,
-                data: { userID: user.id }
-              },
-              json: true
-            })
-            amount = algoResult.amount
-            safeBalance = algoResult.safeBalance || balance
-          } else {
-            amount = user.fixedContribution
-          }
-
-          amplitude.track({
-            eventType: 'WORKER_GOT_AMOUNT',
-            userId: user.id,
-            eventProperties: {
-              Frequency: `${frequencyWord}`,
-              SavingType: `${user.savingType}`,
-              Amount: `${amount}`,
-              Balance: `${balance}`,
-              SafeBalance: `${safeBalance}`
-            }
-          })
-
-          // Transfer the amount
-          if (
-            safeBalance &&
-            safeBalance > BALANCE_LOWER_THRESHOLD &&
-            amount &&
-            amount < MAX_DEPOSIT_AMOUNT
-          ) {
-            // Reset user forced frequency
-            if (user.forcedFetchFrequency) {
-              user.update({ forcedFetchFrequency: null })
-            }
-
-            if (user.requireApproval || user.userType === 'vip') {
-              amplitude.track({
-                eventType: 'WORKER_REQUESTED_APPROVAL',
-                userId: user.id,
-                eventProperties: {
-                  SavingType: `${user.savingType}`,
-                  Amount: `${amount}`,
-                  Balance: `${balance}`,
-                  SafeBalance: `${safeBalance}`
-                }
-              })
-              await request.post({
-                uri: `${config.constants.URL}/slack-request-algo-approval`,
-                body: {
-                  data: {
-                    userID: user.id,
-                    amount: parseInt(amount)
-                  }
-                },
-                json: true
-              })
-            } else {
-              await request.post({
-                uri: `${config.constants.URL}/admin/worker-transfer`,
-                body: {
-                  secret: process.env.apiSecret,
-                  data: {
-                    userID: user.id,
-                    amount,
-                    type: 'debit',
-                    requestMethod: 'Automated'
-                  }
-                },
-                json: true
-              })
-            }
-          } else {
-            amplitude.track({
-              eventType: 'WORKER_NO_TRANSFER',
-              userId: user.id,
-              eventProperties: {
-                Frequency: `${frequencyWord}`,
-                SavingType: `${user.savingType}`,
-                Amount: `${amount}`,
-                Balance: `${balance}`,
-                SafeBalance: `${safeBalance}`,
-                Reason: 'Low Balance or High Amount'
-              }
-            })
-
-            // Schedule user to run daily till we are able to pull
-            await user.update({ forcedFetchFrequency: 'ONCEDAILY' })
-          }
-        } catch (error) {
-          Sentry.captureException(error)
-          amplitude.track({
-            eventType: 'WORKER_RUN_USER_FAIL',
-            userId: user.id,
-            eventProperties: { error }
-          })
-        }
-      } else {
-        amplitude.track({
-          eventType: 'WORKER_RUN_NO_DEFAULT_ACCOUNT',
-          userId: user.id
+        const user = await User.findOne({
+          include: [{ model: Connection, include: [Account] }],
+          where: { id: userID }
         })
 
-        // Notify user here to set / reconnect default
+        if (user) {
+          const connections = user.connections
+          if (connections && connections.length > 0) {
+            let defaultConnection = connections.filter(
+              connection => connection.isDefault
+            )
+            if (defaultConnection && defaultConnection.length > 0) {
+              defaultConnection = defaultConnection[0]
+              const accounts = defaultConnection.accounts
+
+              if (accounts) {
+                let defaultAccount = accounts.filter(
+                  account => account.isDefault
+                )
+
+                if (defaultAccount && defaultAccount.length > 0) {
+                  defaultAccount = defaultAccount[0]
+
+                  amplitude.track({
+                    eventType: 'WORKER_GOT_DEFAULT_ACCOUNT',
+                    userId: user.id,
+                    eventProperties: {
+                      DefaultConnectionID: defaultConnection.id,
+                      DefaultAccountID: defaultAccount.id
+                    }
+                  })
+
+                  // Get amount to save
+                  let safeBalance = defaultAccount.value
+                  let amountToSave = 0
+
+                  if (user.savingType === 'Thrive Flex') {
+                    const {
+                      error: algoRunError,
+                      safeBalance: safeBalanceFromAlgo,
+                      amount: amountFromAlgo
+                    } = await request.post({
+                      uri: `${config.constants.URL}/admin/algo-run`,
+                      body: {
+                        secret: process.env.apiSecret,
+                        data: { userID: user.id }
+                      },
+                      json: true
+                    })
+                    if (!algoRunError) {
+                      safeBalance = safeBalanceFromAlgo
+                      amountToSave = amountFromAlgo
+                    }
+                  } else {
+                    amountToSave = user.fixedContribution
+                  }
+
+                  if (amountToSave && safeBalance) {
+                    const amountCalculated = amountToSave
+                    amountToSave = Math.min(
+                      Math.max(amountCalculated, MIN_DEPOSIT_AMOUNT),
+                      MAX_DEPOSIT_AMOUNT
+                    )
+
+                    amplitude.track({
+                      eventType: 'WORKER_GOT_AMOUNT',
+                      userId: user.id,
+                      eventProperties: {
+                        AccountID: defaultAccount.id,
+                        Frequency: frequencyWord,
+                        SavingType: user.savingType,
+                        AmountCalculated: amountCalculated,
+                        AmountToSave: amountToSave,
+                        AccountBalance: defaultAccount.balance,
+                        SafeBalance: safeBalance
+                      }
+                    })
+
+                    if (safeBalance > MIN_BALANCE_THRESHOLD) {
+                      if (user.forcedFetchFrequency) {
+                        user.update({ forcedFetchFrequency: null })
+                      }
+
+                      if (user.requireApproval || user.userType === 'vip') {
+                        // Request approval
+                        amplitude.track({
+                          eventType: 'WORKER_REQUESTED_APPROVAL',
+                          userId: user.id,
+                          eventProperties: {
+                            SavingType: user.savingType,
+                            Amount: amountToSave
+                          }
+                        })
+                        await request.post({
+                          uri: `${
+                            config.constants.URL
+                          }/slack-request-algo-approval`,
+                          body: {
+                            data: {
+                              userID: user.id,
+                              amount: parseInt(amountToSave)
+                            }
+                          },
+                          json: true
+                        })
+                      } else {
+                        // Do the transfer
+                        await request.post({
+                          uri: `${config.constants.URL}/admin/worker-transfer`,
+                          body: {
+                            secret: process.env.apiSecret,
+                            data: {
+                              userID: user.id,
+                              amount: amountToSave,
+                              type: 'debit',
+                              requestMethod: 'Automated'
+                            }
+                          },
+                          json: true
+                        })
+                      }
+                    } else {
+                      amplitude.track({
+                        eventType: 'WORKER_FOUND_LOW_BALANCE',
+                        userId: user.id,
+                        eventProperties: {
+                          AccountID: defaultAccount.id,
+                          Frequency: frequencyWord,
+                          SavingType: user.savingType,
+                          AmountCalculated: amountCalculated,
+                          AmountToSave: amountToSave,
+                          AccountBalance: defaultAccount.balance,
+                          SafeBalance: safeBalance
+                        }
+                      })
+
+                      // Schedule user to run daily till we are able to pull
+                      await user.update({ forcedFetchFrequency: 'ONCEDAILY' })
+                    }
+                  }
+                } else {
+                  reply.error = true
+                  amplitude.track({
+                    eventType: 'WORKER_RUN_USER_FAIL',
+                    userId: 'server',
+                    eventProperties: {
+                      Error: `Connection ${
+                        defaultConnection.id
+                      } of User ${userID} has no default account.`
+                    }
+                  })
+                }
+              } else {
+                reply.error = true
+                amplitude.track({
+                  eventType: 'WORKER_RUN_USER_FAIL',
+                  userId: 'server',
+                  eventProperties: {
+                    Error: `Connection ${
+                      defaultConnection.id
+                    } of User ${userID} has no accounts.`
+                  }
+                })
+              }
+            } else {
+              reply.error = true
+              amplitude.track({
+                eventType: 'WORKER_RUN_USER_FAIL',
+                userId: 'server',
+                eventProperties: {
+                  Error: `User ${userID} has no default bank connection.`
+                }
+              })
+            }
+          } else {
+            reply.error = true
+            amplitude.track({
+              eventType: 'WORKER_RUN_USER_FAIL',
+              userId: 'server',
+              eventProperties: {
+                Error: `User ${userID} has no bank connections.`
+              }
+            })
+          }
+        } else {
+          reply.error = true
+          amplitude.track({
+            eventType: 'WORKER_RUN_USER_FAIL',
+            userId: 'server',
+            eventProperties: {
+              Error: `User not found for ID: ${userID}`
+            }
+          })
+        }
+      } catch (e) {
+        reply.error = true
+        amplitude.track({
+          eventType: 'WORKER_RUN_USER_FAIL',
+          userId: 'server',
+          eventProperties: {
+            Error: `User not found for ID: ${userID}`
+          }
+        })
       }
 
-      ctx.body = {}
+      ctx.body = reply
     }
   },
 
