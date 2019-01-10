@@ -1,6 +1,7 @@
 module.exports = (
   Sequelize,
   User,
+  Connection,
   Queue,
   twilio,
   amplitude,
@@ -18,7 +19,8 @@ module.exports = (
 
       const requestBody = ctx.request.body
       const { From: phone, Body: msg } = requestBody
-      const [command, ...params] = msg.split(' ')
+      const [parsedCommand, ...params] = msg.split(' ')
+      const command = parsedCommand.toLowerCase()
 
       let responseMsg = ''
       let slackMsg
@@ -38,7 +40,7 @@ module.exports = (
         // Check against available commands
         let analyticsEvent = ''
 
-        if (['balance', 'Balance'].includes(command)) {
+        if (['balance'].includes(command)) {
           analyticsEvent = 'Bot Received Balance Command'
           responseMsg = `Hello ${
             user.firstName
@@ -78,9 +80,12 @@ module.exports = (
               depositsInProgress
             )} enroute to Thrive Savings.`
           }
-        } else if (['save', 'Save', 'deposit', 'Deposit'].includes(command)) {
+        } else if (['save', 'deposit'].includes(command)) {
           analyticsEvent = 'Bot Received Save Command'
-          if (!user.bankLinked || user.relinkRequired) {
+          const connections = await Connection.findAll({
+            where: { userID: user.id, status: 'good' }
+          })
+          if (!connections || connections.length <= 0) {
             responseMsg = `Hi ${
               user.name
             }, it looks like you haven’t connected a bank account yet or we lost the connection to your bank. Please  go to the app to link your primary chequing account.`
@@ -99,49 +104,43 @@ module.exports = (
               } | ${msg}`
               setGenericSlackMsg = false
 
-              // Fetch new transactions for user
-              const {
-                data: { balance }
-              } = await request.post({
-                uri: `${config.constants.URL}/admin/transactions-fetch-user`,
+              const { error, errorCode, errorDetails } = await request.post({
+                uri: `${config.constants.URL}/admin/worker-run-user`,
                 body: {
                   secret: process.env.apiSecret,
-                  data: { userID: user.id }
+                  data: { userID: user.id, amount }
                 },
                 json: true
               })
 
-              // Transfer the amount
-              if (amount < balance && amount <= 100000 && amount >= 500) {
-                await request.post({
-                  uri: `${config.constants.URL}/admin/worker-transfer`,
-                  body: {
-                    secret: process.env.apiSecret,
-                    data: {
-                      userID: user.id,
-                      amount,
-                      type: 'debit',
-                      requestMethod: 'ThriveBot'
-                    }
-                  },
-                  json: true
-                })
-              } else {
-                if (amount >= balance) {
-                  responseMsg = `We cannot process your deposit request as your bank account balance may go into insufficient funds. `
-                } else if (amount > 100000) {
-                  responseMsg = `You are requesting to deposit $${getDollarString(
-                    amount
-                  )}. We don't support depositing over $1000 at the moment.`
-                } else if (amount < 500) {
-                  responseMsg = `The minimum amount to deposit is $5.00. Please enter an amount above $5.00.`
+              if (error) {
+                switch (errorCode) {
+                  case 'low_balance':
+                    responseMsg = `We cannot process your deposit request as your bank account balance may go into insufficient funds.`
+                    break
+                  case 'out_of_range':
+                    const { bounds } = errorDetails
+                    responseMsg = `Thrive only supports deposits in the range (${getDollarString(
+                      bounds.lower
+                    )}, ${getDollarString(bounds.upper)})`
+                    break
+                  case 'no_default':
+                    responseMsg = `We cannot process your deposit request as your bank account balance may go into insufficient funds. `
+                    break
+                  default:
+                    responseMsg =
+                      'Oops. Something went wrong. Please contact support to get details.'
+                    break
                 }
               }
             }
           }
-        } else if (['withdraw', 'Withdraw', 'move', 'Move'].includes(command)) {
+        } else if (['withdraw', 'move'].includes(command)) {
           analyticsEvent = 'Bot Received Withdraw Command'
-          if (!user.bankLinked || user.relinkRequired) {
+          const connections = await Connection.findAll({
+            where: { userID: user.id, status: 'good' }
+          })
+          if (!connections || connections.length <= 0) {
             responseMsg = `Hi ${
               user.name
             }, it looks like you haven’t connected a bank account yet or we lost the connection to your bank. Please  go to the app to link your primary chequing account.`
@@ -217,7 +216,7 @@ module.exports = (
             let scale = params[0]
             if (!['1.5x', '2x', '1.5', '2'].includes(scale)) {
               responseMsg =
-                'Please use one of the exact options. Example: "Boost 2x"'
+                'Please use one of the exact options. Example: "Boost 2x" (Emojis are not supported at the moment.)'
             } else {
               responseMsg = user.updateAlgoBoost(scale)
             }
