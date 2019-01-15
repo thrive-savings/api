@@ -200,7 +200,9 @@ module.exports = (
       }
 
       if (!user.quovoUserID) {
-        const quovoUserName = `THRIVE_${userID}`
+        const quovoUserName = `THRIVE${
+          process.env.NODE_ENV !== 'production' ? '_DEV' : ''
+        }_${userID}`
 
         try {
           const {
@@ -558,7 +560,16 @@ module.exports = (
             json: true
           })
         } else {
-          // Schedule notifications about unlink
+          // TODO: Schedule notifications about unlink
+          await request.post({
+            uri: process.env.slackWebhookURL,
+            body: {
+              text: `User [${connection.userID}] | Connection [${
+                connection.id
+              }] got disconnected`
+            },
+            json: true
+          })
         }
       } catch (e) {
         reply.error = true
