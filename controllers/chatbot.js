@@ -87,7 +87,7 @@ module.exports = (
           })
           if (!connections || connections.length <= 0) {
             responseMsg = `Hi ${
-              user.name
+              user.firstName
             }, it looks like you haven’t connected a bank account yet or we lost the connection to your bank. Please  go to the app to link your primary chequing account.`
           } else {
             let amount = +params[0]
@@ -142,7 +142,7 @@ module.exports = (
           })
           if (!connections || connections.length <= 0) {
             responseMsg = `Hi ${
-              user.name
+              user.firstName
             }, it looks like you haven’t connected a bank account yet or we lost the connection to your bank. Please  go to the app to link your primary chequing account.`
           } else {
             let amount = +params[0]
@@ -208,9 +208,12 @@ module.exports = (
           }
         } else if (['boost', 'Boost', 'BOOST'].includes(command)) {
           analyticsEvent = 'Bot Received Boost Command'
-          if (!user.bankLinked || user.relinkRequired) {
+          const connections = await Connection.findAll({
+            where: { userID: user.id, status: 'good' }
+          })
+          if (!connections || connections.length <= 0) {
             responseMsg = `Hi ${
-              user.name
+              user.firstName
             }, it looks like you haven’t connected a bank account yet or we lost the connection to your bank. Please  go to the app to link your primary chequing account.`
           } else {
             let scale = params[0]
@@ -223,9 +226,12 @@ module.exports = (
           }
         } else if (['reduce', 'Reduce', 'REDUCE'].includes(command)) {
           analyticsEvent = 'Bot Received Reduce Command'
-          if (!user.bankLinked || user.relinkRequired) {
+          const connections = await Connection.findAll({
+            where: { userID: user.id, status: 'good' }
+          })
+          if (!connections || connections.length <= 0) {
             responseMsg = `Hi ${
-              user.name
+              user.firstName
             }, it looks like you haven’t connected a bank account yet or we lost the connection to your bank. Please  go to the app to link your primary chequing account.`
           } else {
             let scale = params[0]
@@ -236,7 +242,7 @@ module.exports = (
               responseMsg = user.updateAlgoBoost(scale)
             }
           }
-        } else if (['invite', 'Invite'].includes(command)) {
+        } else if (['invite', 'refer'].includes(command)) {
           analyticsEvent = 'Bot Received Invite Command'
           let invitedPhone = params[0]
           if (
@@ -257,10 +263,10 @@ module.exports = (
               }, has invited you to use Thrive Savings app to improve your financial well-being. You can download the mobile from Apple App Store or Google Play Store by searching for Thrive Savings.`
             })
           }
-        } else if (['help', 'Help', 'help!', 'Help!'].includes(command)) {
+        } else if (['help', 'help!'].includes(command)) {
           analyticsEvent = 'Bot Received Help Command'
           responseMsg = `Please email help@thrivesavings.com to contact support.`
-        } else if (['Hi', 'Hello', 'Hey', 'Yo', 'Hola'].includes(command)) {
+        } else if (['hi', 'hello', 'hey', 'yo', 'hola'].includes(command)) {
           analyticsEvent = 'Bot Received Hi Command'
           responseMsg = `Hi ${user.firstName}! How can I help you today?`
         }
