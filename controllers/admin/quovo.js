@@ -62,7 +62,7 @@ module.exports = (
     }
   },
 
-  institutions: {
+  syncInstitutions: {
     async method (ctx) {
       try {
         await request.post({
@@ -124,8 +124,11 @@ module.exports = (
     }
   },
 
-  connections: {
+  syncConnections: {
+    schema: [['data', [['quovoUserIDs', 'array']]]],
     async method (ctx) {
+      const { data: { quovoUserIDs } = {} } = ctx.request.body
+
       try {
         await request.post({
           uri: `${config.constants.URL}/admin/quovo-api-token`,
@@ -135,9 +138,13 @@ module.exports = (
           json: true
         })
 
-        const users = await User.findAll({
-          where: { quovoUserID: { [Sequelize.Op.ne]: null } }
-        })
+        const where = {}
+        if (quovoUserIDs && quovoUserIDs.length > 0) {
+          where.quovoUserID = { [Sequelize.Op.in]: quovoUserIDs }
+        } else {
+          where.quovoUserID = { [Sequelize.Op.ne]: null }
+        }
+        const users = await User.findAll({ where })
 
         users.forEach(async ({ id: userID, quovoUserID }) => {
           const { connections } = await request.get({
