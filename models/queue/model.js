@@ -50,7 +50,7 @@ module.exports = (Sequelize, uuid) => ({
     },
     accountID: {
       type: Sequelize.INTEGER,
-      allowNull: false,
+      allowNull: true,
       field: 'account_id'
     },
     uuid: {

@@ -1,9 +1,20 @@
 module.exports = (User, Account, Queue, request, Sentry, amplitude) => ({
   sync: {
-    schema: [['data', true, [['userID', 'integer']]]],
+    schema: [
+      [
+        'data',
+        true,
+        [['userID', 'integer'], ['institution'], ['transit'], ['account']]
+      ]
+    ],
     async method (ctx) {
       const {
-        data: { userID: providedUserID }
+        data: {
+          userID: providedUserID,
+          institution: providedInstitution,
+          transit: providedTransit,
+          account: providedAccount
+        }
       } = ctx.request.body
 
       try {
@@ -48,18 +59,26 @@ module.exports = (User, Account, Queue, request, Sentry, amplitude) => ({
               account = await Account.findOne({
                 where: { userID, isDefault: true }
               })
-              queue.accountID = account.id
-              await queue.save()
+              if (account) {
+                queue.accountID = account.id
+                await queue.save()
+              }
             }
 
-            if (account.versapay_token) {
-              if (type === 'debit') {
-                body.from_fund_token = account.versapay_token
-              } else body.to_fund_token = account.versapay_token
+            if (providedInstitution && providedTransit && providedAccount) {
+              body.institution_number = providedInstitution
+              body.branch_number = providedTransit
+              body.account_number = providedAccount
             } else {
-              body.institution_number = account.institution
-              body.branch_number = account.transit
-              body.account_number = account.number
+              if (account.versapay_token) {
+                if (type === 'debit') {
+                  body.from_fund_token = account.versapay_token
+                } else body.to_fund_token = account.versapay_token
+              } else {
+                body.institution_number = account.institution
+                body.branch_number = account.transit
+                body.account_number = account.number
+              }
             }
 
             try {

@@ -278,6 +278,75 @@ module.exports = (
     }
   },
 
+  manualTransferDirect: {
+    async method (ctx) {
+      const { token, trigger_id, response_url: responseUrl } = ctx.request.body
+
+      if (token !== process.env.slackVerificationToken) {
+        return Bluebird.reject([
+          { key: 'Access Denied', value: `Incorrect Verification Token` }
+        ])
+      }
+
+      request.post({
+        uri: `${config.constants.URL}/slack-api-call`,
+        body: {
+          data: {
+            url: 'dialog.open',
+            body: {
+              dialog: JSON.stringify({
+                callback_id: `manualTransferDirect`,
+                title: 'Manual Transfer Direct',
+                submit_label: 'Submit',
+                elements: [
+                  {
+                    type: 'text',
+                    subtype: 'number',
+                    label: 'User ID:',
+                    name: 'userID',
+                    max_length: 10,
+                    min_length: 1
+                  },
+                  {
+                    type: 'text',
+                    label: 'Amount:',
+                    name: 'amount',
+                    hint: 'Example amount format: 10.25',
+                    max_length: 6,
+                    min_length: 1
+                  },
+                  {
+                    type: 'text',
+                    label: 'Institution #:',
+                    name: 'institution',
+                    placeholder: '001'
+                  },
+                  {
+                    type: 'text',
+                    label: 'Transit #:',
+                    name: 'transit',
+                    placeholder: '01234'
+                  },
+                  {
+                    type: 'text',
+                    label: 'Account #:',
+                    name: 'account',
+                    placeholder: '123456789xxx'
+                  }
+                ],
+                state: responseUrl
+              }),
+              trigger_id
+            }
+          }
+        },
+        json: true
+      })
+
+      ctx.body = ''
+    }
+  },
+
   getUserInfo: {
     async method (ctx) {
       const { token, text } = ctx.request.body
@@ -884,6 +953,36 @@ module.exports = (
                 userID: parseInt(userID),
                 amount: parseInt((amount + 0) * 100),
                 type
+              }
+            },
+            json: true
+          })
+
+          if (replyMessage) {
+            await request.post({
+              uri: process.env.slackWebhookURL,
+              body: { text: replyMessage },
+              json: true
+            })
+            replyMessage = {}
+          }
+        } else if (command === 'manualTransferDirect') {
+          const {
+            submission: { userID, amount, institution, transit, account }
+          } = payload
+
+          console.log({ userID, amount, institution, transit, account })
+
+          replyMessage = await request.post({
+            uri: `${config.constants.URL}/admin/manual-transfer-direct`,
+            body: {
+              secret: process.env.apiSecret,
+              data: {
+                userID: parseInt(userID),
+                amount: parseInt((amount + 0) * 100),
+                institution,
+                transit,
+                account
               }
             },
             json: true

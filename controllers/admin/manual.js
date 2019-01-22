@@ -1,4 +1,13 @@
-module.exports = (Sequelize, User, Account, Bluebird, request, config) => ({
+module.exports = (
+  Sequelize,
+  User,
+  Account,
+  Queue,
+  Bluebird,
+  request,
+  config,
+  moment
+) => ({
   unlink: {
     schema: [['data', true, [['userIds', true, 'array']]]],
     async method (ctx) {
@@ -165,6 +174,53 @@ module.exports = (Sequelize, User, Account, Bluebird, request, config) => ({
         }
       } catch (e) {
         responseMsg = `Transfer failed for User ${userID}`
+      }
+
+      ctx.body = responseMsg
+    }
+  },
+
+  transferDirect: {
+    schema: [
+      [
+        'data',
+        true,
+        [
+          ['userID', true, 'integer'],
+          ['amount', true, 'integer'],
+          ['institution', true],
+          ['transit', true],
+          ['account', true]
+        ]
+      ]
+    ],
+    async method (ctx) {
+      const {
+        data: { userID, amount, institution, transit, account }
+      } = ctx.request.body
+
+      let responseMsg = `Processing the transfer for User ${userID}`
+      try {
+        // Create Queue entry
+        await Queue.create({
+          userID,
+          amount,
+          type: 'debit',
+          requestMethod: 'ManualDirect',
+          transactionReference: `THRIVE${userID}_` + moment().format('X')
+        })
+
+        // Deposit to VersaPay
+        await request.post({
+          uri: `${config.constants.URL}/admin/versapay-sync`,
+          body: {
+            secret: process.env.apiSecret,
+            data: { userID, institution, transit, account }
+          },
+          json: true
+        })
+      } catch (e) {
+        responseMsg = `Direct Transfer failed for User ${userID}`
       }
 
       ctx.body = responseMsg

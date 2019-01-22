@@ -1,26 +1,11 @@
-// const crypto = require('crypto')
-
 module.exports = (User, Account, Queue, request) => ({
   hook: {
     async method (ctx) {
       const req = ctx.request.body
+
       if (req.type === 'transaction') {
-        /*
-        // Verify signature
-        let sortedKeys = ''
-        Object.keys(req).sort().forEach(key => {
-          if (key !== 'signature') {
-            sortedKeys += (key + '' + req[key])
-          }
-        }) // ${config.constants.URL}
-        const requestString = `POST\nhttps://b5ae5bc6.ngrok.io/versapay-hook\n${sortedKeys}`
-        console.log('-------------START PRINTING SORTED KEYS--------------')
-        console.log(requestString)
-        console.log('-------------DONE PRINTING SORTED KEYS--------------')
-        const hash = crypto.createHmac('sha256', process.env.versaPayHookSecret).update(requestString).digest('hex')
-        const expectedSignature = encodeURI(Buffer.from(hash).toString('base64'))
-        console.log(expectedSignature)
-        */
+        // TODO: Verify signature
+
         const {
           token,
           state,
@@ -28,40 +13,45 @@ module.exports = (User, Account, Queue, request) => ({
           unique_reference: uuid,
           amount_in_cents: amountInCents
         } = req
+
         const queue = await Queue.findOne({ where: { uuid } })
         if (queue) {
           if (!queue.processed) queue.processed = true
           if (!queue.processedDate) queue.processedDate = Date.now()
           if (!queue.versapay_token) queue.versapay_token = token
           queue.state = state
-          const savedQueue = await queue.save()
+          await queue.save()
 
-          const accountToken =
-            transactionType === 'direct_debit'
-              ? req.from_fund_token
-              : req.to_fund_token
-          const account = await Account.findOne({
-            where: { id: savedQueue.accountID }
-          })
-          if (account.versapay_token !== accountToken) {
-            account.versapay_token = accountToken
-            await account.save()
+          if (queue.requestMethod !== 'ManualDirect') {
+            const accountToken =
+              transactionType === 'direct_debit'
+                ? req.from_fund_token
+                : req.to_fund_token
+
+            const account = await Account.findOne({
+              where: { id: queue.accountID }
+            })
+            if (account.versapay_token !== accountToken) {
+              account.versapay_token = accountToken
+              await account.save()
+            }
           }
 
           if (state === 'in_progress' || state === 'completed') {
             const user = await User.findOne({
-              where: { id: savedQueue.userID }
+              where: { id: queue.userID }
             })
 
             if (
               state === 'in_progress' &&
-              savedQueue.requestMethod === 'Manual'
+              (queue.requestMethod === 'Manual' ||
+                queue.requestMethod === 'ManualDirect')
             ) {
               await request.post({
                 uri: process.env.slackWebhookURL,
                 body: {
                   text: `Transaction [QueueID: ${
-                    savedQueue.id
+                    queue.id
                   }] Initiated for User ${user.id}`
                 },
                 json: true
