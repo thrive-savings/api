@@ -100,7 +100,7 @@ module.exports = (Sequelize, Account) => ({
         institutionName: this.institutionName,
         isDefault: this.isDefault,
         sync: {
-          status: 'good', // TODO: this.status,
+          status: this.status,
           details: this.statusDetails,
           lastGoodSync: this.lastGoodSync,
           lastSync: this.lastSync

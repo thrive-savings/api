@@ -313,6 +313,7 @@ module.exports = (
         } else {
           await connectionInstance.update(connectionData)
         }
+        reply.connection = connectionData
       } catch (e) {
         console.log(e)
         reply.error = true

@@ -18,7 +18,10 @@ module.exports = (
 
       const user = await User.findOne({ where: { id: ctx.authorized.id } })
 
-      const { error: quovoConnectionError } = await request.post({
+      const {
+        connection: { status },
+        error: quovoConnectionError
+      } = await request.post({
         uri: `${config.constants.URL}/admin/quovo-get-connection`,
         body: {
           secret: process.env.apiSecret,
@@ -39,24 +42,26 @@ module.exports = (
         ])
       }
 
-      const { error: quovoAccountError } = await request.post({
-        uri: `${config.constants.URL}/admin/quovo-fetch-accounts-auth`,
-        body: {
-          secret: process.env.apiSecret,
-          data: {
-            quovoConnectionID
-          }
-        },
-        json: true
-      })
+      if (status === 'good') {
+        const { error: quovoAccountError } = await request.post({
+          uri: `${config.constants.URL}/admin/quovo-fetch-accounts-auth`,
+          body: {
+            secret: process.env.apiSecret,
+            data: {
+              quovoConnectionID
+            }
+          },
+          json: true
+        })
 
-      if (quovoAccountError) {
-        return Bluebird.reject([
-          {
-            key: 'QuovoFetchAccounts',
-            value: `Something went wrong when fetching accounts for Quovo Connection [${quovoConnectionID}].`
-          }
-        ])
+        if (quovoAccountError) {
+          return Bluebird.reject([
+            {
+              key: 'QuovoFetchAccounts',
+              value: `Something went wrong when fetching accounts for Quovo Connection [${quovoConnectionID}].`
+            }
+          ])
+        }
       }
 
       if (!user.bankLinked) {

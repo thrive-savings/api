@@ -46,6 +46,14 @@
             };
             sendMessage(msgObj);
           },
+          onAdd: function(err, event) {
+            var msgObj = {
+              event: "onAdd",
+              data: event,
+              error: err
+            };
+            sendMessage(msgObj);
+          },
           onAuthenticate: function(err, event) {
             var msgObj = {
               event: "onAuthenticate",
