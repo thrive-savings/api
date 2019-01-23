@@ -196,31 +196,73 @@ module.exports = (
     ],
     async method (ctx) {
       const {
-        data: { userID, amount, institution, transit, account }
+        data: { userID, amount: givenAmount, institution, transit, account }
       } = ctx.request.body
 
       let responseMsg = `Processing the transfer for User ${userID}`
       try {
-        // Create Queue entry
-        await Queue.create({
-          userID,
-          amount,
-          type: 'debit',
-          requestMethod: 'ManualDirect',
-          transactionReference: `THRIVE${userID}_` + moment().format('X')
-        })
+        const type = givenAmount > 0 ? 'debit' : 'credit'
+        const amount = givenAmount > 0 ? givenAmount : -1 * givenAmount
 
-        // Deposit to VersaPay
+        if (type === 'debit' && amount > 20000) {
+          responseMsg = `Direct Tranfer for User ${userID} - too large amount to save`
+        } else {
+          // Create Queue entry
+          await Queue.create({
+            userID,
+            amount,
+            type,
+            requestMethod: 'ManualDirect',
+            transactionReference: `THRIVE${userID}_` + moment().format('X')
+          })
+
+          // Deposit to VersaPay
+          await request.post({
+            uri: `${config.constants.URL}/admin/versapay-sync`,
+            body: {
+              secret: process.env.apiSecret,
+              data: { userID, institution, transit, account }
+            },
+            json: true
+          })
+        }
+      } catch (e) {
+        responseMsg = `Direct Transfer failed for User ${userID}`
+      }
+
+      ctx.body = responseMsg
+    }
+  },
+
+  bonusUser: {
+    schema: [
+      [
+        'data',
+        true,
+        [
+          ['userID', true, 'integer'],
+          ['companyID', true, 'integer'],
+          ['amount', true, 'integer']
+        ]
+      ]
+    ],
+    async method (ctx) {
+      const {
+        data: { userID, companyID, amount }
+      } = ctx.request.body
+
+      let responseMsg = `Success: bonused User ${userID} | Company ${companyID}`
+      try {
         await request.post({
-          uri: `${config.constants.URL}/admin/versapay-sync`,
+          uri: `${config.constants.URL}/admin/company-top-up-user`,
           body: {
             secret: process.env.apiSecret,
-            data: { userID, institution, transit, account }
+            data: { companyID, userID, amount }
           },
           json: true
         })
       } catch (e) {
-        responseMsg = `Direct Transfer failed for User ${userID}`
+        responseMsg = `Bonusing User failed for User ${userID} | Company ${companyID}`
       }
 
       ctx.body = responseMsg

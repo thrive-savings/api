@@ -69,7 +69,7 @@ module.exports = (User, Account, Queue, request, Sentry, amplitude) => ({
               body.institution_number = providedInstitution
               body.branch_number = providedTransit
               body.account_number = providedAccount
-            } else {
+            } else if (account) {
               if (account.versapay_token) {
                 if (type === 'debit') {
                   body.from_fund_token = account.versapay_token

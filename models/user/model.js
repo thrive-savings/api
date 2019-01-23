@@ -370,7 +370,6 @@ module.exports = (
       if (this.connections) {
         connections = this.connections.map(connection => connection.getData())
       }
-      console.log(connections)
 
       let goals
       if (this.goals) {

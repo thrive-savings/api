@@ -31,7 +31,7 @@ module.exports = (User, Account, Queue, request) => ({
             const account = await Account.findOne({
               where: { id: queue.accountID }
             })
-            if (account.versapay_token !== accountToken) {
+            if (account && account.versapay_token !== accountToken) {
               account.versapay_token = accountToken
               await account.save()
             }
@@ -44,8 +44,7 @@ module.exports = (User, Account, Queue, request) => ({
 
             if (
               state === 'in_progress' &&
-              (queue.requestMethod === 'Manual' ||
-                queue.requestMethod === 'ManualDirect')
+              ['Manual', 'ManualDirect'].includes(queue.requestMethod)
             ) {
               await request.post({
                 uri: process.env.slackWebhookURL,

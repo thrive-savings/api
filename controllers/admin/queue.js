@@ -33,8 +33,11 @@ module.exports = (Account, Queue, moment, amplitude, Sentry) => ({
             const account = await Account.findOne({
               where: { userID, isDefault: true }
             })
-            accountID = account.id
+            if (account) {
+              accountID = account.id
+            }
           }
+
           const transactionReference = `THRIVE${userID}_` + moment().format('X')
 
           const alreadyRan = alreadyProcessed || type === 'bonus'
@@ -46,6 +49,7 @@ module.exports = (Account, Queue, moment, amplitude, Sentry) => ({
             requestMethod,
             transactionReference,
             processed: alreadyRan,
+            processedDate: alreadyRan ? Date.now() : null,
             state: alreadyRan ? 'completed' : null
           })
 

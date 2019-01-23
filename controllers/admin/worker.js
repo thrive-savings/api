@@ -80,8 +80,6 @@ module.exports = (
         data: { userID, amount: amountProvided }
       } = ctx.request.body
 
-      console.log(`----inside worker run user for ${amountProvided}`)
-
       const MIN_BALANCE_THRESHOLD = 10000
       const MIN_DEPOSIT_AMOUNT = 500
       const MAX_DEPOSIT_AMOUNT = 100000

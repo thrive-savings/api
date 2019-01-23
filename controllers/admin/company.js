@@ -19,6 +19,7 @@ module.exports = (Bluebird, User, Company, Bonus, request, config) => ({
       ctx.body = { data: { name: company.name, code: company.code } }
     }
   },
+
   topUpUser: {
     schema: [
       [

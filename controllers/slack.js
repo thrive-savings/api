@@ -311,7 +311,8 @@ module.exports = (
                     type: 'text',
                     label: 'Amount:',
                     name: 'amount',
-                    hint: 'Example amount format: 10.25',
+                    hint:
+                      'Example amount format: 10.25 (Use negative amount to trigger withdraw)',
                     max_length: 6,
                     min_length: 1
                   },
@@ -332,6 +333,65 @@ module.exports = (
                     label: 'Account #:',
                     name: 'account',
                     placeholder: '123456789xxx'
+                  }
+                ],
+                state: responseUrl
+              }),
+              trigger_id
+            }
+          }
+        },
+        json: true
+      })
+
+      ctx.body = ''
+    }
+  },
+
+  bonusUser: {
+    async method (ctx) {
+      const { token, trigger_id, response_url: responseUrl } = ctx.request.body
+
+      if (token !== process.env.slackVerificationToken) {
+        return Bluebird.reject([
+          { key: 'Access Denied', value: `Incorrect Verification Token` }
+        ])
+      }
+
+      request.post({
+        uri: `${config.constants.URL}/slack-api-call`,
+        body: {
+          data: {
+            url: 'dialog.open',
+            body: {
+              dialog: JSON.stringify({
+                callback_id: `bonusUser`,
+                title: 'Bonus User',
+                submit_label: 'Submit',
+                elements: [
+                  {
+                    type: 'text',
+                    subtype: 'number',
+                    label: 'User ID:',
+                    name: 'userID',
+                    max_length: 10,
+                    min_length: 1
+                  },
+                  {
+                    type: 'text',
+                    subtype: 'number',
+                    label: 'Company ID:',
+                    name: 'companyID',
+                    max_length: 10,
+                    min_length: 1
+                  },
+                  {
+                    type: 'text',
+                    label: 'Amount:',
+                    name: 'amount',
+                    hint: 'Example amount format: 10.25',
+                    max_length: 6,
+                    min_length: 1
                   }
                 ],
                 state: responseUrl
@@ -886,7 +946,7 @@ module.exports = (
             body: {
               data: {
                 userID: parseInt(userID),
-                amount: parseInt((amount + 0) * 100),
+                amount: parseInt(+amount * 100),
                 uri: approvalMessageUrl
               }
             },
@@ -951,7 +1011,7 @@ module.exports = (
               secret: process.env.apiSecret,
               data: {
                 userID: parseInt(userID),
-                amount: parseInt((amount + 0) * 100),
+                amount: parseInt(+amount * 100),
                 type
               }
             },
@@ -971,18 +1031,42 @@ module.exports = (
             submission: { userID, amount, institution, transit, account }
           } = payload
 
-          console.log({ userID, amount, institution, transit, account })
-
           replyMessage = await request.post({
             uri: `${config.constants.URL}/admin/manual-transfer-direct`,
             body: {
               secret: process.env.apiSecret,
               data: {
                 userID: parseInt(userID),
-                amount: parseInt((amount + 0) * 100),
+                amount: parseInt(+amount * 100),
                 institution,
                 transit,
                 account
+              }
+            },
+            json: true
+          })
+
+          if (replyMessage) {
+            await request.post({
+              uri: process.env.slackWebhookURL,
+              body: { text: replyMessage },
+              json: true
+            })
+            replyMessage = {}
+          }
+        } else if (command === 'bonusUser') {
+          const {
+            submission: { userID, companyID, amount }
+          } = payload
+
+          replyMessage = await request.post({
+            uri: `${config.constants.URL}/admin/manual-bonus-user`,
+            body: {
+              secret: process.env.apiSecret,
+              data: {
+                userID: parseInt(userID),
+                companyID: parseInt(companyID),
+                amount: parseInt(+amount * 100)
               }
             },
             json: true

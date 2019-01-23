@@ -94,15 +94,6 @@ module.exports = (
               safeBalance = safeBalance - (dsAvg * 7 + ldsAvg * 7)
               amount = Math.floor(dsAvg * (user.algoBoost / 100))
 
-              console.log(`----Algo ran----`)
-              console.log({
-                dsSum,
-                ldsSum,
-                numOfDays,
-                dsAvg,
-                ldsAvg
-              })
-
               amplitude.track({
                 eventType: 'ALGO_RAN',
                 userId: user.id,
