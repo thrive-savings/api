@@ -1,6 +1,7 @@
 module.exports = (
   Sequelize,
   User,
+  Connection,
   Account,
   Queue,
   Bluebird,
@@ -307,15 +308,9 @@ module.exports = (
                 default:
                 case 'linked':
                   user.bankLinked = true
-                  user.relinkRequired = false
-                  break
-                case 'relinkRequired':
-                  user.bankLinked = true
-                  user.relinkRequired = true
                   break
                 case 'neverLinked':
                   user.bankLinked = false
-                  user.relinkRequired = false
                   break
               }
               await user.save()
@@ -344,15 +339,36 @@ module.exports = (
               break
             case 'account':
               const { defaultAccountID } = submission
-              await Account.update(
-                { isDefault: false },
-                { where: { userID: user.id, isDefault: true } }
-              )
-              await Account.update(
-                { isDefault: true },
-                { where: { userID: user.id, id: defaultAccountID } }
-              )
-              responseMsg = `Successfully updated default account (Account ID ${defaultAccountID}) info for User ${userID}`
+              const account = await Account.findOne({
+                where: { id: defaultAccountID }
+              })
+              const alreadyDefault = account.isDefault
+
+              if (!alreadyDefault) {
+                // Update Accounts
+                await Account.update(
+                  { isDefault: false },
+                  { where: { userID } }
+                )
+                await account.update({ isDefault: true })
+              }
+
+              // Update Connections
+              const connections = await Connection.findAll({
+                where: { userID }
+              })
+              for (const connectionInstance of connections) {
+                if (!alreadyDefault) {
+                  if (connectionInstance.id === account.connectionID) {
+                    connectionInstance.isDefault = true
+                  } else {
+                    connectionInstance.isDefault = false
+                  }
+                  await connectionInstance.save()
+                }
+              }
+
+              responseMsg = `Successfully updated new default account (Account ID ${defaultAccountID}) for User ${userID}`
               break
           }
         } else {

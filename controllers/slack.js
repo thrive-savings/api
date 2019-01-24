@@ -2,12 +2,14 @@ module.exports = (
   Bluebird,
   Sequelize,
   User,
+  Connection,
   Account,
   Company,
   amplitude,
   twilio,
   request,
-  config
+  config,
+  moment
 ) => ({
   sendSms: {
     async method (ctx) {
@@ -419,10 +421,14 @@ module.exports = (
 
       let slackReply = ''
       if (text) {
-        const user = await User.findOne({ where: { id: text } })
+        const [userID, extra] = text.split(' ')
+
+        const user = await User.findOne({
+          include: [{ model: Connection, include: [Account] }],
+          where: { id: userID }
+        })
         if (user) {
           const {
-            id: userID,
             firstName,
             lastName,
             email,
@@ -432,7 +438,7 @@ module.exports = (
             fixedContribution,
             savingType,
             bankLinked,
-            relinkRequired
+            quovoUserID
           } = user
 
           const getDollarString = amount => {
@@ -445,39 +451,86 @@ module.exports = (
             return dollars
           }
 
-          slackReply = `*Information for User ${userID}*\n - *Full Name:* ${firstName} ${lastName}\n - *Balance:* $${getDollarString(
-            balance
-          )}\n - *Contact:* ${email} ${phone}\n - *Saving Preferences:* On *${savingType}* plan${
-            savingType === 'Thrive Fixed'
-              ? ` with *${fixedContribution}* fixed amount`
-              : ''
-          } every *${fetchFrequency}*\n - *Bank Connection Status:* ${
-            !bankLinked
-              ? 'Not linked'
-              : relinkRequired
-                ? 'Relink required'
-                : 'Linked'
-          }\n`
+          const tab = '   '
 
-          const defaultAccount = await Account.findOne({
-            where: { userID, isDefault: true }
-          })
-          if (defaultAccount) {
-            const { id: accountID, transit: accountTransit } = defaultAccount
-            const {
-              title: accountTitle,
-              number: accountNumber
-            } = defaultAccount.toAuthorized()
-            slackReply += `- *Default Account ID[${accountID}]:* ${accountTitle} - ${accountNumber} ${
-              accountTransit
-                ? '(Safe to do manual transfer)'
-                : '(Requires to set transit # before manual transfer)'
-            }\n`
+          if (extra && extra === 'bank') {
+            slackReply += `*Full Bank Information for User ID[${userID}] QuovoID[${quovoUserID}]*\n`
+            const connections = user.connections
+            if (connections && connections.length > 0) {
+              connections.forEach(({ id, quovoConnectionID, accounts, status, lastSync, lastGoodSync }) => {
+                slackReply += ` - *Connection ID[${id}] QuovoID[${quovoConnectionID}]:* \n`
+                slackReply += `${tab} - Status: ${status}\n`
+                slackReply += `${tab} - Last Sync: ${moment(lastSync).format('dddd, MMMM Do YYYY, h:mm:ss a')} | Last Good Sync: ${moment(lastGoodSync).format('dddd, MMMM Do YYYY, h:mm:ss a')}\n`
+                if (accounts && accounts.length > 0) {
+                  accounts.forEach(({ id, quovoAccountID, type, category, nickname, institution, transit, number, isDefault }) => {
+                    slackReply += `${tab}- *Account ID[${id}] QuovoID[${quovoAccountID}]: ${isDefault ? 'DEFAULT' : ''}* \n`
+                    slackReply += `${tab}${tab} - Name: ${nickname}\n`
+                    slackReply += `${tab}${tab} - Type: ${type} | Category: ${category}\n`
+                    slackReply += `${tab}${tab} - Payment Info - instituion# ${institution} | transit# ${transit} | account# ${number}\n`
+                  })
+                } else {
+                  slackReply += `${tab}- No Accounts Found\n`
+                }
+              })
+            } else {
+              slackReply += ' - No Connections Found\n'
+            }
           } else {
-            slackReply += ` - *!No Default Account found!*`
+            slackReply += `*Information for User ${userID}*\n - *Full Name:* ${firstName} ${lastName}\n - *Balance:* $${getDollarString(
+              balance
+            )}\n - *Contact:* ${email} ${phone}\n - *Saving Preferences:* On *${savingType}* plan${
+              savingType === 'Thrive Fixed'
+                ? ` with *${fixedContribution}* fixed amount`
+                : ''
+            } every *${fetchFrequency}*\n - *Bank Status:* ${
+              !bankLinked ? 'Never linked' : 'Linked'
+            }\n`
+
+            const connections = user.connections
+            slackReply += `${tab}- *Connections:* `
+            if (connections && connections.length > 0) {
+              slackReply += `Count - Total: ${connections.length}`
+              const activeConnections = connections.filter(
+                connection => connection.status === 'good'
+              )
+              slackReply += `, Active: ${
+                activeConnections && activeConnections.length > 0
+                  ? activeConnections.length
+                  : 0
+              }\n`
+
+              const accounts = await Account.findAll({ where: { userID } })
+              slackReply += `${tab}- *Accounts:* `
+              if (accounts && accounts.length > 0) {
+                slackReply += `Count: ${accounts.length} `
+                let defaultAccount = accounts.filter(
+                  account => account.isDefault
+                )
+                if (defaultAccount && defaultAccount.length > 0) {
+                  defaultAccount = defaultAccount[0]
+                  const {
+                    id: accountID,
+                    transit: accountTransit,
+                    nickname: accountNickname,
+                    type: accountType
+                  } = defaultAccount
+                  slackReply += `- *Default Account ID[${accountID}]:* ${accountNickname} - ${accountType} ${
+                    accountTransit
+                      ? '(Safe to do manual transfer)'
+                      : '(Requires to set transit # before manual transfer)'
+                  }\n`
+                } else {
+                  slackReply += 'No Default Account Set\n'
+                }
+              } else {
+                slackReply += `No accounts found\n`
+              }
+            } else {
+              slackReply += `No connections found\n`
+            }
           }
         } else {
-          slackReply = `No user found for ID ${text}`
+          slackReply = `No user found for ID ${userID}`
         }
       } else {
         const usersCount = await User.count()
@@ -573,9 +626,7 @@ module.exports = (
             case 'connection':
               const value = !user.bankLinked
                 ? 'neverLinked'
-                : user.relinkRequired
-                  ? 'relinkRequired'
-                  : 'linked'
+                : 'linked'
               elements = [
                 {
                   label: 'Connection Status:',
@@ -585,7 +636,6 @@ module.exports = (
                   value,
                   options: [
                     { label: 'Linked', value: 'linked' },
-                    { label: 'Require Relink', value: 'relinkRequired' },
                     { label: 'Never Linked', value: 'neverLinked' }
                   ]
                 }
@@ -675,12 +725,8 @@ module.exports = (
               })
               if (accounts.length) {
                 for (const account of accounts) {
-                  const {
-                    title: accountTitle,
-                    number: accountNumber
-                  } = account.toAuthorized()
                   accountOptions.push({
-                    label: `${accountTitle} - ${accountNumber}`,
+                    label: account.nickname,
                     value: account.id
                   })
                   if (account.isDefault) {
