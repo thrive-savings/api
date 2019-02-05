@@ -1,13 +1,6 @@
-module.exports = Sequelize => ({
+module.exports = (Sequelize, moment) => ({
   attributes: {
     // General
-    bank: {
-      type: Sequelize.STRING
-    },
-    fullName: {
-      type: Sequelize.STRING,
-      field: 'full_name'
-    },
     isDefault: {
       type: Sequelize.BOOLEAN,
       field: 'is_default'
@@ -26,6 +19,13 @@ module.exports = Sequelize => ({
       defaultValue: 0,
       field: 'present_balance'
     },
+    ownerDetails: {
+      type: Sequelize.JSON,
+      field: 'owner_details'
+    },
+    extras: {
+      type: Sequelize.JSON
+    },
 
     // Bank numbers
     institution: {
@@ -38,6 +38,17 @@ module.exports = Sequelize => ({
       type: Sequelize.STRING
     },
     routing: {
+      type: Sequelize.STRING
+    },
+    wireRouting: {
+      type: Sequelize.STRING,
+      field: 'wire_routing'
+    },
+    fullNumber: {
+      type: Sequelize.STRING,
+      field: 'full_number'
+    },
+    versapay_token: {
       type: Sequelize.STRING
     },
 
@@ -60,17 +71,6 @@ module.exports = Sequelize => ({
       type: Sequelize.STRING
     },
     nickname: {
-      type: Sequelize.STRING
-    },
-    title: {
-      type: Sequelize.STRING
-    },
-
-    // Tokens
-    token: {
-      type: Sequelize.STRING
-    },
-    versapay_token: {
       type: Sequelize.STRING
     },
 
@@ -139,32 +139,50 @@ module.exports = Sequelize => ({
       }
     },
 
-    toAuthorized () {
-      const { dataValues } = this
-      const bank = dataValues.bank || ''
-      const title = dataValues.title || ''
-      const number = dataValues.number || ''
-      const transit = dataValues.transit || ''
-      const { length: numberLN } = number
-      const { length: transitLN } = transit
+    getDebtData () {
+      const {
+        fullNumber,
+        name,
+        nickname,
+        value,
+        availableBalance,
+        extras
+      } = this.dataValues
+
+      const connectionData = {}
+      const connection = this.connection
+      if (connection) {
+        const { lastSync, lastGoodSync } = connection
+        connectionData.sync = { lastSync: moment(lastSync).format('MMM D'), lastGoodSync: moment(lastGoodSync).format('MMM D') }
+
+        const institution = connection.institution
+        if (institution) {
+          connectionData.institution = institution.getData()
+        }
+      }
 
       return {
-        bank,
-        title,
-        number:
-          numberLN > 2
-            ? `${Array(numberLN - 2).join('x')}${number.substring(
-              numberLN - 3,
-              numberLN
-            )}`
-            : number,
-        transit:
-          transitLN > 1
-            ? `${Array(transitLN - 1).join('x')}-${transit.substring(
-              transitLN - 2,
-              transitLN
-            )}`
-            : transit
+        number: fullNumber || (this.hasFullCCNumber() ? name : undefined),
+        name: nickname,
+        balance: value !== 0 ? value : availableBalance,
+        dueDate: extras && extras.due_date ? extras.due_date : undefined,
+        connection: connectionData
+      }
+    },
+
+    hasFullCCNumber () {
+      const trimmedNumber = this.name.replace(/\s/g, '')
+      const firstChar = trimmedNumber.charAt(0)
+      const numberLength = trimmedNumber.length
+
+      if (!['5', '4', '3'].includes(firstChar)) {
+        return false
+      } else if (['5', '4'].includes(firstChar) && numberLength !== 16) {
+        return false
+      } else if (firstChar === '3' && numberLength !== 15) {
+        return false
+      } else {
+        return /^\d+$/.test(trimmedNumber)
       }
     }
   }

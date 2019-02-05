@@ -15,6 +15,7 @@ module.exports = (
     async method (ctx) {
       const reply = {}
 
+      // Try deleting existing token
       try {
         await request.delete({
           uri: `${config.constants.QUOVO_API_URL}/tokens`,
@@ -27,7 +28,10 @@ module.exports = (
           },
           json: true
         })
+      } catch (e) {}
 
+      // Try creating new token
+      try {
         const {
           access_token: { token }
         } = await request.post({
@@ -42,7 +46,6 @@ module.exports = (
           },
           json: true
         })
-        console.log(token)
 
         process.env['quovoApiToken'] = token
       } catch (e) {
@@ -347,15 +350,14 @@ module.exports = (
           json: true
         })
 
-        amplitude.track({
-          eventType: 'FETCHED_ACCOUNTS_AUTH',
-          userId: connection.userID,
-          eventProperties: {
-            AccountsCount: accounts ? accounts.length : 0
-          }
-        })
-
         if (accounts && accounts.length > 0) {
+          amplitude.track({
+            eventType: 'QUOVO_AUTH_SUCCEED',
+            userId: connection.userID,
+            eventProperties: {
+              AccountsCount: accounts ? accounts.length : 0
+            }
+          })
           for (const {
             id: quovoAccountID,
             available_balance: availableBalanceInFloat,
@@ -366,9 +368,11 @@ module.exports = (
             canadian_institution_number: institutionNumber,
             transit_number: transitNumber,
             routing: routingNumber,
+            wire_routing: wireRoutingNumber,
             category,
             type,
-            type_confidence: typeConfidence
+            type_confidence: typeConfidence,
+            owner_details: ownerDetails
           } of accounts) {
             let accountInstance = await Account.findOne({
               where: { quovoAccountID }
@@ -388,8 +392,26 @@ module.exports = (
               transit: transitNumber,
               number: accountNumber,
               routing: routingNumber,
+              wireRouting: wireRoutingNumber,
               availableBalance: parseInt(availableBalanceInFloat * 100),
-              presentBalance: parseInt(presentBalanceInFloat * 100)
+              presentBalance: parseInt(presentBalanceInFloat * 100),
+              ownerDetails
+            }
+
+            if (type === 'Credit Card') {
+              // If type loan, fetch extras
+              const { extras } = await request.get({
+                uri: `${
+                  config.constants.QUOVO_API_URL
+                }/accounts/${quovoAccountID}/extras`,
+                headers: {
+                  Authorization: `Bearer ${process.env.quovoApiToken}`
+                },
+                json: true
+              })
+              if (extras && typeof extras === 'object') {
+                accountData.extras = extras
+              }
             }
 
             if (!accountInstance) {
@@ -397,13 +419,31 @@ module.exports = (
             } else {
               accountInstance.update(accountData)
             }
+
+            if (type === 'Credit Card') {
+              // Call Debt creator
+              await request.post({
+                uri: `${config.constants.URL}/admin/debt-create`,
+                body: {
+                  secret: process.env.apiSecret,
+                  data: {
+                    accountID: accountInstance.id
+                  }
+                },
+                json: true
+              })
+            }
           }
+        } else {
+          amplitude.track({
+            eventType: 'QUOVO_AUTH_NO_ACCOUNTS',
+            userId: connection.userID
+          })
         }
       } catch (e) {
         reply.error = true
-
         amplitude.track({
-          eventType: 'FETCH_ACCOUNTS_AUTH_FAIL',
+          eventType: 'QUOVO_AUTH_FAIL',
           userId: connection.userID,
           eventProperties: {
             Error: e
@@ -632,24 +672,30 @@ module.exports = (
 
         if (accounts && accounts.length > 0) {
           Bluebird.all(
-            accounts.map(({ id: quovoAccountID, value: accountValue }) => {
-              request.post({
-                uri: `${
-                  config.constants.URL
-                }/admin/quovo-fetch-account-transactions`,
-                body: {
-                  secret: process.env.apiSecret,
-                  data: {
-                    quovoAccountID
-                  }
-                },
-                json: true
-              })
-              return Account.update(
-                { value: parseInt(accountValue * 100) },
-                { where: { quovoAccountID } }
-              )
-            })
+            accounts.map(
+              ({
+                id: quovoAccountID,
+                value: accountValue,
+                owner_type: ownerType
+              }) => {
+                request.post({
+                  uri: `${
+                    config.constants.URL
+                  }/admin/quovo-fetch-account-transactions`,
+                  body: {
+                    secret: process.env.apiSecret,
+                    data: {
+                      quovoAccountID
+                    }
+                  },
+                  json: true
+                })
+                return Account.update(
+                  { value: parseInt(accountValue * 100), ownerType },
+                  { where: { quovoAccountID } }
+                )
+              }
+            )
           )
         }
       } catch (e) {

@@ -33,10 +33,10 @@
       function setupConnect() {
         var handler = Quovo.create({
           token: window.token,
-          // optional function parameters
+          subdomain: "connect2",
+          // Callbacks
           onLoad: function() {
-            console.log(window.connectionId);
-            handler.open({ connectionId: window.connectionId });
+            handler.open({ connectionId: Number(window.connectionId) });
           },
           onClose: function(err, event) {
             var msgObj = {
@@ -65,6 +65,14 @@
           onSync: function(err, event) {
             var msgObj = {
               event: "onSync",
+              data: event,
+              error: err
+            };
+            sendMessage(msgObj);
+          },
+          onAuthAccountSelected: function(err, event) {
+            var msgObj = {
+              event: "onAuthAccountSelected",
               data: event,
               error: err
             };

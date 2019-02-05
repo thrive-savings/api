@@ -699,7 +699,7 @@ module.exports = (
     }
   },
   associations: {
-    hasMany: ['Connection', 'Goal', 'Bonus', 'Notification'],
+    hasMany: ['Connection', 'Goal', 'Bonus', 'Notification', 'Debt'],
     belongsTo: 'Company'
   },
   hooks: {
