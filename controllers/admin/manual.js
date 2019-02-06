@@ -4,6 +4,8 @@ module.exports = (
   Connection,
   Account,
   Queue,
+  Bonus,
+  Goal,
   Bluebird,
   request,
   config,
@@ -74,6 +76,83 @@ module.exports = (
       )
 
       ctx.body = {}
+    }
+  },
+
+  syncHistory: {
+    schema: [['data', true, [['userIDs', true, 'array']]]],
+    async method (ctx) {
+      const {
+        data: { userIDs }
+      } = ctx.request.body
+
+      let users
+      if (userIDs.length > 0) {
+        users = await User.findAll({
+          where: { id: { [Sequelize.Op.in]: userIDs } }
+        })
+      } else {
+        users = await User.findAll()
+      }
+
+      const reply = { users: {} }
+      if (users && users.length > 0) {
+        for (const user of users) {
+          if (!Object.keys(reply).includes(user.id)) {
+            reply.users[user.id] = {
+              balance: user.balance,
+              historySum: 0,
+              queueSum: 0,
+              bonusSum: 0,
+              goalProgressSum: 0
+            }
+          }
+
+          const queues = await Queue.findAll({
+            where: { userID: user.id, type: { [Sequelize.Op.ne]: 'bonus' } },
+            order: [['id']]
+          })
+          for (const queue of queues) {
+            if (queue.state === 'completed') {
+              const amountDelta =
+                queue.type === 'credit' ? -1 * queue.amount : queue.amount
+              reply.users[user.id].historySum += amountDelta
+              reply.users[user.id].queueSum += amountDelta
+            }
+          }
+
+          const bonuses = await Bonus.findAll({
+            where: { userID: user.id },
+            order: [['id']]
+          })
+          for (const bonus of bonuses) {
+            const amountDelta = bonus.amount
+            reply.users[user.id].historySum += amountDelta
+            reply.users[user.id].bonusSum += amountDelta
+          }
+
+          reply.users[user.id].goalProgressSum = await Goal.sum('progress', {
+            where: { userID: user.id }
+          })
+        }
+
+        reply.matches = []
+        reply.dismatches = []
+        for (const key of Object.keys(reply.users)) {
+          const { balance, historySum } = reply.users[key]
+          if (balance === historySum) {
+            reply.matches.push(key)
+          } else {
+            reply.dismatches.push(key)
+          }
+        }
+      } else {
+        return Bluebird.reject([
+          { key: 'no_user_found', value: 'No user found' }
+        ])
+      }
+
+      ctx.body = reply
     }
   },
 
