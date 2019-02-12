@@ -14,7 +14,7 @@ module.exports = Sequelize => ({
     accelerateAmount: {
       type: Sequelize.INTEGER,
       field: 'accelerate_amount',
-      defaultValue: 0
+      defaultValue: 6000
     },
     accelerateOn: {
       type: Sequelize.BOOLEAN,

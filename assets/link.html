@@ -54,9 +54,9 @@
             };
             sendMessage(msgObj);
           },
-          onAuthenticate: function(err, event) {
+          onDelete: function(err, event) {
             var msgObj = {
-              event: "onAuthenticate",
+              event: "onDelete",
               data: event,
               error: err
             };
@@ -81,7 +81,7 @@
           // optional string parameter
           topInstitutions: "banks",
           syncType: "auth",
-          singleSync: true,
+          // singleSync: true,
           search: { testInstitutions: window.testInstitutions || false }
         });
       }

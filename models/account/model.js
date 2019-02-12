@@ -1,4 +1,4 @@
-module.exports = (Sequelize, moment) => ({
+module.exports = Sequelize => ({
   attributes: {
     // General
     isDefault: {
@@ -26,6 +26,10 @@ module.exports = (Sequelize, moment) => ({
     extras: {
       type: Sequelize.JSON
     },
+    detailsSetByUser: {
+      type: Sequelize.JSON,
+      field: 'details_set_by_user'
+    },
 
     // Bank numbers
     institution: {
@@ -43,10 +47,6 @@ module.exports = (Sequelize, moment) => ({
     wireRouting: {
       type: Sequelize.STRING,
       field: 'wire_routing'
-    },
-    fullNumber: {
-      type: Sequelize.STRING,
-      field: 'full_number'
     },
     versapay_token: {
       type: Sequelize.STRING
@@ -141,19 +141,19 @@ module.exports = (Sequelize, moment) => ({
 
     getDebtData () {
       const {
-        fullNumber,
         name,
         nickname,
         value,
         availableBalance,
-        extras
+        extras,
+        detailsSetByUser
       } = this.dataValues
 
       const connectionData = {}
       const connection = this.connection
       if (connection) {
         const { lastSync, lastGoodSync } = connection
-        connectionData.sync = { lastSync: moment(lastSync).format('MMM D'), lastGoodSync: moment(lastGoodSync).format('MMM D') }
+        connectionData.sync = { lastSync, lastGoodSync }
 
         const institution = connection.institution
         if (institution) {
@@ -161,11 +161,35 @@ module.exports = (Sequelize, moment) => ({
         }
       }
 
+      let number
+      let balance = value
+      let dueDate
+      if (detailsSetByUser) {
+        const {
+          fullNumber: fullNumberSetByUser,
+          balance: balanceSetByUser,
+          dueDate: dueDateSetByUser
+        } = detailsSetByUser
+        number = fullNumberSetByUser || number
+        balance = balanceSetByUser || balance
+        dueDate = dueDateSetByUser || dueDate
+      }
+
+      if (!number) {
+        number = this.hasFullCCNumber() ? name : undefined
+      }
+      if (!balance || balance === 0) {
+        balance = availableBalance
+      }
+      if (!dueDate) {
+        dueDate = extras && extras.due_date ? extras.due_date : undefined
+      }
+
       return {
-        number: fullNumber || (this.hasFullCCNumber() ? name : undefined),
         name: nickname,
-        balance: value !== 0 ? value : availableBalance,
-        dueDate: extras && extras.due_date ? extras.due_date : undefined,
+        number,
+        balance,
+        dueDate,
         connection: connectionData
       }
     },
