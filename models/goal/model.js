@@ -14,7 +14,7 @@ module.exports = (Bluebird, Sequelize, Queue, request, config) => ({
     },
     amount: {
       type: Sequelize.INTEGER,
-      defaultValue: 500000
+      defaultValue: 50000
     },
     boosted: {
       type: Sequelize.BOOLEAN,
