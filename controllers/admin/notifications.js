@@ -157,7 +157,7 @@ module.exports = (
       for (const { email, firstName } of users) {
         mail.send(
           {
-            from: 'help@thrivesavings.com',
+            from: 'hello@thrivesavings.com',
             subject: subject || 'Thrive Email',
             to: email
           },
@@ -170,6 +170,54 @@ module.exports = (
     },
     onError (err) {
       Sentry.captureException(err)
+    }
+  },
+
+  statementEmail: {
+    schema: [['data', true, [['userID', true, 'integer']]]],
+    async method (ctx) {
+      const {
+        data: { userID }
+      } = ctx.request.body
+
+      const user = await User.findOne({ where: { id: userID } })
+
+      const fromDate = moment().subtract(1, 'M')
+      const monthName = fromDate.format('MMMM')
+
+      const options = { user: { firstName: user.firstName } }
+      const {
+        history,
+        totalSavingsInDollars,
+        balanceInDollars
+      } = await request.post({
+        uri: `${config.constants.URL}/admin/history-fetch`,
+        body: {
+          secret: process.env.apiSecret,
+          data: {
+            userID,
+            fromDate
+          }
+        },
+        json: true
+      })
+
+      options.user.balance = balanceInDollars
+      options.user.totalSaved = totalSavingsInDollars
+      options.user.history = history
+      options.user.month = monthName
+
+      mail.send(
+        {
+          from: 'hello@thrivesavings.com',
+          subject: `Your Thrive ${monthName} statement is available`,
+          to: user.email
+        },
+        'statement',
+        options
+      )
+
+      ctx.body = {}
     }
   },
 

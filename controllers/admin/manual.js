@@ -79,6 +79,19 @@ module.exports = (
     }
   },
 
+  fixProcessedDates: {
+    async method (ctx) {
+      const queues = await Queue.findAll({
+        where: { processed: true, processedDate: null }
+      })
+      for (const queue of queues) {
+        queue.update({ processedDate: queue.createdAt })
+      }
+
+      ctx.body = {}
+    }
+  },
+
   syncHistory: {
     schema: [['data', true, [['userIDs', true, 'array']]]],
     async method (ctx) {

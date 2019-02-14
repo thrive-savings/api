@@ -484,5 +484,32 @@ module.exports = (
 
       ctx.body = {}
     }
+  },
+
+  monthlyStatement: {
+    async method (ctx) {
+      const users = await User.findAll({ where: { bankLinked: true } })
+
+      if (users.length > 0) {
+        Bluebird.all(
+          users.map(user =>
+            request.post({
+              uri: `${
+                config.constants.URL
+              }/admin/notifications-statement-email`,
+              body: {
+                secret: process.env.apiSecret,
+                data: {
+                  userID: user.id
+                }
+              },
+              json: true
+            })
+          )
+        )
+      }
+
+      ctx.body = {}
+    }
   }
 })

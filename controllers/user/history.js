@@ -1,55 +1,22 @@
-module.exports = (Sequelize, User, Queue, moment) => ({
+module.exports = (request, config) => ({
   fetch: {
     schema: [['data', true, [['fromDate', true]]]],
     async method (ctx) {
       const {
-        data: { fromDate: providedFromDate }
+        data: { fromDate }
       } = ctx.request.body
 
-      const user = await User.findOne({ where: { id: ctx.authorized.id } })
-
-      let fromDate =
-        providedFromDate === '-1'
-          ? moment().subtract(100, 'years')
-          : moment(providedFromDate)
-      let history = []
-
-      const queues = await Queue.findAll({
-        where: {
-          processed: true,
-          state: 'completed',
-          userID: ctx.authorized.id,
-          createdAt: {
-            [Sequelize.Op.gt]: fromDate
+      const { history, totalSavings } = await request.post({
+        uri: `${config.constants.URL}/admin/history-fetch`,
+        body: {
+          secret: process.env.apiSecret,
+          data: {
+            userID: ctx.authorized.id,
+            fromDate
           }
         },
-        order: [['id', 'DESC']]
+        json: true
       })
-
-      let totalSavings = 0
-      let balance = user.balance
-      if (queues) {
-        queues.map(({ type, amount, processedDate }) => {
-          if (type !== 'credit') {
-            totalSavings += amount
-          }
-
-          const momentDate = moment(processedDate)
-
-          history.push({
-            processedDate,
-            date: momentDate.format('YYYY-MM-DD'),
-            activity: { type, amount },
-            total: balance
-          })
-
-          if (type === 'credit') {
-            balance += amount
-          } else {
-            balance -= amount
-          }
-        })
-      }
 
       ctx.body = { data: { chart: [], history, totalSavings } }
     }

@@ -1,68 +1,103 @@
 <mjml>
   <mj-head>
     <mj-attributes>
-      <mj-breakpoint width="0px" />
       <mj-font name="Lato" href="https://fonts.googleapis.com/css?family=Lato" />
       <mj-all font-family="Lato, Arial" padding="0"></mj-all>
       <mj-text align="center" color="#414042" font-size="20px"></mj-text>
       <mj-divider padding="20px" />
       <mj-section background-color="#F9F9F9" padding="20px" />
-      <mj-class name="regular-text" font-size="13px" letter-spacing="1px" align="center" />
+      <mj-class name="statement-row" font-size="12px" letter-spacing="0.16px" line-height="21px" />
     </mj-attributes>
   </mj-head>
   <mj-body>
     <mj-section>
       <mj-column>
         <mj-image padding="10px 0" width="100px" href="https://thrivesavings.com" src="https://s3.ca-central-1.amazonaws.com/public-resources-thrive-ca-central-1/images/thriveLogo.png" />
-        <mj-divider padding-bottom="0" border-width="1px" border-color="lightgrey" />
-      </mj-column>
-    </mj-section>
-
-    <mj-section>
-      <mj-column>
-        <mj-text font-weight="bold">Hello from Thrive!</mj-text>
-        <mj-text font-size="11px" letter-spacing="1px" padding="20px">Welcome to the Thrive Savings community!</mj-text>
         <mj-divider border-width="1px" border-color="lightgrey" />
       </mj-column>
     </mj-section>
 
     <mj-section>
       <mj-column>
-        <mj-text mj-class="regular-text" align="center">Hello
-          <%= user.firstName %>, we are excited to help you prepare for the future!</mj-text>
-        <mj-text mj-class="regular-text" align="center" padding="20px">Here are three things to try out now:</mj-text>
+        <mj-text font-size="11px" letter-spacing="1px">Keep it up
+          <%= user.firstName %>!</mj-text>
+        <mj-text font-weight="bold" padding-top="10px">Your
+          <%= user.month %> Summary</mj-text>
+      </mj-column>
+    </mj-section>
+
+    <mj-section padding-top="40px">
+      <mj-group>
+        <mj-column>
+          <mj-text font-weight="bold" font-size="30px" letter-spacing="1px">
+            <%= user.totalSaved %>
+          </mj-text>
+          <mj-text padding-top="10px" font-size="11px" letter-spacing="1px">Saved this month</mj-text>
+        </mj-column>
+        <mj-column>
+          <mj-text font-weight="bold" font-size="30px" letter-spacing="1px">
+            <%= user.balance %>
+          </mj-text>
+          <mj-text padding-top="10px" font-size="11px" letter-spacing="1px">Your current balance</mj-text>
+        </mj-column>
+      </mj-group>
+    </mj-section>
+
+    <mj-section>
+      <mj-column>
+        <mj-divider border-width="1px" border-color="lightgrey" />
       </mj-column>
     </mj-section>
 
     <mj-section>
-      <mj-column width="20%" padding-top="10px">
-        <mj-image width="45px" src="https://s3.ca-central-1.amazonaws.com/public-resources-thrive-ca-central-1/images/icons/security.png" />
-      </mj-column>
-      <mj-column padding-left="10px">
-        <mj-text mj-class="regular-text" font-weight="bold" font-size="16px">Link your bank account</mj-text>
-        <mj-text mj-class="regular-text" padding-top="5px">Thrive uses AES-256 encryption techniques to encrypt data. This is the same method used by banks for sensitive information.</mj-text>
+      <mj-column>
+        <mj-text font-weight="bold" padding-top="10px">Your January Summary</mj-text>
       </mj-column>
     </mj-section>
 
-    <mj-section>
-      <mj-column width="20%" padding-top="10px">
-        <mj-image width="45px" src="https://s3.ca-central-1.amazonaws.com/public-resources-thrive-ca-central-1/images/icons/target.png" />
-      </mj-column>
-      <mj-column padding-left="10px">
-        <mj-text mj-class="regular-text" font-weight="bold" font-size="16px">Set a goal</mj-text>
-        <mj-text mj-class="regular-text" padding-top="5px">Thrive will help you track progress towards your goal - motivating you and finding ways to help you save.</mj-text>
+    <mj-section padding="5px 20px">
+      <mj-group>
+        <mj-column>
+          <mj-text font-size="12px" letter-spacing="1.5px">DATE</mj-text>
+        </mj-column>
+        <mj-column>
+          <mj-text font-size="12px" letter-spacing="1.5px">ACTIVITY</mj-text>
+        </mj-column>
+        <mj-column>
+          <mj-text font-size="12px" letter-spacing="1.5px">TOTAL</mj-text>
+        </mj-column>
+      </mj-group>
+    </mj-section>
+    <mj-section padding="0 20px">
+      <mj-column>
+        <mj-divider padding="5px 20px" border-width="1px" border-color="#D8D8D8" />
       </mj-column>
     </mj-section>
 
-    <mj-section>
-      <mj-column width="20%" padding-top="10px" vertical-align="middle">
-        <mj-image width="45px" src="https://s3.ca-central-1.amazonaws.com/public-resources-thrive-ca-central-1/images/icons/transfer.png" />
-      </mj-column>
-      <mj-column padding-left="10px">
-        <mj-text mj-class="regular-text" font-weight="bold" font-size="16px">Save Automatically</mj-text>
-        <mj-text mj-class="regular-text" padding-top="5px">Thrive analyzes your income and spending every day and sets aside small amounts of money you can safely save. You can expect your first savings in the next 3-5 days.</mj-text>
-      </mj-column>
+    <% for (var i = 0; i < user.history.length; i++) { var transaction = user.history[i]; %>
+    <mj-section padding="5px 20px">
+      <mj-group>
+        <mj-column>
+          <mj-text mj-class="statement-row">
+            <%= transaction.dateMonthOnly %>
+          </mj-text>
+        </mj-column>
+        <mj-column>
+          <mj-text mj-class="statement-row" color=<%=transaction.activity.color %>>
+            <%= transaction.activity.amountInDollars %>
+          </mj-text>
+          <mj-text mj-class="statement-row" letter-spacing="1px" color="#D8D8D8" text-transform="uppercase">
+            <%= transaction.activity.typeToDisplay %>
+          </mj-text>
+        </mj-column>
+        <mj-column>
+          <mj-text mj-class="statement-row" letter-spacing="1.5px">
+            <%= transaction.totalInDollars %>
+          </mj-text>
+        </mj-column>
+      </mj-group>
     </mj-section>
+    <% } %>
 
     <mj-section>
       <mj-column>
@@ -110,5 +145,6 @@
         <mj-text font-size="10px" letter-spacing="1px">Thrive Savings, Inc. 6-10 Dundas St E | Toronto, ON M5B 2G9</mj-text>
       </mj-column>
     </mj-section>
+
   </mj-body>
 </mjml>
