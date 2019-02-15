@@ -591,7 +591,7 @@ module.exports = (
     },
     updateAlgoBoost (scale) {
       const xIndex = scale.indexOf('x')
-      if (xIndex) {
+      if (xIndex > 0) {
         scale = scale.substr(0, xIndex)
       }
 

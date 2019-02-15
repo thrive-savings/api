@@ -116,6 +116,14 @@ module.exports = (
         where: { id: account.connectionID },
         include: [Institution, Account]
       })
+
+      const defaultConnection = await Connection.findOne({
+        where: { userID: connectionInstance.userID, isDefault: true }
+      })
+      if (!defaultConnection) {
+        await connectionInstance.update({ isDefault: true })
+      }
+
       ctx.body = { connection: connectionInstance.getData() }
     }
   },

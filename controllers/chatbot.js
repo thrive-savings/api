@@ -6,7 +6,8 @@ module.exports = (
   twilio,
   amplitude,
   request,
-  config
+  config,
+  emoji
 ) => ({
   process: {
     async method (ctx) {
@@ -20,7 +21,7 @@ module.exports = (
       const requestBody = ctx.request.body
       const { From: phone, Body: msg } = requestBody
       const [parsedCommand, ...params] = msg.split(' ')
-      const command = parsedCommand.toLowerCase()
+      const command = emoji.unemojify(parsedCommand.toLowerCase())
 
       let responseMsg = ''
       let slackMsg
@@ -39,6 +40,8 @@ module.exports = (
       } else {
         // Check against available commands
         let analyticsEvent = ''
+
+        console.log(command)
 
         if (['balance'].includes(command)) {
           analyticsEvent = 'Bot Received Balance Command'
@@ -206,7 +209,7 @@ module.exports = (
               }
             }
           }
-        } else if (['boost', 'Boost', 'BOOST'].includes(command)) {
+        } else if (['boost', ':thumbsup:', ':fire:'].includes(command)) {
           analyticsEvent = 'Bot Received Boost Command'
           const connections = await Connection.findAll({
             where: { userID: user.id, status: 'good' }
@@ -216,7 +219,12 @@ module.exports = (
               user.firstName
             }, it looks like you haven’t connected a bank account yet or we lost the connection to your bank. Please  go to the app to link your primary chequing account.`
           } else {
-            let scale = params[0]
+            let scale =
+              command === 'boost'
+                ? params[0]
+                : command === ':thumbsup:'
+                  ? '1.5'
+                  : '2'
             if (!['1.5x', '2x', '1.5', '2'].includes(scale)) {
               responseMsg =
                 'Please use one of the exact options. Example: "Boost 2x" (Emojis are not supported at the moment.)'
@@ -224,7 +232,7 @@ module.exports = (
               responseMsg = user.updateAlgoBoost(scale)
             }
           }
-        } else if (['reduce', 'Reduce', 'REDUCE'].includes(command)) {
+        } else if (['reduce', ':thumbsdown:'].includes(command)) {
           analyticsEvent = 'Bot Received Reduce Command'
           const connections = await Connection.findAll({
             where: { userID: user.id, status: 'good' }
@@ -234,7 +242,7 @@ module.exports = (
               user.firstName
             }, it looks like you haven’t connected a bank account yet or we lost the connection to your bank. Please  go to the app to link your primary chequing account.`
           } else {
-            let scale = params[0]
+            let scale = command === 'reduce' ? params[0] : '0.5'
             if (!['0.5x', '0.5'].includes(scale)) {
               responseMsg =
                 'Please use one of the exact options. Example: "Reduce 0.5x"'
@@ -284,6 +292,7 @@ module.exports = (
           }
         })
 
+        console.log(msg)
         // Check if matched any command
         if (responseMsg) {
           user.sendMessage(responseMsg)
