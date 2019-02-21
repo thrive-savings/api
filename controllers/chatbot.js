@@ -18,9 +18,13 @@ module.exports = (
         return dollars
       }
 
+      const listCommands = () => {
+        return "You can use the following list of commands to interact with me:\n\n- 'Balance': get your balance\n- 'Save 20.00': save money\n- 'Withdraw 20.00': withdraw money\n- 'Boost 2x': increase agressiveness level of automatic pulls\n- 'Reduce 2x': reduce agressiveness level of automatic pulls\n\nAnd feel free to reach out us ar help@thrivesavings.com for any custom request."
+      }
+
       const requestBody = ctx.request.body
       const { From: phone, Body: msg } = requestBody
-      const [parsedCommand, ...params] = msg.split(' ')
+      const [parsedCommand, ...params] = msg.trim().split(' ')
       const command = emoji.unemojify(parsedCommand.toLowerCase())
 
       let responseMsg = ''
@@ -40,8 +44,6 @@ module.exports = (
       } else {
         // Check against available commands
         let analyticsEvent = ''
-
-        console.log(command)
 
         if (['balance'].includes(command)) {
           analyticsEvent = 'Bot Received Balance Command'
@@ -271,12 +273,14 @@ module.exports = (
               }, has invited you to use Thrive Savings app to improve your financial well-being. You can download the mobile from Apple App Store or Google Play Store by searching for Thrive Savings.`
             })
           }
-        } else if (['help', 'help!'].includes(command)) {
+        } else if (['help', 'help!', 'commands'].includes(command)) {
           analyticsEvent = 'Bot Received Help Command'
-          responseMsg = `Please email help@thrivesavings.com to contact support.`
+          responseMsg = listCommands()
         } else if (['hi', 'hello', 'hey', 'yo', 'hola'].includes(command)) {
           analyticsEvent = 'Bot Received Hi Command'
-          responseMsg = `Hi ${user.firstName}! How can I help you today?`
+          responseMsg = `Hi ${
+            user.firstName
+          }! How can I help you today?\n\nReply with 'commands' to see list of things I can assist you with.`
         }
 
         if (!analyticsEvent) {
@@ -292,7 +296,6 @@ module.exports = (
           }
         })
 
-        console.log(msg)
         // Check if matched any command
         if (responseMsg) {
           user.sendMessage(responseMsg)

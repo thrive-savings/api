@@ -457,21 +457,50 @@ module.exports = (
             slackReply += `*Full Bank Information for User ID[${userID}] QuovoID[${quovoUserID}]*\n`
             const connections = user.connections
             if (connections && connections.length > 0) {
-              connections.forEach(({ id, quovoConnectionID, accounts, status, lastSync, lastGoodSync }) => {
-                slackReply += ` - *Connection ID[${id}] QuovoID[${quovoConnectionID}]:* \n`
-                slackReply += `${tab} - Status: ${status}\n`
-                slackReply += `${tab} - Last Sync: ${moment(lastSync).format('dddd, MMMM Do YYYY, h:mm:ss a')} | Last Good Sync: ${moment(lastGoodSync).format('dddd, MMMM Do YYYY, h:mm:ss a')}\n`
-                if (accounts && accounts.length > 0) {
-                  accounts.forEach(({ id, quovoAccountID, type, category, nickname, institution, transit, number, isDefault }) => {
-                    slackReply += `${tab}- *Account ID[${id}] QuovoID[${quovoAccountID}]: ${isDefault ? 'DEFAULT' : ''}* \n`
-                    slackReply += `${tab}${tab} - Name: ${nickname}\n`
-                    slackReply += `${tab}${tab} - Type: ${type} | Category: ${category}\n`
-                    slackReply += `${tab}${tab} - Payment Info - instituion# ${institution} | transit# ${transit} | account# ${number}\n`
-                  })
-                } else {
-                  slackReply += `${tab}- No Accounts Found\n`
+              connections.forEach(
+                ({
+                  id,
+                  quovoConnectionID,
+                  accounts,
+                  institutionName,
+                  status,
+                  lastSync,
+                  lastGoodSync
+                }) => {
+                  slackReply += ` - *Connection ID[${id}] QuovoID[${quovoConnectionID}]:* \n`
+                  slackReply += `${tab} - Institution Name: ${institutionName}\n`
+                  slackReply += `${tab} - Status: ${status}\n`
+                  slackReply += `${tab} - Last Sync: ${moment(lastSync).format(
+                    'dddd, MMMM Do YYYY, h:mm:ss a'
+                  )} | Last Good Sync: ${moment(lastGoodSync).format(
+                    'dddd, MMMM Do YYYY, h:mm:ss a'
+                  )}\n`
+                  if (accounts && accounts.length > 0) {
+                    accounts.forEach(
+                      ({
+                        id,
+                        quovoAccountID,
+                        type,
+                        category,
+                        nickname,
+                        institution,
+                        transit,
+                        number,
+                        isDefault
+                      }) => {
+                        slackReply += `${tab}- *Account ID[${id}] QuovoID[${quovoAccountID}]: ${
+                          isDefault ? 'DEFAULT' : ''
+                        }* \n`
+                        slackReply += `${tab}${tab} - Name: ${nickname}\n`
+                        slackReply += `${tab}${tab} - Type: ${type} | Category: ${category}\n`
+                        slackReply += `${tab}${tab} - Payment Info - instituion# ${institution} | transit# ${transit} | account# ${number}\n`
+                      }
+                    )
+                  } else {
+                    slackReply += `${tab}- No Accounts Found\n`
+                  }
                 }
-              })
+              )
             } else {
               slackReply += ' - No Connections Found\n'
             }
@@ -624,9 +653,7 @@ module.exports = (
               }
               break
             case 'connection':
-              const value = !user.bankLinked
-                ? 'neverLinked'
-                : 'linked'
+              const value = !user.bankLinked ? 'neverLinked' : 'linked'
               elements = [
                 {
                   label: 'Connection Status:',
