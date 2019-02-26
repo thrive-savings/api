@@ -98,6 +98,18 @@ module.exports = (Bluebird, Sequelize, Queue, request, config) => ({
           await curGoal.save()
 
           if (curGoal.progress >= curGoal.amount) {
+            // Promp the rating
+            request.post({
+              uri: `${config.constants.URL}/admin/manual-prompt-rating`,
+              body: {
+                secret: process.env.apiSecret,
+                data: {
+                  userIDs: [userID]
+                }
+              },
+              json: true
+            })
+
             // Send push notification
             request.post({
               uri: `${config.constants.URL}/admin/notifications-push`,

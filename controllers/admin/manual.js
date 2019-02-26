@@ -92,6 +92,32 @@ module.exports = (
     }
   },
 
+  promptRating: {
+    schema: [['data', true, [['userIDs', true, 'array']]]],
+    async method (ctx) {
+      const {
+        data: { userIDs }
+      } = ctx.request.body
+
+      let users
+      if (userIDs.length > 0) {
+        users = await User.findAll({
+          where: { id: { [Sequelize.Op.in]: userIDs } }
+        })
+      } else {
+        users = await User.findAll()
+      }
+
+      if (users && users.length > 0) {
+        for (const user of users) {
+          user.canPromptRating()
+        }
+      }
+
+      ctx.body = {}
+    }
+  },
+
   syncHistory: {
     schema: [['data', true, [['userIDs', true, 'array']]]],
     async method (ctx) {

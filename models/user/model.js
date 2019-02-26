@@ -274,6 +274,21 @@ module.exports = (
     expoPushToken: {
       type: Sequelize.STRING,
       field: 'expo_push_token'
+    },
+
+    /*
+      [1 - 5]: actual rating #
+      0: not rated & should not prompt
+      -1: promp the rating
+    */
+    rating: {
+      type: Sequelize.INTEGER,
+      defaultValue: 0,
+      field: 'rating'
+    },
+    noRatingPromptUntil: {
+      type: Sequelize.DATE,
+      field: 'no_rating_prompt_until'
     }
   },
   instanceMethods: {
@@ -292,6 +307,7 @@ module.exports = (
     generateJWT () {
       return JWT.sign({ id: this.id, email: this.email }, process.env.key)
     },
+
     async generateRestorePasswordToken () {
       this.restorePasswordToken = uuid().replace(/-/g, '')
       this.restorePasswordTokenExpiresAt = moment()
@@ -328,14 +344,13 @@ module.exports = (
         .add(60, 'm')
         .toDate()
       await this.save()
+      // prettier-ignore
       mail.send({
         from: 'restore@thrivesavings.com',
         html: `
           <html>
             <div>
-              <p>To reset your Thrive Savings password, type <b>${
-  this.restorePasswordToken
-  }</b> in your app. </p>
+              <p>To reset your Thrive Savings password, type <b>${this.restorePasswordToken}</b> in your app. </p>
               <p>The code will expire after an hour</p>
               <p>If you haven't requested a password reset, you can ignore this message</p>
               <p>-The team at Thrive</p>
@@ -345,6 +360,7 @@ module.exports = (
         to: this.email
       })
     },
+
     async getAvatar () {
       if (this.avatar) {
         const s3 = new aws.S3({
@@ -387,6 +403,7 @@ module.exports = (
         connections,
         goals,
         id: this.id,
+        promptRating: this.shouldPromptRating(),
         expoPushToken: this.expoPushToken,
         bankLinked: this.bankLinked,
         jwt: this.generateJWT(),
@@ -413,55 +430,24 @@ module.exports = (
       }
     },
 
-    getProfile () {
-      const profile = {}
-      const dataValues = this.dataValues
-      Object.keys(dataValues).forEach(item => {
-        const value = dataValues[item]
-        if (
-          [
-            'firstName',
-            'middleName',
-            'lastName',
-            'dob',
-            'occupation',
-            'unit',
-            'address',
-            'city',
-            'province',
-            'country',
-            'postalCode',
-            'isCanadianResident',
-            'isUSResident',
-            'isPoliticallyExposed',
-            'isOpeningForThirdParty',
-            'isTOSAccepted',
-            'isPPAccepted',
-            'signature'
-          ].includes(item) &&
-          value !== null
-        ) {
-          profile[item] = value
-        }
-      })
-      let step = 1
-      if (profile.lastName) step = 2
-      if (profile.occupation) step = 3
-      if (profile.postalCode) step = 5
-      if (
-        profile.isCanadianResident ||
-        profile.isUSResident ||
-        profile.isPoliticallyExposed ||
-        profile.isOpeningForThirdParty
-      ) {
-        step = 6
-      }
-      profile.step = step
-      return profile
+    shouldPromptRating () {
+      return (
+        this.rating === -1 &&
+        (!this.noRatingPromptUntil || this.noRatingPromptUntil < moment())
+      )
     },
+
+    async canPromptRating () {
+      if (this.rating === 0) {
+        this.rating = -1
+        await this.save()
+      }
+    },
+
     hashPassword (password) {
       this.password = bcrypt.hashSync(password, 8)
     },
+
     async sendCode () {
       const random = () => Math.floor(1000 + Math.random() * 9000)
       const users = await this.constructor.findAll()
@@ -482,6 +468,7 @@ module.exports = (
         }, ${code} is your Thrive Savings verification code. Please enter that code on the number verification screen to confirm this phone number is yours.`
       })
     },
+
     notifyUserAboutTransaction (type, state, amount) {
       let msg
 
@@ -535,6 +522,7 @@ module.exports = (
         }
       })
     },
+
     sendBonusNotification (amount) {
       let amountDollars = amount / 100
       amountDollars =
@@ -572,6 +560,7 @@ module.exports = (
         }
       })
     },
+
     sendMessage (msg, type = 'Automatic') {
       twilio.messages.create({
         from: process.env.twilioNumber,
@@ -589,6 +578,7 @@ module.exports = (
         }
       })
     },
+
     updateAlgoBoost (scale) {
       const xIndex = scale.indexOf('x')
       if (xIndex > 0) {
@@ -600,6 +590,7 @@ module.exports = (
 
       return `Done! We will adjust your next savings by ${scale + 'x'}`
     },
+
     daysLeftToNextPull () {
       let frequency = this.forcedFetchFrequency
       if (!frequency) {
@@ -634,6 +625,7 @@ module.exports = (
 
       return nextRunMoment.diff(moment(), 'days')
     },
+
     async unlink ({ error = '', options = {} } = {}) {
       this.relinkRequired = true
       await this.save()
@@ -696,6 +688,10 @@ module.exports = (
           'Balance on Thrive': this.balance
         }
       })
+
+      if (transactionType !== 'direct_debit' || this.balance >= 50000) {
+        this.canPromptRating()
+      }
     }
   },
   associations: {
@@ -710,5 +706,6 @@ module.exports = (
   indexes: [{ fields: ['code', 'company_id'] }],
   timestamps: true,
   createdAt: 'createdAt',
-  updatedAt: false
+  updatedAt: false,
+  noRatingPromptUntil: false
 })
