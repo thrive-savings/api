@@ -579,6 +579,24 @@ module.exports = (
       })
     },
 
+    async sendMessageAsync (msg, type = 'Automatic') {
+      await twilio.messages.create({
+        from: process.env.twilioNumber,
+        to: this.phone,
+        body: msg
+      })
+
+      amplitude.track({
+        eventType: 'BOT SENT MESSAGE',
+        userId: this.id,
+        eventProperties: {
+          Message: msg,
+          Phone: this.phone,
+          'Message Type': type
+        }
+      })
+    },
+
     updateAlgoBoost (scale) {
       const xIndex = scale.indexOf('x')
       if (xIndex > 0) {

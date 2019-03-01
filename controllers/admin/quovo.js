@@ -500,7 +500,10 @@ module.exports = (
 
       try {
         const connections = await Connection.findAll({
-          where: { status: 'good', userID: user.id }
+          where: {
+            userID: user.id,
+            [Sequelize.Op.or]: [{ status: 'good' }, { status: null }]
+          }
         })
 
         if (connections && connections.length > 0) {

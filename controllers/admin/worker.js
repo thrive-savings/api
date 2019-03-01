@@ -2,7 +2,6 @@ module.exports = (
   Bluebird,
   Sequelize,
   User,
-  Institution,
   Connection,
   Account,
   request,

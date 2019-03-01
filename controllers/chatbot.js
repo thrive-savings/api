@@ -109,6 +109,12 @@ module.exports = (
               } | ${msg}`
               setGenericSlackMsg = false
 
+              await user.sendMessageAsync(
+                `Hi ${
+                  user.firstName
+                }, Your one-time save request has been received, I am currently processing it. Keep up the awesome saving!`
+              )
+
               const { error, errorCode, errorDetails } = await request.post({
                 uri: `${config.constants.URL}/admin/worker-run-user`,
                 body: {
@@ -121,7 +127,7 @@ module.exports = (
               if (error) {
                 switch (errorCode) {
                   case 'low_balance':
-                    responseMsg = `We cannot process your deposit request as your bank account balance may go into insufficient funds.`
+                    responseMsg = `We cannot process your request as your bank account balance may go into insufficient funds.`
                     break
                   case 'out_of_range':
                     const { bounds } = errorDetails
@@ -130,11 +136,11 @@ module.exports = (
                     )}, ${getDollarString(bounds.upper)})`
                     break
                   case 'no_default':
-                    responseMsg = `We cannot process your deposit request as your bank account balance may go into insufficient funds. `
+                    responseMsg = `We cannot process your request as you don't have a primary account set. Please go to your Linked Banks page on the app to set a primary account.`
                     break
                   default:
                     responseMsg =
-                      'Oops. Something went wrong. Please contact support to get details.'
+                      'Oops. Something went wrong. Please contact customer support so we can assist you further.'
                     break
                 }
               }

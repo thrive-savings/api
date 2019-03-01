@@ -4,9 +4,7 @@ module.exports = (
   Account,
   Transaction,
   moment,
-  Bluebird,
-  amplitude,
-  Sentry
+  amplitude
 ) => ({
   run: {
     schema: [
@@ -47,7 +45,7 @@ module.exports = (
               },
               order: [['date', 'DESC']]
             })
-            if (transactions) {
+            if (transactions && transactions.length > 0) {
               let amount = 0
               let safeBalance = account.value
 
@@ -80,16 +78,21 @@ module.exports = (
               })
 
               const numOfDays = Object.keys(spendingsPerDay).length
-              let dsSum = 0
-              let ldsSum = 0
-              Object.keys(spendingsPerDay).forEach(day => {
-                const { ds, dsCount, lds, ldsCount } = spendingsPerDay[day]
-                dsSum += dsCount ? Math.floor(ds / dsCount) : 0
-                ldsSum += ldsCount ? Math.floor(lds / ldsCount) : 0
-              })
 
-              const dsAvg = Math.floor(dsSum / numOfDays)
-              const ldsAvg = Math.floor(ldsSum / numOfDays)
+              let dsAvg = 0
+              let ldsAvg = 0
+              if (numOfDays > 0) {
+                let dsSum = 0
+                let ldsSum = 0
+                Object.keys(spendingsPerDay).forEach(day => {
+                  const { ds, dsCount, lds, ldsCount } = spendingsPerDay[day]
+                  dsSum += dsCount ? Math.floor(ds / dsCount) : 0
+                  ldsSum += ldsCount ? Math.floor(lds / ldsCount) : 0
+                })
+
+                dsAvg = Math.floor(dsSum / numOfDays)
+                ldsAvg = Math.floor(ldsSum / numOfDays)
+              }
 
               safeBalance = safeBalance - (dsAvg * 7 + ldsAvg * 7)
               amount = Math.floor(dsAvg * (user.algoBoost / 100))
