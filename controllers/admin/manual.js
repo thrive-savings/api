@@ -9,7 +9,8 @@ module.exports = (
   Bluebird,
   request,
   config,
-  moment
+  moment,
+  amplitude
 ) => ({
   unlink: {
     schema: [['data', true, [['userIds', true, 'array']]]],
@@ -70,11 +71,7 @@ module.exports = (
         json: true
       })
 
-      await user.updateBalance(
-        amount,
-        type === 'debit' ? 'direct_debit' : 'direct_credit'
-      )
-
+      await user.updateBalance(amount, type)
       ctx.body = {}
     }
   },
@@ -320,6 +317,7 @@ module.exports = (
 
       let responseMsg = `Processing the transfer for User ${userID}`
       try {
+        const requestMethod = 'ManualDirect'
         const type = givenAmount > 0 ? 'debit' : 'credit'
         const amount = givenAmount > 0 ? givenAmount : -1 * givenAmount
 
@@ -331,7 +329,7 @@ module.exports = (
             userID,
             amount,
             type,
-            requestMethod: 'ManualDirect',
+            requestMethod,
             transactionReference: `THRIVE${userID}_` + moment().format('X')
           })
 
@@ -343,6 +341,16 @@ module.exports = (
               data: { userID, institution, transit, account }
             },
             json: true
+          })
+
+          amplitude.track({
+            eventType: 'MANUAL_DIRECT_TRANSFER_DONE',
+            userId: userID,
+            eventProperties: {
+              Amount: amount,
+              TransactionType: type,
+              RequestMethod: requestMethod
+            }
           })
         }
       } catch (e) {

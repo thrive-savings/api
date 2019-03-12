@@ -692,7 +692,7 @@ module.exports = (
 
     async updateBalance (amountInCents, transactionType) {
       const deltaAmount =
-        transactionType === 'direct_debit'
+        transactionType === 'debit'
           ? parseInt(amountInCents)
           : -1 * parseInt(amountInCents)
       this.balance = parseInt(this.balance) + deltaAmount
@@ -703,11 +703,11 @@ module.exports = (
         eventType: 'BALANCE_UPDATED',
         userId: this.id,
         userProperties: {
-          'Balance on Thrive': this.balance
+          Balance: this.balance
         }
       })
 
-      if (transactionType !== 'direct_debit' || this.balance >= 50000) {
+      if (transactionType !== 'debit' || this.balance >= 50000) {
         this.canPromptRating()
       }
     }

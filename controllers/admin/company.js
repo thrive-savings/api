@@ -1,4 +1,12 @@
-module.exports = (Bluebird, User, Company, Bonus, request, config) => ({
+module.exports = (
+  Bluebird,
+  User,
+  Company,
+  Bonus,
+  request,
+  config,
+  amplitude
+) => ({
   add: {
     schema: [['data', true, [['name', true]]]],
     async method (ctx) {
@@ -52,29 +60,48 @@ module.exports = (Bluebird, User, Company, Bonus, request, config) => ({
         ])
       }
 
-      // Create queue entry
-      await request.post({
-        uri: `${config.constants.URL}/admin/queue-create`,
-        body: {
-          secret: process.env.apiSecret,
-          data: {
-            userID,
-            amountInCents: amount,
-            type: 'bonus',
-            requestMethod: 'EmployerBonus'
+      const reply = {}
+      try {
+        await request.post({
+          uri: `${config.constants.URL}/admin/queue-create`,
+          body: {
+            secret: process.env.apiSecret,
+            data: {
+              userID,
+              amountInCents: amount,
+              type: 'bonus',
+              requestMethod: 'EmployerBonus'
+            }
+          },
+          json: true
+        })
+        await Bonus.create({ amount, companyID, userID })
+
+        await user.updateBalance(amount, 'debit')
+        user.sendBonusNotification(amount)
+
+        amplitude.track({
+          eventType: 'BONUS_USER_SUCCEED',
+          userId: userID,
+          eventProperties: {
+            CompanyID: companyID,
+            Amount: amount
           }
-        },
-        json: true
-      })
+        })
+      } catch (e) {
+        reply.error = true
+        amplitude.track({
+          eventType: 'BONUS_USER_FAIL',
+          userId: userID,
+          eventProperties: {
+            CompanyID: companyID,
+            Amount: amount,
+            Error: e
+          }
+        })
+      }
 
-      user.balance += parseInt(amount)
-      await user.save()
-
-      await Bonus.create({ amount, companyID, userID })
-
-      user.sendBonusNotification(amount)
-
-      ctx.body = {}
+      ctx.body = reply
     }
   }
 })

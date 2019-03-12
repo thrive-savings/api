@@ -201,10 +201,59 @@ module.exports = (
 
       let slackMsg = '*List of Companies:*\n'
       const companies = await Company.findAll({ order: Sequelize.col('name') })
-      for (const { name, code, brandLogoUrl } of companies) {
-        slackMsg += ` - *Name:* ${name}, *Code:* ${code}${
+      for (const { id: companyID, name, code, brandLogoUrl } of companies) {
+        slackMsg += ` - *ID:* ${companyID}, *Name:* ${name}, *Code:* ${code}${
           brandLogoUrl ? `, *Logo Name:* ${brandLogoUrl}` : ''
         }\n`
+      }
+
+      if (slackMsg) {
+        await request.post({
+          uri: process.env.slackWebhookURL,
+          body: { text: slackMsg },
+          json: true
+        })
+      }
+
+      ctx.body = ''
+    }
+  },
+
+  syncAmplitude: {
+    async method (ctx) {
+      const { token, text } = ctx.request.body
+
+      if (token !== process.env.slackVerificationToken) {
+        return Bluebird.reject([
+          { key: 'Access Denied', value: `Incorrect Verification Token` }
+        ])
+      }
+
+      const userID = text.trim()
+      let user
+      if (userID) {
+        user = await User.findOne({ where: { id: userID } })
+      }
+
+      let slackMsg = ''
+      if (!user) {
+        slackMsg = `*Error*: user not found for ID${userID}`
+      } else {
+        try {
+          await request.post({
+            uri: `${config.constants.URL}/admin/amplitude-sync-user-properties`,
+            body: {
+              secret: process.env.apiSecret,
+              data: {
+                userID: user.id
+              }
+            },
+            json: true
+          })
+          slackMsg = `Amplitude successfully synced with live data for User ${userID}`
+        } catch (e) {
+          slackMsg = `*Error*: something went wrong trying to sync Amplitude data for User ${userID}`
+        }
       }
 
       if (slackMsg) {

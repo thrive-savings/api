@@ -56,7 +56,7 @@ module.exports = (
           eventType: 'QUOVO_GENERATE_TOKEN_FAIL',
           userId: 'server',
           eventProperties: {
-            Error: e
+            error: e
           }
         })
       }
@@ -162,7 +162,7 @@ module.exports = (
 
           connections.forEach(async ({ id: quovoConnectionID }) => {
             await request.post({
-              uri: `${config.constants.URL}/admin/quovo-get-connection`,
+              uri: `${config.constants.URL}/admin/quovo-fetch-connection`,
               body: {
                 secret: process.env.apiSecret,
                 data: {
@@ -251,7 +251,7 @@ module.exports = (
             eventType: 'QUOVO_USER_CREATE_FAIL',
             userId: user.id,
             eventProperties: {
-              Error: e
+              error: e
             }
           })
         }
@@ -261,7 +261,7 @@ module.exports = (
     }
   },
 
-  getConnection: {
+  fetchConnection: {
     async method (ctx) {
       const {
         data: { userID, quovoConnectionID }
@@ -317,8 +317,21 @@ module.exports = (
           await connectionInstance.update(connectionData)
         }
         reply.connection = connectionData
+
+        amplitude.track({
+          eventType: 'QUOVO_FETCH_CONNECTION_SUCCEED',
+          userId: userID,
+          eventProperties: connectionData
+        })
       } catch (e) {
-        console.log(e)
+        amplitude.track({
+          eventType: 'QUOVO_FETCH_CONNECTION_FAIL',
+          userId: userID,
+          eventProperties: {
+            quovoConnectionID,
+            error: e
+          }
+        })
         reply.error = true
       }
 
@@ -352,10 +365,10 @@ module.exports = (
 
         if (accounts && accounts.length > 0) {
           amplitude.track({
-            eventType: 'QUOVO_AUTH_SUCCEED',
+            eventType: 'QUOVO_FETCH_AUTH_SUCCEED',
             userId: connection.userID,
             eventProperties: {
-              AccountsCount: accounts ? accounts.length : 0
+              accountsCount: accounts ? accounts.length : 0
             }
           })
           for (const {
@@ -436,17 +449,17 @@ module.exports = (
           }
         } else {
           amplitude.track({
-            eventType: 'QUOVO_AUTH_NO_ACCOUNTS',
+            eventType: 'QUOVO_FETCH_AUTH_NO_ACCOUNTS',
             userId: connection.userID
           })
         }
       } catch (e) {
         reply.error = true
         amplitude.track({
-          eventType: 'QUOVO_AUTH_FAIL',
+          eventType: 'QUOVO_FETCH_AUTH_FAIL',
           userId: connection.userID,
           eventProperties: {
-            Error: e
+            error: e
           }
         })
       }
@@ -460,6 +473,10 @@ module.exports = (
       const {
         data: { quovoConnectionID }
       } = ctx.request.body
+
+      const connection = await Connection.findOne({
+        where: { quovoConnectionID }
+      })
 
       const reply = {}
       try {
@@ -480,9 +497,24 @@ module.exports = (
           },
           json: true
         })
+
+        amplitude.track({
+          eventType: 'QUOVO_DELETE_CONNECTION_SUCCEED',
+          userId: connection.userID,
+          eventProperties: {
+            quovoConnectionID,
+            institutionName: connection.institutionName
+          }
+        })
       } catch (e) {
-        console.log(e)
         reply.error = true
+        amplitude.track({
+          eventType: 'QUOVO_DELETE_CONNECTION_FAIL',
+          userId: connection.userID,
+          eventProperties: {
+            error: e
+          }
+        })
       }
 
       ctx.body = reply
@@ -524,23 +556,31 @@ module.exports = (
               })
             )
           )
-        }
 
-        amplitude.track({
-          eventType: 'FETCHING_USER_UPDATES',
-          userId: user.id,
-          eventProperties: {
-            ConnectionCount: connections ? connections.length : 0
-          }
-        })
+          amplitude.track({
+            eventType: 'QUOVO_FETCH_USER_UPDATES_INITIATED',
+            userId: user.id,
+            eventProperties: {
+              connectionCount: connections ? connections.length : 0
+            }
+          })
+        } else {
+          amplitude.track({
+            eventType: 'QUOVO_FETCH_USER_UPDATES_NO_ACTION',
+            userId: user.id,
+            eventProperties: {
+              error: 'No connections found with status "good" or "loading".'
+            }
+          })
+        }
       } catch (e) {
         reply.error = true
 
         amplitude.track({
-          eventType: 'FETCH_USER_UPDATES_FAIL',
+          eventType: 'QUOVO_FETCH_USER_UPDATES_FAIL',
           userId: user.id,
           eventProperties: {
-            Error: e
+            error: e
           }
         })
       }
@@ -589,13 +629,13 @@ module.exports = (
         })
 
         amplitude.track({
-          eventType: 'FETCHED_CONNECTION_UPDATES',
+          eventType: 'QUOVO_FETCH_CONNECTION_UPDATES_SUCCEED',
           userId: connection.userID,
           eventProperties: {
-            ConnectionID: connection.id,
-            QuovoConnectionID: quovoConnectionID,
-            Value: value,
-            Status: status
+            connectionID: connection.id,
+            quovoConnectionID,
+            value,
+            status
           }
         })
 
@@ -621,17 +661,30 @@ module.exports = (
             },
             json: true
           })
+
+          amplitude.track({
+            eventType: 'QUOVO_CONNECTION_DISCONNECTED',
+            userId: connection.userID,
+            eventProperties: {
+              connectionID: connection.id,
+              quovoConnectionID: connection.quovoConnectionID,
+              quovoUserID: connection.quovoUserID,
+              status,
+              institutionName: connection.institutionName
+            }
+          })
         }
       } catch (e) {
         reply.error = true
 
         amplitude.track({
-          eventType: 'FETCH_CONNECTION_UPDATES_FAIL',
+          eventType: 'QUOVO_FETCH_CONNECTION_UPDATES_FAIL',
           userId: connection.userID,
           eventProperties: {
-            ConnectionID: connection.id,
-            QuovoConnectionID: connection.quovoConnectionID,
-            QuovoUserID: connection.quovoUserID,
+            connectionID: connection.id,
+            quovoConnectionID: connection.quovoConnectionID,
+            quovoUserID: connection.quovoUserID,
+            institutionName: connection.institutionName,
             Error: e
           }
         })
@@ -663,16 +716,6 @@ module.exports = (
           json: true
         })
 
-        amplitude.track({
-          eventType: 'FETCHED_ACCOUNTS_UPDATES',
-          userId: connection.userID,
-          eventProperties: {
-            ConnectionID: connection.id,
-            QuovoConnectionID: quovoConnectionID,
-            AccountsCount: accounts ? accounts.length : 0
-          }
-        })
-
         if (accounts && accounts.length > 0) {
           Bluebird.all(
             accounts.map(
@@ -701,17 +744,27 @@ module.exports = (
             )
           )
         }
+
+        amplitude.track({
+          eventType: 'QUOVO_FETCH_ACCOUNTS_UPDATES_SUCCEED',
+          userId: connection.userID,
+          eventProperties: {
+            connectionID: connection.id,
+            quovoConnectionID,
+            accountsCount: accounts ? accounts.length : 0
+          }
+        })
       } catch (e) {
         reply.error = true
 
         amplitude.track({
-          eventType: 'FETCH_ACCOUNTS_UPDATES_FAIL',
+          eventType: 'QUOVO_FETCH_ACCOUNTS_UPDATES_FAIL',
           userId: connection.userID,
           eventProperties: {
-            ConnectionID: connection.id,
-            QuovoConnectionID: connection.quovoConnectionID,
-            QuovoUserID: connection.quovoUserID,
-            Error: e
+            connectionID: connection.id,
+            quovoConnectionID: connection.quovoConnectionID,
+            quovoUserID: connection.quovoUserID,
+            error: e
           }
         })
       }
@@ -749,18 +802,6 @@ module.exports = (
             Authorization: `Bearer ${process.env.quovoApiToken}`
           },
           json: true
-        })
-
-        amplitude.track({
-          eventType: 'FETCHED_NEW_ACCOUNT_TRANSACTIONS',
-          userId: account.userID,
-          eventProperties: {
-            TransactionsCount: transactions ? transactions.length : 0,
-            AccountID: account.id,
-            QuovoAccountID: account.quovoAccountID,
-            QuovoConnectionID: account.quovoConnectionID,
-            QuovoUserID: account.quovoUserID
-          }
         })
 
         if (transactions && transactions.length > 0) {
@@ -806,18 +847,30 @@ module.exports = (
             )
           )
         }
+
+        amplitude.track({
+          eventType: 'QUOVO_FETCH_ACCOUNT_TRANSACTIONS_SUCCEED',
+          userId: account.userID,
+          eventProperties: {
+            transactionsCount: transactions ? transactions.length : 0,
+            accountID: account.id,
+            quovoAccountID: account.quovoAccountID,
+            quovoConnectionID: account.quovoConnectionID,
+            quovoUserID: account.quovoUserID
+          }
+        })
       } catch (e) {
         reply.error = true
 
         amplitude.track({
-          eventType: 'FETCH_ACCOUNT_TRANSACTIONS_FAIL',
+          eventType: 'QUOVO_FETCH_ACCOUNT_TRANSACTIONS_FAIL',
           userId: account.userID,
           eventProperties: {
-            AccountID: account.id,
-            QuovoAccountID: account.quovoAccountID,
-            QuovoConnectionID: account.quovoConnectionID,
-            QuovoUserID: account.quovoUserID,
-            Error: e
+            accountID: account.id,
+            quovoAccountID: account.quovoAccountID,
+            quovoConnectionID: account.quovoConnectionID,
+            quovoUserID: account.quovoUserID,
+            error: e
           }
         })
       }

@@ -26,7 +26,7 @@ module.exports = (
         connection: { status },
         error: quovoConnectionError
       } = await request.post({
-        uri: `${config.constants.URL}/admin/quovo-get-connection`,
+        uri: `${config.constants.URL}/admin/quovo-fetch-connection`,
         body: {
           secret: process.env.apiSecret,
           data: {

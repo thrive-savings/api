@@ -58,7 +58,10 @@ module.exports = (User, Account, Queue, request) => ({
             }
 
             if (state === 'completed') {
-              await user.updateBalance(amountInCents, transactionType)
+              await user.updateBalance(
+                amountInCents,
+                transactionType === 'direct_debit' ? 'debit' : 'credit'
+              )
             }
 
             user.notifyUserAboutTransaction(
