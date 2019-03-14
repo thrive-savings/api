@@ -430,6 +430,43 @@ module.exports = (
       }
     },
 
+    getPrimaryAccount () {
+      const data = {}
+
+      const connections = this.connections
+      if (connections && connections.length > 0) {
+        let defaultConnection = connections.filter(
+          connection => connection.isDefault
+        )
+        if (defaultConnection && defaultConnection.length > 0) {
+          defaultConnection = defaultConnection[0]
+        }
+
+        if (defaultConnection) {
+          const accounts = defaultConnection.accounts
+          if (accounts) {
+            let defaultAccount = accounts.filter(account => account.isDefault)
+
+            if (defaultAccount && defaultAccount.length > 0) {
+              defaultAccount = defaultAccount[0]
+              data.account = defaultAccount
+              data.connection = defaultConnection
+            } else {
+              data.error = 'no_default_account'
+            }
+          } else {
+            data.error = 'no_accounts'
+          }
+        } else {
+          data.error = 'no_default_connection'
+        }
+      } else {
+        data.error = 'no_connections'
+      }
+
+      return data
+    },
+
     shouldPromptRating () {
       return (
         this.rating === -1 &&

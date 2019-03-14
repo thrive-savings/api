@@ -1,6 +1,7 @@
 module.exports = (
   Sequelize,
   User,
+  Connection,
   Account,
   Transaction,
   moment,
@@ -15,25 +16,36 @@ module.exports = (
       const MAX_LDS_CONTRIBUTION = 20000
 
       const {
-        data: { userID, accountID: givenAccountID }
+        data: { userID, accountID: providedAccountID }
       } = ctx.request.body
 
       const reply = {}
       try {
-        const user = await User.findOne({ where: { id: userID } })
+        const userFindObj = { where: { id: userID } }
+        if (!providedAccountID) {
+          userFindObj.include = [{ model: Connection, include: [Account] }]
+        }
+
+        const user = await User.findOne(userFindObj)
         if (user) {
-          const accountWhereClause = { userID }
-          if (givenAccountID) {
-            accountWhereClause.id = givenAccountID
+          let account
+          if (providedAccountID) {
+            account = await Account.findOne({
+              where: { id: providedAccountID, userID }
+            })
           } else {
-            accountWhereClause.isDefault = true
+            const { account: primaryAccount } = user.getPrimaryAccount()
+            if (primaryAccount) {
+              account = primaryAccount
+            }
           }
 
-          const account = await Account.findOne({
-            where: accountWhereClause
-          })
-
           if (account) {
+            const accountBalance = account.getBalance()
+
+            let amount = 0
+            let safeBalance = accountBalance
+
             const transactions = await Transaction.findAll({
               where: {
                 accountID: account.id,
@@ -45,10 +57,8 @@ module.exports = (
               },
               order: [['date', 'DESC']]
             })
-            if (transactions && transactions.length > 0) {
-              let amount = 0
-              let safeBalance = account.value
 
+            if (transactions && transactions.length > 0) {
               const spendingsPerDay = {}
 
               transactions.forEach(({ date, value, subtype }) => {
@@ -101,37 +111,49 @@ module.exports = (
                 eventType: 'ALGO_RAN',
                 userId: user.id,
                 eventProperties: {
-                  AccountID: `${account.id}`,
-                  Amount: `${amount}`,
-                  DailySpendingAvg: `${dsAvg}`,
-                  LargerDailySpendingAvg: `${ldsAvg}`,
-                  Balance: `${account.value}`,
-                  SafeBalance: `${safeBalance}`
+                  algoVersion: 'original',
+                  accountID: account.id,
+                  amountChosen: amount,
+                  accountBalance,
+                  accountSafeBalance: safeBalance,
+                  dailySpendingAvg: dsAvg,
+                  largerDailySpendingAvg: ldsAvg
                 }
               })
-
-              reply.amount = amount
-              reply.safeBalance = safeBalance
             } else {
-              reply.error = true
+              const MAX_RAND_BOUND = 1500
+              const MIN_RAND_BOUND = 500
+
+              const randomAmount =
+                Math.floor(
+                  Math.random() * (MAX_RAND_BOUND - MIN_RAND_BOUND + 1)
+                ) + MIN_RAND_BOUND
+              amount = Math.floor(randomAmount * (user.algoBoost / 100))
+
               amplitude.track({
-                eventType: 'ALGO_RUN_FAIL',
-                userId: userID,
+                eventType: 'ALGO_RAN',
+                userId: user.id,
                 eventProperties: {
-                  error: `No recent transactions found for account ${
-                    account.id
-                  }`
+                  algoVersion: 'simple',
+                  algoVersionReason: 'no_transactions_found',
+                  accountID: account.id,
+                  amountChosen: amount,
+                  accountBalance,
+                  accountSafeBalance: safeBalance
                 }
               })
             }
+
+            reply.amount = amount
+            reply.safeBalance = safeBalance
           } else {
             reply.error = true
             amplitude.track({
               eventType: 'ALGO_RUN_FAIL',
               userId: userID,
               eventProperties: {
-                error: `No account found`,
-                whereClause: accountWhereClause
+                error: `no_account_found`,
+                providedAccountID
               }
             })
           }
@@ -158,5 +180,12 @@ module.exports = (
 
       ctx.body = reply
     }
+  },
+
+  runSimple: {
+    schema: [
+      ['data', true, [['userID', true, 'integer'], ['accountID', 'integer']]]
+    ],
+    async method (ctx) {}
   }
 })

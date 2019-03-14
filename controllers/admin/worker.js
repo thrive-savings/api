@@ -94,232 +94,186 @@ module.exports = (
         })
 
         if (user) {
-          const connections = user.connections
-          if (connections && connections.length > 0) {
-            let defaultConnection = connections.filter(
-              connection => connection.isDefault
-            )
-            if (defaultConnection && defaultConnection.length > 0) {
-              defaultConnection = defaultConnection[0]
-              const accounts = defaultConnection.accounts
+          const {
+            error: getPrimaryErrorCode,
+            connection: primaryConnection,
+            account: primaryAccount
+          } = user.getPrimaryAccount()
+          if (!getPrimaryErrorCode) {
+            amplitude.track({
+              eventType: 'WORKER_GOT_PRIMARY_ACCOUNT',
+              userId: user.id,
+              eventProperties: {
+                primaryConnectionID: primaryConnection.id,
+                primaryAccountID: primaryAccount.id
+              }
+            })
 
-              if (accounts) {
-                let defaultAccount = accounts.filter(
-                  account => account.isDefault
+            let safeBalance = primaryAccount.getBalance()
+            let amountToSave = 0
+            if (amountProvided) {
+              amountToSave = amountProvided
+              safeBalance = MIN_BALANCE_THRESHOLD + 1
+            } else {
+              // Get amount to save
+              if (user.savingType === 'Thrive Flex') {
+                const {
+                  error: algoRunError,
+                  safeBalance: safeBalanceFromAlgo,
+                  amount: amountFromAlgo
+                } = await request.post({
+                  uri: `${config.constants.URL}/admin/algo-run`,
+                  body: {
+                    secret: process.env.apiSecret,
+                    data: { userID: user.id, accountID: primaryAccount.id }
+                  },
+                  json: true
+                })
+                if (!algoRunError) {
+                  safeBalance = safeBalanceFromAlgo
+                  amountToSave = amountFromAlgo
+                }
+              } else {
+                amountToSave = user.fixedContribution
+              }
+            }
+
+            if (amountToSave && safeBalance) {
+              const amountCalculated = amountToSave
+
+              if (
+                !amountProvided ||
+                (amountProvided >= MIN_DEPOSIT_AMOUNT &&
+                  amountProvided <= MAX_DEPOSIT_AMOUNT)
+              ) {
+                // Amount is auto-calculated OR the provided amount is in proper range
+                amountToSave = Math.min(
+                  Math.max(amountCalculated, MIN_DEPOSIT_AMOUNT),
+                  MAX_DEPOSIT_AMOUNT
                 )
 
-                if (defaultAccount && defaultAccount.length > 0) {
-                  defaultAccount = defaultAccount[0]
+                amplitude.track({
+                  eventType: 'WORKER_GOT_AMOUNT',
+                  userId: user.id,
+                  eventProperties: {
+                    AccountID: primaryAccount.id,
+                    SavingType: user.savingType,
+                    AmountProvided: amountProvided,
+                    AmountCalculated: amountCalculated,
+                    AmountToSave: amountToSave,
+                    AccountBalance: primaryAccount.balance,
+                    SafeBalance: safeBalance
+                  }
+                })
 
-                  amplitude.track({
-                    eventType: 'WORKER_GOT_DEFAULT_ACCOUNT',
-                    userId: user.id,
-                    eventProperties: {
-                      DefaultConnectionID: defaultConnection.id,
-                      DefaultAccountID: defaultAccount.id
-                    }
-                  })
-
-                  let safeBalance = defaultAccount.value
-                  let amountToSave = 0
-                  if (amountProvided) {
-                    amountToSave = amountProvided
-                  } else {
-                    // Get amount to save
-                    if (user.savingType === 'Thrive Flex') {
-                      const {
-                        error: algoRunError,
-                        safeBalance: safeBalanceFromAlgo,
-                        amount: amountFromAlgo
-                      } = await request.post({
-                        uri: `${config.constants.URL}/admin/algo-run`,
-                        body: {
-                          secret: process.env.apiSecret,
-                          data: { userID: user.id }
-                        },
-                        json: true
-                      })
-                      if (!algoRunError) {
-                        safeBalance = safeBalanceFromAlgo
-                        amountToSave = amountFromAlgo
-                      }
-                    } else {
-                      amountToSave = user.fixedContribution
-                    }
+                if (safeBalance > MIN_BALANCE_THRESHOLD) {
+                  if (user.forcedFetchFrequency) {
+                    user.update({ forcedFetchFrequency: null })
                   }
 
-                  if (amountToSave && safeBalance) {
-                    const amountCalculated = amountToSave
-
-                    if (
-                      !amountProvided ||
-                      (amountProvided >= MIN_DEPOSIT_AMOUNT &&
-                        amountProvided <= MAX_DEPOSIT_AMOUNT)
-                    ) {
-                      // Amount is auto-calculated OR the provided amount is in proper range
-                      amountToSave = Math.min(
-                        Math.max(amountCalculated, MIN_DEPOSIT_AMOUNT),
-                        MAX_DEPOSIT_AMOUNT
-                      )
-
-                      amplitude.track({
-                        eventType: 'WORKER_GOT_AMOUNT',
-                        userId: user.id,
-                        eventProperties: {
-                          AccountID: defaultAccount.id,
-                          SavingType: user.savingType,
-                          AmountProvided: amountProvided,
-                          AmountCalculated: amountCalculated,
-                          AmountToSave: amountToSave,
-                          AccountBalance: defaultAccount.balance,
-                          SafeBalance: safeBalance
-                        }
-                      })
-
-                      if (safeBalance > MIN_BALANCE_THRESHOLD) {
-                        if (user.forcedFetchFrequency) {
-                          user.update({ forcedFetchFrequency: null })
-                        }
-
-                        if (user.requireApproval || user.userType === 'vip') {
-                          // Request approval
-                          amplitude.track({
-                            eventType: 'WORKER_REQUESTED_APPROVAL',
-                            userId: user.id,
-                            eventProperties: {
-                              SavingType: user.savingType,
-                              Amount: amountToSave
-                            }
-                          })
-                          await request.post({
-                            uri: `${
-                              config.constants.URL
-                            }/slack-request-algo-approval`,
-                            body: {
-                              data: {
-                                userID: user.id,
-                                amount: parseInt(amountToSave)
-                              }
-                            },
-                            json: true
-                          })
-                        } else {
-                          // Do the transfer
-                          await request.post({
-                            uri: `${
-                              config.constants.URL
-                            }/admin/worker-transfer`,
-                            body: {
-                              secret: process.env.apiSecret,
-                              data: {
-                                userID: user.id,
-                                amount: amountToSave,
-                                type: 'debit',
-                                requestMethod: amountProvided
-                                  ? 'ThriveBot'
-                                  : 'Automated'
-                              }
-                            },
-                            json: true
-                          })
-                        }
-                      } else {
-                        amplitude.track({
-                          eventType: 'WORKER_FOUND_LOW_BALANCE',
-                          userId: user.id,
-                          eventProperties: {
-                            AccountID: defaultAccount.id,
-                            SavingType: user.savingType,
-                            AmountCalculated: amountCalculated,
-                            AmountToSave: amountToSave,
-                            AccountBalance: defaultAccount.balance,
-                            SafeBalance: safeBalance
-                          }
-                        })
-
-                        // Schedule user to run daily till we are able to pull
-                        await user.update({ forcedFetchFrequency: 'ONCEDAILY' })
-
-                        reply.error = true
-                        reply.errorCode = 'low_balance'
-                      }
-                    } else {
-                      // Provided amount is in range
-                      const bounds = {
-                        lower: MIN_DEPOSIT_AMOUNT,
-                        upper: MAX_DEPOSIT_AMOUNT
-                      }
-                      reply.error = true
-                      reply.errorCode = 'out_of_range'
-                      reply.errorDetails = bounds
-
-                      amplitude.track({
-                        eventType: 'WORKER_RUN_USER_FAIL',
-                        userId: 'server',
-                        eventProperties: {
-                          Error: `Amount out of range.`,
-                          AmountProvided: amountProvided,
-                          Bounds: bounds
-                        }
-                      })
-                    }
-                  } else {
-                    reply.error = true
+                  if (user.requireApproval || user.userType === 'vip') {
+                    // Request approval
                     amplitude.track({
-                      eventType: 'WORKER_RUN_USER_FAIL',
+                      eventType: 'WORKER_REQUESTED_APPROVAL',
                       userId: user.id,
                       eventProperties: {
-                        Error: 'AmountToSave or SafeBalance is null',
-                        AmountToSave: amountToSave,
-                        SafeBalance: safeBalance
+                        SavingType: user.savingType,
+                        Amount: amountToSave
                       }
+                    })
+                    await request.post({
+                      uri: `${
+                        config.constants.URL
+                      }/slack-request-algo-approval`,
+                      body: {
+                        data: {
+                          userID: user.id,
+                          amount: parseInt(amountToSave)
+                        }
+                      },
+                      json: true
+                    })
+                  } else {
+                    // Do the transfer
+                    await request.post({
+                      uri: `${config.constants.URL}/admin/worker-transfer`,
+                      body: {
+                        secret: process.env.apiSecret,
+                        data: {
+                          userID: user.id,
+                          amount: amountToSave,
+                          type: 'debit',
+                          requestMethod: amountProvided
+                            ? 'ThriveBot'
+                            : 'Automated'
+                        }
+                      },
+                      json: true
                     })
                   }
                 } else {
-                  reply.error = true
-                  reply.errorCode = 'no_default'
                   amplitude.track({
-                    eventType: 'WORKER_RUN_USER_FAIL',
+                    eventType: 'WORKER_FOUND_LOW_BALANCE',
                     userId: user.id,
                     eventProperties: {
-                      Error: `Connection ${
-                        defaultConnection.id
-                      } of User ${userID} has no default account.`
+                      AccountID: primaryAccount.id,
+                      SavingType: user.savingType,
+                      AmountCalculated: amountCalculated,
+                      AmountToSave: amountToSave,
+                      AccountBalance: primaryAccount.balance,
+                      SafeBalance: safeBalance
                     }
                   })
+
+                  // Schedule user to run daily till we are able to pull
+                  await user.update({ forcedFetchFrequency: 'ONCEDAILY' })
+
+                  reply.error = true
+                  reply.errorCode = 'low_balance'
                 }
               } else {
+                // Provided amount is in range
+                const bounds = {
+                  lower: MIN_DEPOSIT_AMOUNT,
+                  upper: MAX_DEPOSIT_AMOUNT
+                }
                 reply.error = true
-                reply.errorCode = 'no_default'
+                reply.errorCode = 'out_of_range'
+                reply.errorDetails = bounds
+
                 amplitude.track({
                   eventType: 'WORKER_RUN_USER_FAIL',
-                  userId: user.id,
+                  userId: 'server',
                   eventProperties: {
-                    Error: `Connection ${
-                      defaultConnection.id
-                    } of User ${userID} has no accounts.`
+                    Error: `Amount out of range.`,
+                    AmountProvided: amountProvided,
+                    Bounds: bounds
                   }
                 })
               }
             } else {
               reply.error = true
-              reply.errorCode = 'no_default'
               amplitude.track({
                 eventType: 'WORKER_RUN_USER_FAIL',
                 userId: user.id,
                 eventProperties: {
-                  Error: `User ${userID} has no default bank connection.`
+                  Error: 'AmountToSave or SafeBalance is NULL or 0',
+                  AmountToSave: amountToSave,
+                  SafeBalance: safeBalance
                 }
               })
             }
           } else {
             reply.error = true
-            reply.errorCode = 'no_bank'
+            reply.errorCode = getPrimaryErrorCode
+
             amplitude.track({
               eventType: 'WORKER_RUN_USER_FAIL',
               userId: user.id,
               eventProperties: {
-                Error: `User ${userID} has no bank connections.`
+                error: getPrimaryErrorCode,
+                primaryConnectionID: primaryConnection && primaryConnection.id,
+                primaryAccountID: primaryAccount && primaryAccount.id
               }
             })
           }
@@ -339,7 +293,7 @@ module.exports = (
           eventType: 'WORKER_RUN_USER_FAIL',
           userId: 'server',
           eventProperties: {
-            Error: `User not found for ID: ${userID}`
+            Error: e
           }
         })
       }

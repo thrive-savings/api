@@ -208,6 +208,10 @@ module.exports = Sequelize => ({
       } else {
         return /^\d+$/.test(trimmedNumber)
       }
+    },
+
+    getBalance () {
+      return this.value !== 0 ? this.value : this.availableBalance
     }
   }
 })

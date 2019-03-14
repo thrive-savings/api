@@ -157,7 +157,7 @@ module.exports = (
       for (const { email, firstName } of users) {
         mail.send(
           {
-            from: 'hello@thrivesavings.com',
+            from: 'Thrive Savings <hello@thrivesavings.com>',
             subject: subject || 'Thrive Email',
             to: email
           },
@@ -209,7 +209,7 @@ module.exports = (
 
       mail.send(
         {
-          from: 'hello@thrivesavings.com',
+          from: 'Thrive Savings <hello@thrivesavings.com>',
           subject: `Your Thrive ${monthName} statement is available`,
           to: user.email
         },
