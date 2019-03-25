@@ -303,7 +303,7 @@ module.exports = (
         to: this.phone,
         body: `Welcome ${
           this.firstName
-        }! You're now part of the Thrive family. My name is Thrivebot and I'm your personal assistant.\n\nFeel free to message me anytime, ask for your balance, withdraw your money, or just say hi!\n\nHappy saving! ;)`
+        } to the Thrive community! Your first save will happen tomorrow. Don't forget to link your bank account on the Thrive App.\n\nCongrats on taking the first step towards financial freedom.`
       })
     },
     checkPassword (password) {
@@ -639,7 +639,7 @@ module.exports = (
       })
 
       amplitude.track({
-        eventType: 'BOT SENT MESSAGE',
+        eventType: 'BOT_SENT_MESSAGE',
         userId: this.id,
         eventProperties: {
           Message: msg,
@@ -657,7 +657,7 @@ module.exports = (
       })
 
       amplitude.track({
-        eventType: 'BOT SENT MESSAGE',
+        eventType: 'BOT_SENT_MESSAGE',
         userId: this.id,
         eventProperties: {
           Message: msg,

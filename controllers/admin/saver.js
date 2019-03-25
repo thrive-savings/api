@@ -72,30 +72,49 @@ module.exports = (
       const reply = {}
 
       try {
+        let analyticsMessage = ''
         const user = await User.findOne({ where: { id: userID } })
         if (user) {
           const today = moment().date()
           const nextSaveDay = moment(user.nextSaveDate).date()
-          console.log({ today, nextSaveDay })
           if (today === nextSaveDay) {
+            analyticsMessage = 'Initiated a call to SAVER_TRY_SAVE'
             request.post({
               uri: `${config.constants.URL}/admin/saver-try-save`,
               body: {
                 secret: process.env.apiSecret,
-                data: { userID: user.id }
+                data: { userID }
               },
               json: true
             })
-            amplitude.track({
-              eventType: 'SAVER_RUN_USER_EXIT',
-              userId: userID,
-              eventProperties: {
-                message: 'Initiated a call to SAVER_TRY_SAVE'
-              }
-            })
           } else {
-            // TODO: Notify user about the future save
+            analyticsMessage = 'Tomorrow is the save day'
+            const daysFromSignUp = moment().diff(moment(user.createdAt), 'd')
+            if (daysFromSignUp > 1) {
+              const connections = await Connection.findAll({
+                where: { userID }
+              })
+              if (!connections || connections.length === 0) {
+                analyticsMessage += ' - Reminded user to link bank'
+                user.sendMessage(
+                  `Hi ${
+                    user.firstName
+                  }, friendly reminder from ThriveBot - Remember to link your bank account in App. I will be saving for you on ${moment(
+                    user.nextSaveDate
+                  ).format('dddd MMMM Do')}! Happy saving!`
+                )
+              }
+            }
           }
+          amplitude.track({
+            eventType: 'SAVER_RUN_USER_EXIT',
+            userId: userID,
+            eventProperties: {
+              message: analyticsMessage,
+              today,
+              nextSaveDay
+            }
+          })
         } else {
           reply.error = true
           reply.errorCode = 'not_found'
@@ -184,6 +203,14 @@ module.exports = (
               }
             })
           } else {
+            if (connectionError === 'no_connections') {
+              user.sendMessage(
+                `Hi ${
+                  user.firstName
+                }, I couldn't save for you today because you haven't linked a bank. Please log into your Thrive App and link a bank to start saving!`
+              )
+            }
+
             request.post({
               uri: process.env.slackWebhookURL,
               body: {
