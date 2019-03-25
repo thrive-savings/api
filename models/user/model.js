@@ -289,6 +289,11 @@ module.exports = (
     noRatingPromptUntil: {
       type: Sequelize.DATE,
       field: 'no_rating_prompt_until'
+    },
+
+    nextSaveDate: {
+      type: Sequelize.DATE,
+      field: 'next_save_date'
     }
   },
   instanceMethods: {
@@ -403,6 +408,7 @@ module.exports = (
         connections,
         goals,
         id: this.id,
+        nextSaveDate: this.nextSaveDate,
         promptRating: this.shouldPromptRating(),
         expoPushToken: this.expoPushToken,
         bankLinked: this.bankLinked,
@@ -441,16 +447,17 @@ module.exports = (
         if (defaultConnection && defaultConnection.length > 0) {
           defaultConnection = defaultConnection[0]
         }
-
         if (defaultConnection) {
+          data.connection = defaultConnection
           const accounts = defaultConnection.accounts
           if (accounts) {
             let defaultAccount = accounts.filter(account => account.isDefault)
-
             if (defaultAccount && defaultAccount.length > 0) {
               defaultAccount = defaultAccount[0]
               data.account = defaultAccount
-              data.connection = defaultConnection
+              if (!defaultAccount.hasACH()) {
+                data.error = 'no_ach'
+              }
             } else {
               data.error = 'no_default_account'
             }
@@ -465,6 +472,32 @@ module.exports = (
       }
 
       return data
+    },
+
+    async calcNextSaveDate () {
+      const nextSaveDate = moment(this.nextSaveDate)
+      switch (this.fetchFrequency) {
+        default:
+        case 'ONCEWEEKLY':
+          nextSaveDate.add(7, 'd')
+          break
+        case 'BIWEEKLY':
+          nextSaveDate.add(15, 'd')
+          break
+        case 'ONCEMONTHLY':
+          nextSaveDate.add(1, 'm')
+          break
+      }
+      this.nextSaveDate = nextSaveDate
+      await this.save()
+
+      amplitude.track({
+        eventType: 'NEXT_SAVE_DATE_UPDATED',
+        userId: this.id,
+        userProperties: {
+          'Next Save Date': nextSaveDate
+        }
+      })
     },
 
     shouldPromptRating () {
@@ -762,5 +795,6 @@ module.exports = (
   timestamps: true,
   createdAt: 'createdAt',
   updatedAt: false,
-  noRatingPromptUntil: false
+  noRatingPromptUntil: false,
+  nextSaveDate: false
 })

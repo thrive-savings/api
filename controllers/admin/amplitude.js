@@ -1,11 +1,7 @@
 module.exports = (
   Bluebird,
   Sequelize,
-  Institution,
   User,
-  Connection,
-  Account,
-  Goal,
   Company,
   amplitude,
   request,
@@ -92,7 +88,8 @@ module.exports = (
           'Work Type': user.workType,
           'Saving Type': user.savingType,
           'Saving Frequency': user.fetchFrequency,
-          'Account Verified': user.isVerified
+          'Account Verified': user.isVerified,
+          'Next Save Date': user.nextSaveDate
         }
       })
 

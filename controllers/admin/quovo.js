@@ -65,6 +65,8 @@ module.exports = (
     }
   },
 
+  // Manual
+
   syncInstitutions: {
     async method (ctx) {
       try {
@@ -192,6 +194,8 @@ module.exports = (
       ctx.body = {}
     }
   },
+
+  // Bank Linking
 
   createUser: {
     schema: [['data', true, [['userID', true, 'integer']]]],
@@ -518,6 +522,43 @@ module.exports = (
       }
 
       ctx.body = reply
+    }
+  },
+
+  // Update Fetchers
+
+  fetchUpdates: {
+    async method (ctx) {
+      const users = await User.findAll({
+        where: { quovoUserID: { [Sequelize.Op.ne]: null } }
+      })
+
+      if (users.length > 0) {
+        await request.post({
+          uri: `${config.constants.URL}/admin/quovo-api-token`,
+          body: {
+            secret: process.env.apiSecret
+          },
+          json: true
+        })
+
+        Bluebird.all(
+          users.map(user =>
+            request.post({
+              uri: `${config.constants.URL}/admin/quovo-fetch-user-updates`,
+              body: {
+                secret: process.env.apiSecret,
+                data: {
+                  quovoUserID: user.quovoUserID
+                }
+              },
+              json: true
+            })
+          )
+        )
+      }
+
+      ctx.body = {}
     }
   },
 

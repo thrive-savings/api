@@ -7,8 +7,201 @@ module.exports = (
   moment,
   request,
   config,
-  Sentry
+  Sentry,
+  amplitude,
+  Bluebird,
+  emoji
 ) => ({
+  /*
+   * Cron Jobs
+   */
+
+  fire: {
+    async method (ctx) {
+      const now = moment()
+      const notifications = await Notification.findAll({
+        where: {
+          fireDate: { [Sequelize.Op.lte]: now.toDate() }
+        }
+      })
+
+      let notificationsToDelete = []
+      for (const notification of notifications) {
+        if (notificationsToDelete.includes(notification.id)) {
+          continue
+        }
+
+        const { userID, condition, conditionModel, event } = notification
+
+        let user = await User.findOne({ where: { id: userID } })
+        let conditionHolds = true
+
+        if (conditionModel === 'users') {
+          condition.id = userID
+          user = await User.findOne({
+            where: condition
+          })
+        }
+
+        if (user && conditionHolds) {
+          // Condition still holds, so Fire Notification
+          const {
+            channel,
+            message,
+            smsFallbackMessage,
+            recurAfter,
+            recurAfterWord,
+            recurCount
+          } = notification
+
+          if (channel === 'sms') {
+            user.sendMessage(message.body)
+          } else if (channel === 'email') {
+            const { template, subject } = message
+            await request.post({
+              uri: `${config.constants.URL}/admin/notifications-email`,
+              body: {
+                secret: process.env.apiSecret,
+                data: { userIds: [user.id], template, subject }
+              },
+              json: true
+            })
+          } else if (channel === 'push') {
+            if (
+              user.expoPushToken &&
+              Expo.isExpoPushToken(user.expoPushToken)
+            ) {
+              await request.post({
+                uri: `${config.constants.URL}/admin/notifications-push`,
+                body: {
+                  secret: process.env.apiSecret,
+                  data: { userIds: [user.id], message }
+                },
+                json: true
+              })
+            } else {
+              // Fallback to SMS
+              user.sendMessage(smsFallbackMessage || message.body)
+            }
+          }
+
+          if (recurAfter && recurCount > 1) {
+            notification.update({
+              fireDate: now.add(recurAfter, recurAfterWord).toDate(),
+              recurCount: recurCount - 1
+            })
+            continue
+          }
+          notificationsToDelete.push(notification.id)
+        } else {
+          // Condition no longer holds so clean all related notifications
+          await Notification.destroy({ where: { userID, event } })
+        }
+      }
+
+      // Delete notificationsToDelete
+      if (notificationsToDelete.length) {
+        await Notification.destroy({
+          where: { id: { [Sequelize.Op.in]: notificationsToDelete } }
+        })
+      }
+
+      ctx.body = {}
+    },
+    onError (err) {
+      Sentry.captureException(err)
+    }
+  },
+
+  monthlyStatement: {
+    async method (ctx) {
+      const reply = {}
+
+      try {
+        const users = await User.findAll({ where: { bankLinked: true } })
+
+        if (users.length > 0) {
+          Bluebird.all(
+            users.map(user =>
+              request.post({
+                uri: `${
+                  config.constants.URL
+                }/admin/notifications-statement-email`,
+                body: {
+                  secret: process.env.apiSecret,
+                  data: {
+                    userID: user.id
+                  }
+                },
+                json: true
+              })
+            )
+          )
+        }
+      } catch (e) {
+        reply.error = true
+        reply.errorCode = 'try_catched'
+        amplitude.track({
+          eventType: 'MONTHLY_STATEMENT_SENDER_FAIL',
+          userId: 'server',
+          eventProperties: {
+            error: e,
+            errorCode: reply.errorCode
+          }
+        })
+      }
+
+      ctx.body = reply
+    }
+  },
+
+  askBoost: {
+    async method (ctx) {
+      const reply = {}
+
+      try {
+        const MIN_BALANCE_TO_SEND_BOOST = 3000
+        const users = await User.findAll({
+          where: { balance: { [Sequelize.Op.gt]: MIN_BALANCE_TO_SEND_BOOST } }
+        })
+
+        const onMissing = name =>
+          name === 'thumbsup' ? '1:' : name === 'fire' ? '2:' : '3:'
+        const msg =
+          'Are we saving the right amount for you?\n\nYou can change how much to save next time by replying with one of the options below:\n\n:thumbsup: "Boost 1.5x" - Save 1.5x more\n:fire: "Boost 2x" - Save twice as much\n:thumbsdown: "Reduce 0.5x" - Save 50% less'
+
+        users.forEach(user => {
+          user.sendMessage(emoji.emojify(msg, onMissing))
+        })
+
+        amplitude.track({
+          eventType: 'BOOST_NOTIFICATION_SENT',
+          userId: 'server',
+          eventProperties: {
+            UserCount: `${users.length}`
+          }
+        })
+      } catch (e) {
+        reply.error = true
+        reply.errorCode = 'try_catched'
+        amplitude.track({
+          eventType: 'BOOST_NOTIFICATION_SENDER_FAIL',
+          userId: 'server',
+          eventProperties: {
+            error: e,
+            errorCode: reply.errorCode
+          }
+        })
+      }
+
+      ctx.body = {}
+    }
+  },
+
+  /*
+   * Endpoints
+   */
+
   push: {
     schema: [
       [
@@ -218,103 +411,6 @@ module.exports = (
       )
 
       ctx.body = {}
-    }
-  },
-
-  fire: {
-    async method (ctx) {
-      const now = moment()
-      const notifications = await Notification.findAll({
-        where: {
-          fireDate: { [Sequelize.Op.lte]: now.toDate() }
-        }
-      })
-
-      let notificationsToDelete = []
-      for (const notification of notifications) {
-        if (notificationsToDelete.includes(notification.id)) {
-          continue
-        }
-
-        const { userID, condition, conditionModel, event } = notification
-
-        let user = await User.findOne({ where: { id: userID } })
-        let conditionHolds = true
-
-        if (conditionModel === 'users') {
-          condition.id = userID
-          user = await User.findOne({
-            where: condition
-          })
-        }
-
-        if (user && conditionHolds) {
-          // Condition still holds, so Fire Notification
-          const {
-            channel,
-            message,
-            smsFallbackMessage,
-            recurAfter,
-            recurAfterWord,
-            recurCount
-          } = notification
-
-          if (channel === 'sms') {
-            user.sendMessage(message.body)
-          } else if (channel === 'email') {
-            const { template, subject } = message
-            await request.post({
-              uri: `${config.constants.URL}/admin/notifications-email`,
-              body: {
-                secret: process.env.apiSecret,
-                data: { userIds: [user.id], template, subject }
-              },
-              json: true
-            })
-          } else if (channel === 'push') {
-            if (
-              user.expoPushToken &&
-              Expo.isExpoPushToken(user.expoPushToken)
-            ) {
-              await request.post({
-                uri: `${config.constants.URL}/admin/notifications-push`,
-                body: {
-                  secret: process.env.apiSecret,
-                  data: { userIds: [user.id], message }
-                },
-                json: true
-              })
-            } else {
-              // Fallback to SMS
-              user.sendMessage(smsFallbackMessage || message.body)
-            }
-          }
-
-          if (recurAfter && recurCount > 1) {
-            notification.update({
-              fireDate: now.add(recurAfter, recurAfterWord).toDate(),
-              recurCount: recurCount - 1
-            })
-            continue
-          }
-          notificationsToDelete.push(notification.id)
-        } else {
-          // Condition no longer holds so clean all related notifications
-          await Notification.destroy({ where: { userID, event } })
-        }
-      }
-
-      // Delete notificationsToDelete
-      if (notificationsToDelete.length) {
-        await Notification.destroy({
-          where: { id: { [Sequelize.Op.in]: notificationsToDelete } }
-        })
-      }
-
-      ctx.body = {}
-    },
-    onError (err) {
-      Sentry.captureException(err)
     }
   },
 

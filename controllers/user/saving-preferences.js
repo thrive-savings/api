@@ -45,31 +45,45 @@ module.exports = (User, amplitude) => ({
   },
   setSavingDetails: {
     schema: [
-      ['data', true, [['fixedContribution', true], ['frequency', true]]]
+      [
+        'data',
+        true,
+        [['nextSaveDate'], ['fixedContribution', true], ['frequency', true]]
+      ]
     ],
     async method (ctx) {
       const {
-        data: { fixedContribution, frequency }
+        data: { nextSaveDate, fixedContribution, frequency }
       } = ctx.request.body
 
-      await User.update(
-        { fixedContribution, fetchFrequency: frequency },
-        { where: { id: ctx.authorized.id } }
-      )
+      const user = await User.findOne({ where: { id: ctx.authorized.id } })
+      const update = {
+        fixedContribution,
+        fetchFrequency: frequency
+      }
+      if (nextSaveDate) {
+        update.nextSaveDate = new Date(nextSaveDate)
+      }
+      await user.update(update)
 
       amplitude.track({
         eventType: 'SAVING_FIXED_DETAILS_SET',
         userId: ctx.authorized.id
       })
 
-      ctx.body = { data: { fixedContribution, frequency } }
+      ctx.body = {
+        data: {
+          nextSaveDate: user.nextSaveDate,
+          fixedContribution: user.fixedContribution,
+          frequency: user.frequency
+        }
+      }
     }
   },
   initialSetDone: {
     async method (ctx) {
-      const onboardingStep = 'SavingGoals'
       await User.update(
-        { savingPreferencesSet: true, onboardingStep },
+        { savingPreferencesSet: true },
         { where: { id: ctx.authorized.id } }
       )
 
@@ -80,7 +94,7 @@ module.exports = (User, amplitude) => ({
         }
       })
 
-      ctx.body = { data: { onboardingStep } }
+      ctx.body = {}
     }
   }
 })

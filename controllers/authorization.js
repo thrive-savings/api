@@ -10,7 +10,8 @@ module.exports = (
   Bluebird,
   amplitude,
   request,
-  config
+  config,
+  moment
 ) => ({
   signIn: {
     schema: [['data', true, [['email', true], ['password', true]]]],
@@ -63,7 +64,8 @@ module.exports = (
           'Work Type': user.workType,
           'Saving Type': user.savingType,
           'Saving Frequency': user.fetchFrequency,
-          'Account Verified': user.isVerified
+          'Account Verified': user.isVerified,
+          'Next Save Date': user.nextSaveDate
         }
       })
 
@@ -155,7 +157,8 @@ module.exports = (
           firstName,
           lastName,
           companyID,
-          userType: testUser ? 'tester' : 'regular'
+          userType: testUser ? 'tester' : 'regular',
+          nextSaveDate: moment().add(1, 'd')
         })
         await Goal.create({
           category: 'RainyDay',
@@ -185,6 +188,7 @@ module.exports = (
           Email: user.email,
           Phone: user.phone,
           Balance: user.balance,
+          Goals: 1,
           'First Name': user.firstName,
           'Last Name': user.lastName,
           'Employer ID': company.id,
@@ -194,7 +198,7 @@ module.exports = (
           'Saving Type': user.savingType,
           'Saving Frequency': user.fetchFrequency,
           'Account Verified': user.isVerified,
-          Goals: 1
+          'Next Save Date': user.nextSaveDate
         }
       })
 

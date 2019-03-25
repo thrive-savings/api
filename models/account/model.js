@@ -115,6 +115,10 @@ module.exports = Sequelize => ({
   },
   indexes: [{ fields: ['connection_id'] }],
   instanceMethods: {
+    hasACH () {
+      return this.institution && this.transit && this.number
+    },
+
     getData () {
       const {
         id,

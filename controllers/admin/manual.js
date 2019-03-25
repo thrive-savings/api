@@ -12,6 +12,23 @@ module.exports = (
   moment,
   amplitude
 ) => ({
+  notifyAboutSchedulerRun: {
+    schema: [['data', true, [['job', true]]]],
+    async method (ctx) {
+      const {
+        data: { job }
+      } = ctx.request.body
+
+      await request.post({
+        uri: process.env.slackWebhookURL,
+        body: { text: `Scheduler ran for job: ${job}` },
+        json: true
+      })
+
+      ctx.body = {}
+    }
+  },
+
   unlink: {
     schema: [['data', true, [['userIds', true, 'array']]]],
     async method (ctx) {

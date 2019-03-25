@@ -58,6 +58,30 @@ module.exports = (Sequelize, uuid) => ({
       allowNull: true
     }
   },
+  classMethods: {
+    async sumInProgress (userID, type) {
+      const where = {
+        userID,
+        [Sequelize.Op.or]: [{ processed: false }, { state: 'in_progress' }]
+      }
+      if (type) {
+        where.type =
+          type === 'credit' ? 'credit' : { [Sequelize.Op.ne]: 'credit' }
+      }
+
+      const queues = await this.findAll({ where })
+
+      let amount = 0
+      for (const { type: queueType, amount: queueAmount } of queues) {
+        if (type) {
+          amount += queueAmount
+        } else {
+          amount += queueType === 'credit' ? -1 * queueAmount : queueAmount
+        }
+      }
+      return amount
+    }
+  },
   instanceMethods: {
     setUUID () {
       this.uuid = uuid().replace(/-/g, '')

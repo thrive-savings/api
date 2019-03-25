@@ -42,6 +42,10 @@ module.exports = (
         responseMsg =
           "Hello from Thrive! We don't recognize this number. Please visit https://join.thrivesavings.com to sign up for a Thrive account and start growing your savings."
       } else {
+        const NO_CONNECTIONS_MSG = `Hi ${
+          user.firstName
+        }, it looks like you haven’t connected a bank account yet or we lost the connection to your bank. Please  go to the app to link your primary chequing account.`
+
         // Check against available commands
         let analyticsEvent = ''
 
@@ -51,24 +55,8 @@ module.exports = (
             user.firstName
           }. Your balance is $${getDollarString(user.balance)}.`
 
-          let withdrawsInProgress = 0
-          let depositsInProgress = 0
-          const queues = await Queue.findAll({
-            where: {
-              userID: user.id,
-              [Sequelize.Op.or]: [
-                { processed: false },
-                { state: 'in_progress' }
-              ]
-            }
-          })
-          for (const { type, amount } of queues) {
-            if (type === 'credit') {
-              withdrawsInProgress += amount
-            } else {
-              depositsInProgress += amount
-            }
-          }
+          let withdrawsInProgress = await Queue.sumInProgress(user.id, 'credit')
+          let depositsInProgress = await Queue.sumInProgress(user.id, 'debit')
 
           if (withdrawsInProgress && depositsInProgress) {
             responseMsg += ` You also have $${getDollarString(
@@ -87,74 +75,68 @@ module.exports = (
           }
         } else if (['save', 'deposit'].includes(command)) {
           analyticsEvent = 'Bot Received Save Command'
-          const connections = await Connection.findAll({
-            where: { userID: user.id, status: 'good' }
-          })
-          if (!connections || connections.length <= 0) {
-            responseMsg = `Hi ${
-              user.firstName
-            }, it looks like you haven’t connected a bank account yet or we lost the connection to your bank. Please  go to the app to link your primary chequing account.`
+          let amount = +params[0]
+          if (isNaN(amount) || amount <= 0) {
+            responseMsg = 'How much do you want to save? Example: "Save 10.55"'
           } else {
-            let amount = +params[0]
-            if (isNaN(amount) || amount <= 0) {
-              responseMsg =
-                'How much do you want to save? Example: "Save 10.55"'
-            } else {
-              amount *= 100
+            amount *= 100
 
-              slackMsg = `Processing Save Command from ${user.phone} | ID ${
-                user.id
-              } | ${user.firstName} ${user.lastName} | Balance ${
-                user.balance
-              } | ${msg}`
-              setGenericSlackMsg = false
+            slackMsg = `Processing Save Command from ${user.phone} | ID ${
+              user.id
+            } | ${user.firstName} ${user.lastName} | Balance ${
+              user.balance
+            } | ${msg}`
+            setGenericSlackMsg = false
 
-              await user.sendMessageAsync(
-                `Hi ${
-                  user.firstName
-                }, Your one-time save request has been received, I am currently processing it. Keep up the awesome saving!`
-              )
+            await user.sendMessageAsync(
+              `Hi ${
+                user.firstName
+              }, Your one-time save request has been received, I am currently processing it. Keep up the awesome saving!`
+            )
 
-              const { error, errorCode, errorDetails } = await request.post({
-                uri: `${config.constants.URL}/admin/worker-run-user`,
-                body: {
-                  secret: process.env.apiSecret,
-                  data: { userID: user.id, amount }
-                },
-                json: true
-              })
+            const { error, errorCode } = await request.post({
+              uri: `${config.constants.URL}/admin/saver-try-save`,
+              body: {
+                secret: process.env.apiSecret,
+                data: { userID: user.id, amount, await: true }
+              },
+              json: true
+            })
 
-              if (error) {
-                switch (errorCode) {
-                  case 'low_balance':
-                    responseMsg = `We cannot process your request as your bank account balance may go into insufficient funds.`
-                    break
-                  case 'out_of_range':
-                    const { bounds } = errorDetails
-                    responseMsg = `Thrive only supports deposits in the range (${getDollarString(
-                      bounds.lower
-                    )}, ${getDollarString(bounds.upper)})`
-                    break
-                  case 'no_default':
-                    responseMsg = `We cannot process your request as you don't have a primary account set. Please go to your Linked Banks page on the app to set a primary account.`
-                    break
-                  default:
-                    responseMsg =
-                      'Oops. Something went wrong. Please contact customer support so we can assist you further.'
-                    break
-                }
+            if (error) {
+              switch (errorCode) {
+                case 'no_accounts':
+                case 'no_connections':
+                  responseMsg = NO_CONNECTIONS_MSG
+                  break
+                case 'no_default_account':
+                case 'no_default_connection':
+                  responseMsg = `We cannot process your request as you don't have a primary account set. Please go to your Linked Banks page on the app to set a primary account.`
+                  break
+
+                case 'not_enough_balance':
+                  responseMsg = `We cannot process your request as your bank account balance may go into insufficient funds.`
+                  break
+                case 'amount_out_of_range':
+                  responseMsg = `Thrive doesn't support deposit of ${getDollarString(
+                    amount
+                  )}`
+                  break
+
+                default:
+                  responseMsg =
+                    'Oops. Something went wrong. Please contact customer support so we can assist you further.'
+                  break
               }
             }
           }
         } else if (['withdraw', 'move'].includes(command)) {
           analyticsEvent = 'Bot Received Withdraw Command'
           const connections = await Connection.findAll({
-            where: { userID: user.id, status: 'good' }
+            where: { userID: user.id }
           })
           if (!connections || connections.length <= 0) {
-            responseMsg = `Hi ${
-              user.firstName
-            }, it looks like you haven’t connected a bank account yet or we lost the connection to your bank. Please  go to the app to link your primary chequing account.`
+            responseMsg = NO_CONNECTIONS_MSG
           } else {
             let amount = +params[0]
             if (isNaN(amount) || amount <= 0) {
@@ -170,20 +152,10 @@ module.exports = (
               } | ${msg}`
               setGenericSlackMsg = false
 
-              let withdrawsInProgress = 0
-              const queues = await Queue.findAll({
-                where: {
-                  userID: user.id,
-                  type: 'credit',
-                  [Sequelize.Op.or]: [
-                    { processed: false },
-                    { state: 'in_progress' }
-                  ]
-                }
-              })
-              for (const { amount } of queues) {
-                withdrawsInProgress += amount
-              }
+              let withdrawsInProgress = await Queue.sumInProgress(
+                user.id,
+                'credit'
+              )
 
               if (amount > user.balance - withdrawsInProgress) {
                 if (withdrawsInProgress) {
