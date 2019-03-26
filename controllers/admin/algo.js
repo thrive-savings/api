@@ -98,7 +98,7 @@ module.exports = (
           }
 
           if (runSimpler) {
-            const MAX_RAND_BOUND = 1500
+            const MAX_RAND_BOUND = 2000
             const MIN_RAND_BOUND = 500
 
             const randomAmount =

@@ -6,7 +6,9 @@ module.exports = (User, amplitude) => ({
         data: { workType }
       } = ctx.request.body
 
-      await User.update({ workType }, { where: { id: ctx.authorized.id } })
+      const user = await User.findOne({ where: { id: ctx.authorized.id } })
+      user.workType = workType
+      await user.save()
 
       amplitude.track({
         eventType: 'WORK_TYPE_SET',
@@ -16,7 +18,7 @@ module.exports = (User, amplitude) => ({
         }
       })
 
-      ctx.body = { data: { workType } }
+      ctx.body = { data: { savingPreferences: user.getSavingPreferences() } }
     }
   },
   setSavingType: {
@@ -26,11 +28,12 @@ module.exports = (User, amplitude) => ({
         data: { savingType }
       } = ctx.request.body
 
-      let updateData = { savingType }
+      const user = await User.findOne({ where: { id: ctx.authorized.id } })
+      user.savingType = savingType
       if (savingType === 'Thrive Flex') {
-        updateData.fetchFrequency = 'ONCEWEEKLY'
+        user.fetchFrequency = 'ONCEWEEKLY'
       }
-      await User.update(updateData, { where: { id: ctx.authorized.id } })
+      await user.save()
 
       amplitude.track({
         eventType: 'SAVING_TYPE_SET',
@@ -40,7 +43,7 @@ module.exports = (User, amplitude) => ({
         }
       })
 
-      ctx.body = { data: { savingType } }
+      ctx.body = { data: { savingPreferences: user.getSavingPreferences() } }
     }
   },
   setSavingDetails: {
@@ -48,7 +51,7 @@ module.exports = (User, amplitude) => ({
       [
         'data',
         true,
-        [['nextSaveDate'], ['fixedContribution', true], ['frequency', true]]
+        [['nextSaveDate'], ['fixedContribution', 'integer'], ['frequency']]
       ]
     ],
     async method (ctx) {
@@ -57,27 +60,23 @@ module.exports = (User, amplitude) => ({
       } = ctx.request.body
 
       const user = await User.findOne({ where: { id: ctx.authorized.id } })
-      const update = {
-        fixedContribution,
-        fetchFrequency: frequency
-      }
       if (nextSaveDate) {
-        update.nextSaveDate = new Date(nextSaveDate)
+        user.nextSaveDate = new Date(nextSaveDate)
       }
-      await user.update(update)
+      if (fixedContribution) {
+        user.fixedContribution = fixedContribution
+      }
+      if (frequency) {
+        user.fetchFrequency = frequency
+      }
+      await user.save()
 
       amplitude.track({
         eventType: 'SAVING_FIXED_DETAILS_SET',
         userId: ctx.authorized.id
       })
 
-      ctx.body = {
-        data: {
-          nextSaveDate: user.nextSaveDate,
-          fixedContribution: user.fixedContribution,
-          frequency: user.frequency
-        }
-      }
+      ctx.body = { data: { savingPreferences: user.getSavingPreferences() } }
     }
   },
   initialSetDone: {

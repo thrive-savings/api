@@ -386,6 +386,18 @@ module.exports = (
       }
     },
 
+    getSavingPreferences () {
+      return {
+        nextSaveDate: this.nextSaveDate,
+        workType: this.workType,
+        savingType: this.savingType,
+        savingDetails: {
+          fetchFrequency: this.fetchFrequency,
+          fixedContribution: this.fixedContribution
+        }
+      }
+    },
+
     getData () {
       let connections
       if (this.connections) {
@@ -408,7 +420,6 @@ module.exports = (
         connections,
         goals,
         id: this.id,
-        nextSaveDate: this.nextSaveDate,
         promptRating: this.shouldPromptRating(),
         expoPushToken: this.expoPushToken,
         bankLinked: this.bankLinked,
@@ -421,14 +432,7 @@ module.exports = (
         phone: this.phone,
         balance: this.balance,
         userType: this.userType,
-        savingPreferences: {
-          workType: this.workType,
-          savingType: this.savingType,
-          savingDetails: {
-            fetchFrequency: this.fetchFrequency,
-            fixedContribution: this.fixedContribution
-          }
-        },
+        savingPreferences: this.getSavingPreferences(),
         notifications: {
           savingPreferencesSet: this.savingPreferencesSet,
           bonus: 0
