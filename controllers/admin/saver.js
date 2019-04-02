@@ -75,10 +75,12 @@ module.exports = (
         let analyticsMessage = ''
         const user = await User.findOne({ where: { id: userID } })
         if (user) {
-          const today = moment().date()
-          const nextSaveDay = moment(user.nextSaveDate).date()
-          if (today === nextSaveDay) {
-            analyticsMessage = 'Initiated a call to SAVER_TRY_SAVE'
+          const now = moment().startOf('day')
+          const nextSaveDate = moment(user.nextSaveDate).startOf('day')
+          const daysToNextSave = nextSaveDate.diff(now, 'days')
+
+          if (daysToNextSave === 0) {
+            analyticsMessage = 'Try to save'
             request.post({
               uri: `${config.constants.URL}/admin/saver-try-save`,
               body: {
@@ -87,7 +89,7 @@ module.exports = (
               },
               json: true
             })
-          } else {
+          } else if (daysToNextSave === 1) {
             analyticsMessage = 'Tomorrow is the save day'
             const daysFromSignUp = moment().diff(moment(user.createdAt), 'd')
             if (daysFromSignUp > 1) {
@@ -105,14 +107,21 @@ module.exports = (
                 )
               }
             }
+          } else {
+            analyticsMessage =
+              daysToNextSave < 0
+                ? 'Next Save Date is in the past'
+                : 'No action needs to be taken'
           }
+
           amplitude.track({
             eventType: 'SAVER_RUN_USER_EXIT',
             userId: userID,
             eventProperties: {
               message: analyticsMessage,
-              today,
-              nextSaveDay
+              now,
+              nextSaveDate,
+              daysToNextSave
             }
           })
         } else {
@@ -209,15 +218,15 @@ module.exports = (
                   user.firstName
                 }, I couldn't save for you today because you haven't linked a bank. Please log into your Thrive App and link a bank to start saving!`
               )
+            } else {
+              request.post({
+                uri: process.env.slackWebhookURL,
+                body: {
+                  text: `Saver *couldn't save* for *User ${userID}* because of *${connectionError}*`
+                },
+                json: true
+              })
             }
-
-            request.post({
-              uri: process.env.slackWebhookURL,
-              body: {
-                text: `Saver *couldn't save* for *User ${userID}* because of *${connectionError}*`
-              },
-              json: true
-            })
             reply.error = true
             reply.errorCode = connectionError
             amplitude.track({
