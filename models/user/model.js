@@ -478,6 +478,12 @@ module.exports = (
       return data
     },
 
+    daysToNextSave () {
+      const now = moment().startOf('day')
+      const nextSaveDate = moment(this.nextSaveDate).startOf('day')
+      return nextSaveDate.diff(now, 'days')
+    },
+
     async calcNextSaveDate () {
       const nextSaveDate = moment(this.nextSaveDate)
       switch (this.fetchFrequency) {

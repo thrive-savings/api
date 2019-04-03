@@ -530,7 +530,7 @@ module.exports = (
   fetchUpdates: {
     async method (ctx) {
       const users = await User.findAll({
-        where: { quovoUserID: { [Sequelize.Op.ne]: null } }
+        where: { quovoUserID: { [Sequelize.Op.ne]: null }, isActive: true }
       })
 
       if (users.length > 0) {
@@ -599,7 +599,7 @@ module.exports = (
           )
 
           amplitude.track({
-            eventType: 'QUOVO_FETCH_USER_UPDATES_INITIATED',
+            eventType: 'QUOVO_FETCH_USER_UPDATES_PASS',
             userId: user.id,
             eventProperties: {
               connectionCount: connections ? connections.length : 0
@@ -707,11 +707,11 @@ module.exports = (
             eventType: 'QUOVO_CONNECTION_DISCONNECTED',
             userId: connection.userID,
             eventProperties: {
+              institutionName: connection.institutionName,
               connectionID: connection.id,
               quovoConnectionID: connection.quovoConnectionID,
               quovoUserID: connection.quovoUserID,
-              status,
-              institutionName: connection.institutionName
+              status
             }
           })
         }

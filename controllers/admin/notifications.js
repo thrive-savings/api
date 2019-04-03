@@ -43,7 +43,7 @@ module.exports = (
           })
         }
 
-        if (user && conditionHolds) {
+        if (user && conditionHolds && user.isActive) {
           // Condition still holds, so Fire Notification
           const {
             channel,
@@ -118,7 +118,9 @@ module.exports = (
       const reply = {}
 
       try {
-        const users = await User.findAll({ where: { bankLinked: true } })
+        const users = await User.findAll({
+          where: { bankLinked: true, isActive: true }
+        })
 
         if (users.length > 0) {
           Bluebird.all(
@@ -162,7 +164,10 @@ module.exports = (
       try {
         const MIN_BALANCE_TO_SEND_BOOST = 3000
         const users = await User.findAll({
-          where: { balance: { [Sequelize.Op.gt]: MIN_BALANCE_TO_SEND_BOOST } }
+          where: {
+            balance: { [Sequelize.Op.gt]: MIN_BALANCE_TO_SEND_BOOST },
+            isActive: true
+          }
         })
 
         const onMissing = name =>

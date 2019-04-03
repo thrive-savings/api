@@ -19,7 +19,8 @@ module.exports = (
             nextSaveDate: {
               [Sequelize.Op.gt]: moment().subtract(1, 'd'),
               [Sequelize.Op.lt]: moment().add(1, 'd')
-            }
+            },
+            isActive: true
           }
         })
 
@@ -75,9 +76,7 @@ module.exports = (
         let analyticsMessage = ''
         const user = await User.findOne({ where: { id: userID } })
         if (user) {
-          const now = moment().startOf('day')
-          const nextSaveDate = moment(user.nextSaveDate).startOf('day')
-          const daysToNextSave = nextSaveDate.diff(now, 'days')
+          const daysToNextSave = user.daysToNextSave()
 
           if (daysToNextSave === 0) {
             analyticsMessage = 'Try to save'
@@ -119,8 +118,6 @@ module.exports = (
             userId: userID,
             eventProperties: {
               message: analyticsMessage,
-              now,
-              nextSaveDate,
               daysToNextSave
             }
           })
