@@ -432,86 +432,126 @@ module.exports = (
 
       let responseMsg = ''
 
+      console.log(submission)
+
+      const KEYWORDS = {
+        CONNECTION: 'connection',
+        ACCOUNT: 'account',
+        ACH: 'ach',
+        GENERAL: 'general',
+        PREFERENCES: 'preferences'
+      }
+
       try {
-        const user = await User.findOne({ where: { id: userID } })
+        const user = await User.findOne({
+          include: [{ model: Connection, include: [Account] }],
+          where: { id: userID }
+        })
         if (user) {
           switch (keyword) {
             default:
-            case 'bank':
-              const { institution, transit, number } = submission
-              await Account.update(
-                { institution, transit, number },
-                { where: { userID, isDefault: true } }
-              )
-              responseMsg = `Successfully updated bank info for User ${userID}`
-              break
-            case 'connection':
-              const { connectionStatus } = submission
-              switch (connectionStatus) {
-                default:
-                case 'linked':
-                  user.bankLinked = true
-                  break
-                case 'neverLinked':
-                  user.bankLinked = false
-                  break
+            case KEYWORDS.CONNECTION:
+              const { connectionID } = submission
+              const connection = await Connection.findOne({
+                where: { id: connectionID }
+              })
+              if (connection) {
+                request.post({
+                  uri: `${
+                    config.constants.URL
+                  }/admin/quovo-fetch-connection-updates`,
+                  body: {
+                    secret: process.env.apiSecret,
+                    data: {
+                      userID,
+                      quovoConnectionID: connection.quovoConnectionID
+                    }
+                  },
+                  json: true
+                })
+                responseMsg = `Initiated the Quovo Sync for Connection ${connectionID} of User ${userID}`
+              } else {
+                responseMsg = `Connection ${connectionID} not found for User ${userID}`
               }
-              await user.save()
-              responseMsg = `Successfully updated connection status for User ${userID}`
               break
-            case 'general':
-              const { firstName, lastName, email, phone } = submission
+
+            case KEYWORDS.ACCOUNT:
+              const { accountID } = submission
+              const account = await Account.findOne({
+                where: { id: accountID }
+              })
+              if (account) {
+                // Update Accounts
+                await Account.update(
+                  { isDefault: false },
+                  { where: { userID, connectionID: account.connectionID } }
+                )
+                await account.update({ isDefault: true })
+
+                // Update Connections
+                await Connection.update(
+                  { isDefault: false },
+                  { where: { userID } }
+                )
+                await Connection.update(
+                  { isDefault: true },
+                  { where: { userID, id: account.connectionID } }
+                )
+
+                responseMsg = `Successfully updated default account ${accountID} for User ${userID}`
+                break
+              } else {
+                responseMsg = `Account ${accountID} not found for User ${userID}`
+              }
+              break
+
+            case KEYWORDS.ACH:
+              const {
+                accountID: achAccountID,
+                institution,
+                transit,
+                number
+              } = submission
+              const achAccount = await Account.findOne({
+                where: { id: achAccountID }
+              })
+              if (achAccount) {
+                await achAccount.update({ institution, transit, number })
+                responseMsg = `Successfully updated bank info for User ${userID}`
+              } else {
+                responseMsg = `Account ${achAccountID} not found for User ${userID}`
+              }
+              break
+
+            case KEYWORDS.GENERAL:
+              const { firstName, lastName, email, phone, isActive } = submission
               user.firstName = firstName
               user.lastName = lastName
               user.email = email
               user.phone = phone
+              user.isActive = isActive === '1'
+              console.log(user.isActive)
+              console.log('-------------------')
               await user.save()
               responseMsg = `Successfully updated general info for User ${userID}`
               break
-            case 'preferences':
+
+            case KEYWORDS.PREFERENCES:
               const {
+                daysToNextSave,
                 savingType,
                 fetchFrequency,
                 fixedContribution
               } = submission
+              user.nextSaveDate = moment().add(
+                +daysToNextSave === 0 ? 1 : +daysToNextSave,
+                'd'
+              )
               user.savingType = savingType
               user.fetchFrequency = fetchFrequency
               user.fixedContribution = parseInt((fixedContribution + 0) * 100)
               await user.save()
               responseMsg = `Successfully updated saving preferences info for User ${userID}`
-              break
-            case 'account':
-              const { defaultAccountID } = submission
-              const account = await Account.findOne({
-                where: { id: defaultAccountID }
-              })
-              const alreadyDefault = account.isDefault
-
-              if (!alreadyDefault) {
-                // Update Accounts
-                await Account.update(
-                  { isDefault: false },
-                  { where: { userID } }
-                )
-                await account.update({ isDefault: true })
-              }
-
-              // Update Connections
-              const connections = await Connection.findAll({
-                where: { userID }
-              })
-              for (const connectionInstance of connections) {
-                if (!alreadyDefault) {
-                  if (connectionInstance.id === account.connectionID) {
-                    connectionInstance.isDefault = true
-                  } else {
-                    connectionInstance.isDefault = false
-                  }
-                  await connectionInstance.save()
-                }
-              }
-
-              responseMsg = `Successfully updated new default account (Account ID ${defaultAccountID}) for User ${userID}`
               break
           }
         } else {

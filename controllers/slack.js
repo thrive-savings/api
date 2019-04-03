@@ -483,6 +483,7 @@ module.exports = (
             email,
             phone,
             balance,
+            nextSaveDate,
             fetchFrequency,
             fixedContribution,
             savingType,
@@ -554,15 +555,19 @@ module.exports = (
               slackReply += ' - No Connections Found\n'
             }
           } else {
-            slackReply += `*Information for User ${userID}*\n - *Full Name:* ${firstName} ${lastName}\n - *Balance:* $${getDollarString(
+            slackReply += `*Information for User ${userID}*${
+              user.isActive ? '' : ' *[DEACTIVATED]*'
+            }\n - *Full Name:* ${firstName} ${lastName}\n - *Balance:* $${getDollarString(
               balance
             )}\n - *Contact:* ${email} ${phone}\n - *Saving Preferences:* On *${savingType}* plan${
               savingType === 'Thrive Fixed'
                 ? ` with *${fixedContribution}* fixed amount`
                 : ''
-            } every *${fetchFrequency}*\n - *Bank Status:* ${
-              !bankLinked ? 'Never linked' : 'Linked'
-            }\n`
+            } every *${fetchFrequency}*\n - *Next Save Date:* ${
+              nextSaveDate
+                ? moment(nextSaveDate).format('MMM Do, YYYY')
+                : 'Not Set'
+            } \n - *Bank Status:* ${!bankLinked ? 'Never linked' : 'Linked'}\n`
 
             const connections = user.connections
             slackReply += `${tab}- *Connections:* `
@@ -642,13 +647,13 @@ module.exports = (
         ])
       }
 
-      const keywords = [
-        'bank',
-        'connection',
-        'general',
-        'preferences',
-        'account'
-      ]
+      const KEYWORDS = {
+        CONNECTION: 'connection',
+        ACCOUNT: 'account',
+        ACH: 'ach',
+        GENERAL: 'general',
+        PREFERENCES: 'preferences'
+      }
 
       let slackReply = ''
       let incorrectSyntax = false
@@ -657,67 +662,138 @@ module.exports = (
 
       let user
       if (userID && keyword) {
-        user = await User.findOne({ where: { id: userID } })
+        user = await User.findOne({
+          include: [{ model: Connection, include: [Account] }],
+          where: { id: userID }
+        })
       }
 
       if (user) {
-        if (keywords.includes(keyword)) {
-          let elements = []
+        if (Object.values(KEYWORDS).includes(keyword)) {
+          const connections = user.connections
+          const connectionOptions = []
+          const accountOptions = []
+          let primaryConnection
+          let primaryAccount
+          if (
+            [KEYWORDS.CONNECTION, KEYWORDS.ACCOUNT, KEYWORDS.ACH].includes(
+              keyword
+            )
+          ) {
+            for (const connection of connections) {
+              connectionOptions.push({
+                label: `${connection.institutionName} (Status: ${
+                  connection.status
+                })${connection.isDefault ? ' - PRIMARY' : ''}`,
+                value: connection.id
+              })
+              if (connection.isDefault) {
+                primaryConnection = connection
+              }
 
+              const accounts = connection.accounts
+              if (accounts && accounts.length > 0) {
+                for (const account of accounts) {
+                  accountOptions.push({
+                    label: `${account.nickname}${
+                      connection.isDefault && account.isDefault
+                        ? ' - MAIN PRIMARY'
+                        : account.isDefault
+                          ? ' - PRIMARY'
+                          : ''
+                    }`,
+                    value: account.id
+                  })
+                  if (connection.isDefault && account.isDefault) {
+                    primaryAccount = account
+                  }
+                }
+              }
+            }
+          }
+
+          let elements = []
           switch (keyword) {
             default:
-            case 'bank':
-              const defaultAccount = await Account.findOne({
-                where: { userID: user.id, isDefault: true }
-              })
-              if (defaultAccount) {
-                const { institution, transit, number } = defaultAccount
-
-                elements = [
-                  {
-                    type: 'text',
-                    label: 'Institution #:',
-                    name: 'institution',
-                    value: institution || '',
-                    placeholder: '001'
-                  },
-                  {
-                    type: 'text',
-                    label: 'Transit #:',
-                    name: 'transit',
-                    value: transit || '',
-                    placeholder: '01234'
-                  },
-                  {
-                    type: 'text',
-                    label: 'Account #:',
-                    name: 'number',
-                    value: number || '',
-                    placeholder: '123456789xxx'
-                  }
-                ]
-              } else {
-                ctx.body = `No default account set for user ${user.id}`
+            case KEYWORDS.CONNECTION:
+              if (!connections || connections.length === 0) {
+                ctx.body = `No connections found for user ${user.id}`
                 return
               }
-              break
-            case 'connection':
-              const value = !user.bankLinked ? 'neverLinked' : 'linked'
+
               elements = [
                 {
-                  label: 'Connection Status:',
+                  label: 'Choose Connection to Sync from Quovo:',
                   type: 'select',
                   subtype: 'text',
-                  name: 'connectionStatus',
-                  value,
-                  options: [
-                    { label: 'Linked', value: 'linked' },
-                    { label: 'Never Linked', value: 'neverLinked' }
-                  ]
+                  name: 'connectionID',
+                  value: primaryConnection ? primaryConnection.id : '',
+                  options: connectionOptions
                 }
               ]
               break
-            case 'general':
+
+            case KEYWORDS.ACCOUNT:
+              if (!connections || connections.length === 0) {
+                ctx.body = `No connections found for user ${user.id}`
+                return
+              }
+
+              elements = [
+                {
+                  label: 'Choose Account to set as Primary:',
+                  type: 'select',
+                  subtype: 'text',
+                  name: 'accountID',
+                  value: primaryAccount ? primaryAccount.id : '',
+                  options: accountOptions
+                }
+              ]
+              break
+
+            case KEYWORDS.ACH:
+              if (!connections || connections.length === 0) {
+                ctx.body = `No connections found for user ${user.id}`
+                return
+              }
+
+              const { institution = '', transit = '', number = '' } =
+                primaryAccount || {}
+
+              elements = [
+                {
+                  label: 'Account to set ACH numbers:',
+                  type: 'select',
+                  subtype: 'text',
+                  name: 'accountID',
+                  value: primaryAccount ? primaryAccount.id : '',
+                  options: accountOptions
+                },
+                {
+                  type: 'text',
+                  label: 'Institution #:',
+                  name: 'institution',
+                  value: institution,
+                  placeholder: '001'
+                },
+                {
+                  type: 'text',
+                  label: 'Transit #:',
+                  name: 'transit',
+                  value: transit,
+                  placeholder: '01234'
+                },
+                {
+                  type: 'text',
+                  label: 'Account #:',
+                  name: 'number',
+                  value: number,
+                  placeholder: '123456789xxx'
+                }
+              ]
+              break
+
+            case KEYWORDS.GENERAL:
               elements = [
                 {
                   label: 'First Name',
@@ -742,10 +818,22 @@ module.exports = (
                   type: 'text',
                   name: 'phone',
                   value: user.phone
+                },
+                {
+                  label: 'Is Active?',
+                  type: 'select',
+                  subtype: 'text',
+                  name: 'isActive',
+                  value: user.isActive ? 1 : 0,
+                  options: [
+                    { label: 'True', value: 1 },
+                    { label: 'False', value: 0 }
+                  ]
                 }
               ]
               break
-            case 'preferences':
+
+            case KEYWORDS.PREFERENCES:
               const getDollarString = amount => {
                 let dollars = amount / 100
                 dollars = dollars % 1 === 0 ? dollars : dollars.toFixed(2)
@@ -756,6 +844,14 @@ module.exports = (
                 return dollars
               }
               elements = [
+                {
+                  label: 'Days to Next Save',
+                  name: 'daysToNextSave',
+                  type: 'text',
+                  value: user.daysToNextSave(),
+                  hint:
+                    "Setting x > 0 will set the Next Save Date to x days from today. Don't set negative number as it will set it to the past."
+                },
                 {
                   label: 'Saving Type',
                   type: 'select',
@@ -775,7 +871,6 @@ module.exports = (
                   value: user.fetchFrequency,
                   options: [
                     { label: 'Once Weekly', value: 'ONCEWEEKLY' },
-                    { label: 'Twice Weekly', value: 'TWICEWEEKLY' },
                     { label: 'Bi-weekly', value: 'BIWEEKLY' },
                     { label: 'Once Monthly', value: 'ONCEMONTHLY' },
                     { label: 'Once Daily', value: 'ONCEDAILY' }
@@ -791,40 +886,6 @@ module.exports = (
                   min_length: 1
                 }
               ]
-              break
-            case 'account':
-              let defaultAccountID = ''
-              const accountOptions = []
-
-              const accounts = await Account.findAll({
-                where: { userID: user.id }
-              })
-              if (accounts.length) {
-                for (const account of accounts) {
-                  accountOptions.push({
-                    label: account.nickname,
-                    value: account.id
-                  })
-                  if (account.isDefault) {
-                    defaultAccountID = account.id
-                  }
-                }
-
-                elements = [
-                  {
-                    label: 'Default Account',
-                    type: 'select',
-                    subtype: 'text',
-                    name: 'defaultAccountID',
-                    value: defaultAccountID,
-                    options: accountOptions
-                  }
-                ]
-              } else {
-                ctx.body = `No accounts found for user ${user.id}`
-                return
-              }
-
               break
           }
 
@@ -855,7 +916,9 @@ module.exports = (
       }
 
       if (incorrectSyntax) {
-        slackReply = `Correct Syntax: /updateuser [*userID*] [one of keywords [*${keywords.join()}*]`
+        slackReply = `Correct Syntax: /updateuser [*userID*] [one of keywords [*${Object.values(
+          KEYWORDS
+        ).join()}*]`
       }
 
       ctx.body = slackReply
