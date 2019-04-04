@@ -232,33 +232,50 @@ module.exports = (
           }
         } else if (['invite', 'refer'].includes(command)) {
           analyticsEvent = 'Bot Received Invite Command'
-          let invitedPhone = params[0]
+          let invitedPhone = params.join('')
+          console.log(invitedPhone)
           if (
-            invitedPhone &&
+            !invitedPhone ||
             !invitedPhone.match(
               /^\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/
             )
           ) {
             responseMsg =
-              'Do you want to invite a friend? Example: "Invite 647-123-4567"'
+              "Your invitation wasn't sent, please ensure the number is correct. Example: “Invite 416-123-4567”"
           } else {
-            responseMsg = `Invitation has been sent to ${invitedPhone}.`
-            twilio.messages.create({
-              from: process.env.twilioNumber,
-              to: invitedPhone,
-              body: `Your friend, ${
-                user.firstName
-              }, has invited you to use Thrive Savings app to improve your financial well-being. You can download the mobile from Apple App Store or Google Play Store by searching for Thrive Savings.`
+            invitedPhone = invitedPhone.replace(/\D/g, '')
+            const invitedUser = await User.findOne({
+              where: { phone: invitedPhone }
             })
+            if (invitedUser) {
+              slackMsg = `User ${
+                user.id
+              } *tried to invite* the *already existing* phone # ${invitedPhone}`
+              responseMsg = `Your friend with phone number ${invitedPhone} is already using Thrive.`
+            } else {
+              slackMsg = `User ${
+                user.id
+              } *successfully invited* the phone # ${invitedPhone}`
+              responseMsg = `Your invite to ${invitedPhone} has been successfully sent!`
+              twilio.messages.create({
+                from: process.env.twilioNumber,
+                to: invitedPhone,
+                body: `${
+                  user.firstName
+                }, has invited you to Thrive Savings. Unlock your 3% interest bonus by downloading the app and saving your first $20.\n\nApple download:\nhttps://apple.co/2FVtqM5\n\nGoogle download:\nhttps://bit.ly/2OH5Epy`
+              })
+            }
           }
         } else if (['help', 'help!', 'commands'].includes(command)) {
           analyticsEvent = 'Bot Received Help Command'
           responseMsg = listCommands()
         } else if (['hi', 'hello', 'hey', 'yo', 'hola'].includes(command)) {
-          analyticsEvent = 'Bot Received Hi Command'
-          responseMsg = `Hi ${
-            user.firstName
-          }! How can I help you today?\n\nReply with 'commands' to see list of things I can assist you with.`
+          if (params.length === 0) {
+            analyticsEvent = 'Bot Received Hi Command'
+            responseMsg = `Hi ${
+              user.firstName
+            }! How can I help you today?\n\nReply with 'commands' to see list of things I can assist you with.`
+          }
         }
 
         if (!analyticsEvent) {
