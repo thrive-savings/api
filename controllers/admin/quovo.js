@@ -575,7 +575,12 @@ module.exports = (
         const connections = await Connection.findAll({
           where: {
             userID: user.id,
-            [Sequelize.Op.or]: [{ status: 'good' }, { status: null }]
+            [Sequelize.Op.or]: [
+              { status: 'good' },
+              { status: 'maintenance' },
+              { status: 'postponed' },
+              { status: null }
+            ]
           }
         })
 
