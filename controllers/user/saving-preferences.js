@@ -51,7 +51,7 @@ module.exports = (User, amplitude) => ({
       [
         'data',
         true,
-        [['nextSaveDate'], ['fixedContribution', 'integer'], ['frequency']]
+        [['nextSaveDate'], ['fixedContribution'], ['frequency']]
       ]
     ],
     async method (ctx) {
