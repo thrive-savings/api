@@ -29,6 +29,20 @@ module.exports = (
     }
   },
 
+  echoOkr: {
+    async method (ctx) {
+      const usersCount = await User.count()
+      request.post({
+        uri: process.env.slackWebhookURL,
+        body: {
+          text: `*OKR Update*: *${usersCount} users* in the system currently.`
+        },
+        json: true
+      })
+      ctx.body = {}
+    }
+  },
+
   unlink: {
     schema: [['data', true, [['userIds', true, 'array']]]],
     async method (ctx) {
