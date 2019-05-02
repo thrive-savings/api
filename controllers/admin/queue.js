@@ -40,7 +40,8 @@ module.exports = (Account, Queue, moment, amplitude, Sentry) => ({
 
           const transactionReference = `THRIVE${userID}_` + moment().format('X')
 
-          const alreadyRan = alreadyProcessed || type === 'bonus'
+          const alreadyRan =
+            alreadyProcessed || ['bonus', 'reward'].includes(type)
           await Queue.create({
             userID,
             accountID,

@@ -120,6 +120,29 @@ module.exports = (
     }
   },
 
+  generateReferralCode: {
+    schema: [['data', true, [['userIDs', true, 'array']]]],
+    async method (ctx) {
+      const {
+        data: { userIDs }
+      } = ctx.request.body
+
+      const where = { referralCode: null }
+      if (userIDs.length > 0) {
+        where.id = { [Sequelize.Op.in]: userIDs }
+      }
+
+      const users = await User.findAll({ where })
+      if (users && users.length > 0) {
+        for (const user of users) {
+          user.generateReferralCode()
+        }
+      }
+
+      ctx.body = {}
+    }
+  },
+
   promptRating: {
     schema: [['data', true, [['userIDs', true, 'array']]]],
     async method (ctx) {

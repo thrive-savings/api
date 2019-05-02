@@ -294,10 +294,30 @@ module.exports = (
     nextSaveDate: {
       type: Sequelize.DATE,
       field: 'next_save_date'
+    },
+
+    referralCode: {
+      field: 'referral_code',
+      type: Sequelize.STRING,
+      unique: true
     }
   },
   instanceMethods: {
-    greet () {
+    sendWelcomeEmail () {
+      request.post({
+        uri: `${config.constants.URL}/admin/notifications-email`,
+        body: {
+          secret: process.env.apiSecret,
+          data: {
+            userIds: [this.id],
+            template: 'welcome',
+            subject: 'Welcome to Thrive'
+          }
+        },
+        json: true
+      })
+    },
+    sendWelcomeText () {
       twilio.messages.create({
         from: process.env.twilioNumber,
         to: this.phone,
@@ -426,6 +446,7 @@ module.exports = (
         jwt: this.generateJWT(),
         isVerified: this.isVerified,
         onboardingStep: this.onboardingStep,
+        referralCode: this.referralCode,
         firstName: this.firstName,
         lastName: this.lastName,
         email: this.email,
@@ -524,6 +545,27 @@ module.exports = (
       }
     },
 
+    getReferralLink () {
+      return `${config.constants.BRANCH_APP_LINK}/${this.getReferralCode()}`
+    },
+
+    async generateReferralCode () {
+      const random = () => Math.floor(10000 + Math.random() * 90000)
+      const users = await this.constructor.findAll({
+        where: { referralCode: { [Sequelize.Op.ne]: null } }
+      })
+      const codes = users.map(item => item.referralCode.substring(3))
+      let code = random()
+
+      while (codes.includes(code)) {
+        code = random()
+      }
+
+      const name = this.firstName ? this.firstName : this.lastName
+      this.referralCode = `${name.substring(0, 3).toUpperCase()}${code}`
+      await this.save()
+    },
+
     hashPassword (password) {
       this.password = bcrypt.hashSync(password, 8)
     },
@@ -603,7 +645,7 @@ module.exports = (
       })
     },
 
-    sendBonusNotification (amount) {
+    sendBonusNotification (amount, type = 'employer') {
       let amountDollars = amount / 100
       amountDollars =
         amountDollars % 1 === 0 ? amountDollars : amountDollars.toFixed(2)
@@ -620,9 +662,16 @@ module.exports = (
         currency: 'USD'
       })
 
-      const msg = `Hi ${
-        this.firstName
-      }! Your employer had contributed $${amountDollars} to your Thrive savings amount. Your updated balance is $${balanceDollars}. Have a great day!`
+      let msg = ''
+      if (type === 'referral') {
+        msg = `Hi ${
+          this.firstName
+        }! Your referral bonus $${amountDollars} is added to your Thrive savings amount. Your updated balance is $${balanceDollars}. Have a great day!`
+      } else {
+        msg = `Hi ${
+          this.firstName
+        }! Your employer had contributed $${amountDollars} to your Thrive savings amount. Your updated balance is $${balanceDollars}. Have a great day!`
+      }
 
       twilio.messages.create({
         from: process.env.twilioNumber,

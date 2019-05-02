@@ -62,11 +62,13 @@ module.exports = (Sequelize, User, Queue, moment) => ({
                   ? 'Withdrawal'
                   : type === 'bonus'
                     ? 'Employer Bonus'
-                    : 'Deposit',
+                    : type === 'reward'
+                      ? 'Reward'
+                      : 'Deposit',
               color:
                 type === 'credit'
                   ? '#A12938'
-                  : type === 'bonus'
+                  : type === 'bonus' || type === 'reward'
                     ? '#2CC197'
                     : '#0089CB',
               amount,

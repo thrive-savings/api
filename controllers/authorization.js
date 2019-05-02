@@ -7,6 +7,7 @@ module.exports = (
   Account,
   Goal,
   Bonus,
+  Referral,
   Bluebird,
   amplitude,
   request,
@@ -102,6 +103,7 @@ module.exports = (
           ['password', true],
           ['firstName', true],
           ['lastName', true],
+          ['referralCode'],
           ['companyID', true, 'integer']
         ]
       ]
@@ -113,9 +115,11 @@ module.exports = (
           password,
           firstName,
           lastName,
-          companyID: providedCompanyID
+          companyID: providedCompanyID,
+          referralCode
         }
       } = ctx.request.body
+      console.log(ctx.request.body)
       const email = providedEmail.toLowerCase()
 
       const {
@@ -143,37 +147,58 @@ module.exports = (
 
       let user = await User.findOne({ where: { email } })
       if (user) {
-        user.firstName = firstName
-        user.lastName = lastName
-        user.hashPassword(password)
-        if (testUser) {
-          user.userType = 'tester'
-        }
-        await user.save()
-      } else {
-        user = await User.create({
-          email,
-          password,
-          firstName,
-          lastName,
-          companyID,
-          userType: testUser ? 'tester' : 'regular',
-          nextSaveDate: moment().add(1, 'd')
-        })
-        await Goal.create({
-          category: 'RainyDay',
-          name: 'Rainy Day Fund',
-          userID: user.id
-        })
+        return Bluebird.reject([
+          {
+            key: 'User',
+            value: 'This email is already registered with Thrive.'
+          }
+        ])
+      }
 
+      let referringUser
+      if (referralCode) {
+        referringUser = await User.findOne({
+          where: { referralCode: referralCode.toUpperCase() }
+        })
+        if (!referringUser) {
+          return Bluebird.reject([
+            {
+              key: 'referral_code',
+              value: 'Referral Code is not valid'
+            }
+          ])
+        }
+      }
+
+      user = await User.create({
+        email,
+        password,
+        firstName,
+        lastName,
+        companyID,
+        userType: testUser ? 'tester' : 'regular',
+        nextSaveDate: moment().add(1, 'd')
+      })
+
+      await user.generateReferralCode()
+      await Goal.create({
+        category: 'RainyDay',
+        name: 'Rainy Day Fund',
+        userID: user.id
+      })
+      user.sendWelcomeEmail()
+
+      if (referringUser) {
+        const referral = await Referral.create({
+          sourceID: referringUser.id,
+          targetID: user.id
+        })
         request.post({
-          uri: `${config.constants.URL}/admin/notifications-email`,
+          uri: `${config.constants.URL}/admin/referral-reward`,
           body: {
             secret: process.env.apiSecret,
             data: {
-              userIds: [user.id],
-              template: 'welcome',
-              subject: 'Welcome to Thrive'
+              referralID: referral.id
             }
           },
           json: true
@@ -198,7 +223,8 @@ module.exports = (
           'Saving Type': user.savingType,
           'Saving Frequency': user.fetchFrequency,
           'Account Verified': user.isVerified,
-          'Next Save Date': user.nextSaveDate
+          'Next Save Date': user.nextSaveDate,
+          'Referral Code': user.referralCode
         }
       })
 
