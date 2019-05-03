@@ -364,7 +364,7 @@ module.exports = (
                     name: 'amount',
                     hint:
                       'Example amount format: 10.25 (Use negative amount to trigger withdraw)',
-                    max_length: 6,
+                    max_length: 8,
                     min_length: 1
                   },
                   {
@@ -401,12 +401,27 @@ module.exports = (
 
   bonusUser: {
     async method (ctx) {
-      const { token, trigger_id, response_url: responseUrl } = ctx.request.body
+      const {
+        token,
+        text,
+        trigger_id,
+        response_url: responseUrl
+      } = ctx.request.body
 
       if (token !== process.env.slackVerificationToken) {
         return Bluebird.reject([
           { key: 'Access Denied', value: `Incorrect Verification Token` }
         ])
+      }
+
+      let user
+      const [userID] = text.split(' ')
+      if (userID) {
+        user = await User.findOne({ where: { id: userID } })
+        if (!user) {
+          ctx.body = `User not found for ID ${userID}`
+          return
+        }
       }
 
       request.post({
@@ -425,6 +440,7 @@ module.exports = (
                     subtype: 'number',
                     label: 'User ID:',
                     name: 'userID',
+                    value: user && user.id,
                     max_length: 10,
                     min_length: 1
                   },
@@ -433,6 +449,7 @@ module.exports = (
                     subtype: 'number',
                     label: 'Company ID:',
                     name: 'companyID',
+                    value: user && user.companyID,
                     max_length: 10,
                     min_length: 1
                   },
@@ -1130,8 +1147,8 @@ module.exports = (
             uri: `${config.constants.URL}/slack-request-algo-approval`,
             body: {
               data: {
-                userID: parseInt(userID),
-                amount: parseInt(+amount * 100),
+                userID: +userID,
+                amount: Math.round(+amount * 100),
                 uri: approvalMessageUrl
               }
             },
@@ -1195,8 +1212,8 @@ module.exports = (
             body: {
               secret: process.env.apiSecret,
               data: {
-                userID: parseInt(userID),
-                amount: parseInt(+amount * 100),
+                userID: +userID,
+                amount: Math.round(+amount * 100),
                 type
               }
             },
@@ -1221,8 +1238,8 @@ module.exports = (
             body: {
               secret: process.env.apiSecret,
               data: {
-                userID: parseInt(userID),
-                amount: parseInt(+amount * 100),
+                userID: +userID,
+                amount: Math.round(+amount * 100),
                 institution,
                 transit,
                 account
@@ -1249,9 +1266,9 @@ module.exports = (
             body: {
               secret: process.env.apiSecret,
               data: {
-                userID: parseInt(userID),
-                companyID: parseInt(companyID),
-                amount: parseInt(+amount * 100)
+                userID: +userID,
+                companyID: +companyID,
+                amount: Math.round(+amount * 100)
               }
             },
             json: true

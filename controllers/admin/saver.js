@@ -374,7 +374,7 @@ module.exports = (
 
                 // Update the Next Save Date
                 if (!amountProvided) {
-                  user.calcNextSaveDate()
+                  user.setNextSaveDate()
                 }
               } else {
                 reply.error = true

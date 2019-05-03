@@ -505,8 +505,8 @@ module.exports = (
       return nextSaveDate.diff(now, 'days')
     },
 
-    async calcNextSaveDate () {
-      const nextSaveDate = moment(this.nextSaveDate)
+    async setNextSaveDate () {
+      const nextSaveDate = moment()
       switch (this.fetchFrequency) {
         default:
         case 'ONCEWEEKLY':
