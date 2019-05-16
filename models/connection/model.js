@@ -15,6 +15,10 @@ module.exports = (Sequelize, Account) => ({
     },
 
     // Sync info
+    lastGoogAuth: {
+      type: Sequelize.DATE,
+      field: 'last_good_auth'
+    },
     lastGoodSync: {
       type: Sequelize.DATE,
       field: 'last_good_sync'

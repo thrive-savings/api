@@ -176,7 +176,7 @@ module.exports = (
             })
 
             await request.post({
-              uri: `${config.constants.URL}/admin/quovo-fetch-accounts-auth`,
+              uri: `${config.constants.URL}/admin/quovo-fetch-connection-auth`,
               body: {
                 secret: process.env.apiSecret,
                 data: {
@@ -343,7 +343,7 @@ module.exports = (
     }
   },
 
-  fetchAccountsAuth: {
+  fetchConnectionAuth: {
     async method (ctx) {
       const {
         data: { quovoConnectionID }
@@ -356,7 +356,7 @@ module.exports = (
       const reply = {}
       try {
         const {
-          auth: { accounts }
+          auth: { last_good_auth: lastGoodAuth, accounts }
         } = await request.get({
           uri: `${
             config.constants.QUOVO_API_URL
@@ -368,13 +368,6 @@ module.exports = (
         })
 
         if (accounts && accounts.length > 0) {
-          amplitude.track({
-            eventType: 'QUOVO_FETCH_AUTH_SUCCEED',
-            userId: connection.userID,
-            eventProperties: {
-              accountsCount: accounts ? accounts.length : 0
-            }
-          })
           for (const {
             id: quovoAccountID,
             available_balance: availableBalanceInFloat,
@@ -451,16 +444,26 @@ module.exports = (
               })
             }
           }
+
+          connection.lastGoodAuth = lastGoodAuth
+          connection.save()
+          amplitude.track({
+            eventType: 'QUOVO_CONNECTION_AUTH_SUCCEED',
+            userId: connection.userID,
+            eventProperties: {
+              accountsCount: accounts ? accounts.length : 0
+            }
+          })
         } else {
           amplitude.track({
-            eventType: 'QUOVO_FETCH_AUTH_NO_ACCOUNTS',
+            eventType: 'QUOVO_CONNECTION_AUTH_NO_ACCOUNTS',
             userId: connection.userID
           })
         }
       } catch (e) {
         reply.error = true
         amplitude.track({
-          eventType: 'QUOVO_FETCH_AUTH_FAIL',
+          eventType: 'QUOVO_CONNECTION_AUTH_FAIL',
           userId: connection.userID,
           eventProperties: {
             error: e
@@ -469,6 +472,86 @@ module.exports = (
       }
 
       ctx.body = {}
+    }
+  },
+
+  fetchAccountAuth: {
+    async method (ctx) {
+      const {
+        data: { quovoAccountID }
+      } = ctx.request.body
+
+      const account = await Account.findOne({
+        include: [Connection],
+        where: { quovoAccountID }
+      })
+
+      const reply = {}
+      try {
+        const {
+          auth: {
+            last_good_auth: lastGoodAuth,
+            available_balance: availableBalanceInFloat,
+            present_balance: presentBalanceInFloat,
+            account_name: accountName,
+            account_nickname: accountNickname,
+            account_number: accountNumber,
+            canadian_institution_number: institutionNumber,
+            transit_number: transitNumber,
+            routing: routingNumber,
+            wire_routing: wireRoutingNumber,
+            category,
+            type,
+            type_confidence: typeConfidence,
+            owner_details: ownerDetails
+          }
+        } = await request.get({
+          uri: `${
+            config.constants.QUOVO_API_URL
+          }/accounts/${quovoAccountID}/auth`,
+          headers: {
+            Authorization: `Bearer ${process.env.quovoApiToken}`
+          },
+          json: true
+        })
+
+        account.update({
+          category,
+          type,
+          typeConfidence,
+          name: accountName,
+          nickname: accountNickname,
+          institution: institutionNumber,
+          transit: transitNumber,
+          number: accountNumber,
+          routing: routingNumber,
+          wireRouting: wireRoutingNumber,
+          availableBalance: parseInt(availableBalanceInFloat * 100),
+          presentBalance: parseInt(presentBalanceInFloat * 100),
+          ownerDetails
+        })
+
+        account.connection.update({ lastGoodAuth })
+
+        amplitude.track({
+          eventType: 'QUOVO_ACCOUNT_AUTH_SUCCEED',
+          userId: account.userID,
+          eventProperties: {
+            accountID: account.id
+          }
+        })
+      } catch (e) {
+        reply.error = true
+        amplitude.track({
+          eventType: 'QUOVO_ACCOUNT_AUTH_FAIL',
+          userId: account.userID,
+          eventProperties: {
+            error: e
+          }
+        })
+      }
+
+      ctx.body = reply
     }
   },
 
@@ -594,7 +677,6 @@ module.exports = (
                 body: {
                   secret: process.env.apiSecret,
                   data: {
-                    userID: user.id,
                     quovoConnectionID: connection.quovoConnectionID
                   }
                 },
@@ -831,6 +913,19 @@ module.exports = (
 
       const reply = {}
       try {
+        if (!account.hasACH() || !account.getOwnerAddress()) {
+          request.post({
+            uri: `${config.constants.URL}/admin/quovo-fetch-account-auth`,
+            body: {
+              secret: process.env.apiSecret,
+              data: {
+                quovoAccountID
+              }
+            },
+            json: true
+          })
+        }
+
         const lastTransactionSaved = await Transaction.findOne({
           order: [['date', 'DESC']],
           where: { quovoAccountID }

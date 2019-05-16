@@ -5,7 +5,8 @@ module.exports = (
   Account,
   Goal,
   Bonus,
-  Company
+  Company,
+  MomentumOffer
 ) => ({
   async method (ctx) {
     const user = await User.findOne({
@@ -32,6 +33,13 @@ module.exports = (
     })
 
     authorizedData.notifications.bonus = totalBonus
+
+    const momentumOffer = await MomentumOffer.findOne({
+      where: { userID: user.id }
+    })
+    if (momentumOffer) {
+      authorizedData.momentumOfferData = momentumOffer.getData()
+    }
 
     ctx.body = { data: { authorized: authorizedData } }
   }

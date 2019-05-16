@@ -7,9 +7,7 @@ module.exports = (
   request,
   config
 ) => ({
-  connectEvent: {
-    schema: [['data', true, [['']]]]
-  },
+  // Connection Level Endpoints
 
   fetchConnection: {
     schema: [['data', true, [['connectionID', true, 'integer']]]],
@@ -19,6 +17,8 @@ module.exports = (
       const {
         data: { connectionID: quovoConnectionID }
       } = ctx.request.body
+
+      const reply = {}
 
       const user = await User.findOne({ where: { id: ctx.authorized.id } })
 
@@ -48,7 +48,7 @@ module.exports = (
 
       if (status === 'good') {
         const { error: quovoAccountError } = await request.post({
-          uri: `${config.constants.URL}/admin/quovo-fetch-accounts-auth`,
+          uri: `${config.constants.URL}/admin/quovo-fetch-connection-auth`,
           body: {
             secret: process.env.apiSecret,
             data: {
@@ -66,6 +66,20 @@ module.exports = (
             }
           ])
         }
+
+        const { data: momentumOfferData } = await request.post({
+          uri: `${config.constants.URL}/admin/momentum-create-offer`,
+          body: {
+            secret: process.env.apiSecret,
+            data: {
+              userID: user.id
+            }
+          },
+          json: true
+        })
+        if (momentumOfferData) {
+          reply.momentumOfferData = momentumOfferData
+        }
       }
 
       if (!user.bankLinked) {
@@ -80,9 +94,103 @@ module.exports = (
         where: { quovoConnectionID },
         include: [Institution, Account]
       })
-      ctx.body = { connection: connectionInstance.getData() }
+      reply.connection = connectionInstance.getData()
+
+      ctx.body = reply
     }
   },
+
+  unlinkConnection: {
+    schema: [
+      ['data', true, [['connectionID', true], ['fromQuovo', 'boolean']]]
+    ],
+    async method (ctx) {
+      const {
+        data: { connectionID: quovoConnectionID, fromQuovo = true }
+      } = ctx.request.body
+
+      const connection = await Connection.findOne({
+        where: { quovoConnectionID }
+      })
+      if (!connection) {
+        return Bluebird.reject([
+          {
+            key: 'Connection',
+            value: `No connection found for Quovo connectionID ${quovoConnectionID}`
+          }
+        ])
+      }
+
+      if (fromQuovo) {
+        const { error: quovoConnectionError } = await request.post({
+          uri: `${config.constants.URL}/admin/quovo-delete-connection`,
+          body: {
+            secret: process.env.apiSecret,
+            data: {
+              quovoConnectionID
+            }
+          },
+          json: true
+        })
+        if (quovoConnectionError) {
+          return Bluebird.reject([
+            {
+              key: 'QuovoGetConnection',
+              value: `Something went wrong when deleting Quovo Connection [${quovoConnectionID}] data.`
+            }
+          ])
+        }
+      }
+
+      const connectionID = connection.id
+      await Connection.destroy({ where: { id: connectionID } })
+      ctx.body = { connection: { id: connectionID, deleted: true }, fromQuovo }
+    }
+  },
+
+  refreshConnection: {
+    schema: [['data', true, [['connectionID', true]]]],
+    async method (ctx) {
+      const {
+        data: { connectionID: quovoConnectionID }
+      } = ctx.request.body
+
+      const connection = await Connection.findOne({
+        where: { quovoConnectionID }
+      })
+      if (!connection) {
+        return Bluebird.reject([
+          {
+            key: 'Connection',
+            value: `No connection found for Quovo connectionID ${quovoConnectionID}`
+          }
+        ])
+      }
+
+      const { error: quovoConnectionError } = await request.post({
+        uri: `${config.constants.URL}/admin/quovo-fetch-connection-updates`,
+        body: {
+          secret: process.env.apiSecret,
+          data: {
+            quovoConnectionID: connection.quovoConnectionID
+          }
+        },
+        json: true
+      })
+      if (quovoConnectionError) {
+        return Bluebird.reject([
+          {
+            key: 'QuovoGetConnection',
+            value: `Something went wrong when deleting Quovo Connection [${quovoConnectionID}] data.`
+          }
+        ])
+      }
+
+      ctx.body = { connection: {} }
+    }
+  },
+
+  // Account Level Endpoints
 
   setDefaultAuthAccount: {
     schema: [['data', true, [['accountID', true, 'integer']]]],
@@ -169,54 +277,6 @@ module.exports = (
       }
 
       ctx.body = { connections: connectionsData }
-    }
-  },
-
-  unlinkConnection: {
-    schema: [
-      ['data', true, [['connectionID', true], ['fromQuovo', 'boolean']]]
-    ],
-    async method (ctx) {
-      const {
-        data: { connectionID: quovoConnectionID, fromQuovo = true }
-      } = ctx.request.body
-
-      const connection = await Connection.findOne({
-        where: { quovoConnectionID }
-      })
-      if (!connection) {
-        return Bluebird.reject([
-          {
-            key: 'Connection',
-            value: `No connection found for Quovo connectionID ${quovoConnectionID}`
-          }
-        ])
-      }
-
-      if (fromQuovo) {
-        const { error: quovoConnectionError } = await request.post({
-          uri: `${config.constants.URL}/admin/quovo-delete-connection`,
-          body: {
-            secret: process.env.apiSecret,
-            data: {
-              quovoConnectionID
-            }
-          },
-          json: true
-        })
-        if (quovoConnectionError) {
-          return Bluebird.reject([
-            {
-              key: 'QuovoGetConnection',
-              value: `Something went wrong when deleting Quovo Connection [${quovoConnectionID}] data.`
-            }
-          ])
-        }
-      }
-
-      const connectionID = connection.id
-      await Connection.destroy({ where: { id: connectionID } })
-      ctx.body = { connection: { id: connectionID, deleted: true }, fromQuovo }
     }
   }
 })

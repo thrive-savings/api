@@ -321,7 +321,6 @@ module.exports = (
                 moment(connection.lastGoodSync),
                 'd'
               )
-              console.log(`Days from last good sync: ${daysFromLastGoodSync}`)
               checkSafeBalance = daysFromLastGoodSync > 3
             } else {
               amountToSave = user.fixedContribution

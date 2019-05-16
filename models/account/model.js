@@ -216,6 +216,15 @@ module.exports = Sequelize => ({
 
     getBalance () {
       return this.value !== 0 ? this.value : this.availableBalance
+    },
+
+    getOwnerAddress () {
+      let address
+      if (this.ownerDetails) {
+        address = this.ownerDetails.address.data
+      }
+
+      return address
     }
   }
 })

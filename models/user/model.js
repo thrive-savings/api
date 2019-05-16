@@ -193,7 +193,7 @@ module.exports = (
     },
 
     quovoUserID: {
-      type: Sequelize.INTEGER,
+      type: Sequelize.BIGINT,
       field: 'quovo_user_id'
     },
 
@@ -842,7 +842,14 @@ module.exports = (
     }
   },
   associations: {
-    hasMany: ['Connection', 'Goal', 'Bonus', 'Notification', 'Debt'],
+    hasMany: [
+      'Connection',
+      'Goal',
+      'Bonus',
+      'Notification',
+      'Debt',
+      'MomentumOffer'
+    ],
     belongsTo: 'Company'
   },
   hooks: {
