@@ -1,4 +1,8 @@
 module.exports = (User, Account, MomentumOffer, amplitude) => ({
+  // CRON JOBS
+
+  // END of CRON JOBS
+
   createOffer: {
     schema: [['data', true, [['userID', true, 'integer']]]],
     async method (ctx) {
@@ -17,14 +21,13 @@ module.exports = (User, Account, MomentumOffer, amplitude) => ({
           if (!momentumOffer) {
             const accounts = await Account.findAll({ where: { userID } })
             if (accounts.length) {
-              let eligibleAddress = false
+              let eligibleAddress = user.userType === 'tester'
               for (const account of accounts) {
                 const address = account.getOwnerAddress()
-                console.log(address)
                 if (
                   address &&
                   address.city &&
-                  address.city.toUpperCase() === 'COURTENAY'
+                  address.city.toUpperCase() === 'CALGARY'
                 ) {
                   eligibleAddress = true
                 }
