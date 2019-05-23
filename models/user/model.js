@@ -830,9 +830,9 @@ module.exports = (
 
     async updateBalance (amountInCents, transactionType) {
       const deltaAmount =
-        transactionType === 'debit'
-          ? parseInt(amountInCents)
-          : -1 * parseInt(amountInCents)
+        transactionType === 'credit'
+          ? -1 * parseInt(amountInCents)
+          : parseInt(amountInCents)
       this.balance = parseInt(this.balance) + deltaAmount
       await this.save()
       await Goal.distributeAmount(deltaAmount, this.id)
