@@ -21,8 +21,6 @@ module.exports = (User, request, config, Bluebird) => ({
         json: true
       })
 
-      console.log(res)
-
       if (res.error) {
         return Bluebird.reject([
           {

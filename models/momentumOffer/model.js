@@ -15,11 +15,17 @@ module.exports = Sequelize => ({
         'waiting',
         'uninterested',
         'ineligible',
+        'ineligible_done',
         'passed',
         'passed_done',
-        'ineligible_done'
+        'done'
       ],
       defaultValue: 'waiting'
+    },
+    bonusCount: {
+      type: Sequelize.INTEGER,
+      defaultValue: 0,
+      field: 'bonus_count'
     },
     nextBonusDate: {
       type: Sequelize.DATE,

@@ -20,9 +20,22 @@ module.exports = Sequelize => ({
         },
         status: {
           type: Sequelize.ENUM,
-          values: ['waiting', 'uninterested', 'ineligible', 'passed', 'passed_done', 'ineligible_done'],
+          values: [
+            'waiting',
+            'uninterested',
+            'ineligible',
+            'ineligible_done',
+            'passed',
+            'passed_done',
+            'done'
+          ],
           defaultValue: 'waiting',
           field: 'status'
+        },
+        bonusCount: {
+          type: Sequelize.INTEGER,
+          defaultValue: 0,
+          field: 'bonus_count'
         },
         nextBonusDate: {
           type: Sequelize.DATE,

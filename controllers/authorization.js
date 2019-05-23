@@ -119,7 +119,6 @@ module.exports = (
           referralCode
         }
       } = ctx.request.body
-      console.log(ctx.request.body)
       const email = providedEmail.toLowerCase()
 
       const {

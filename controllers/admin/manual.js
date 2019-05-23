@@ -484,8 +484,6 @@ module.exports = (
 
       let responseMsg = ''
 
-      console.log(submission)
-
       const KEYWORDS = {
         CONNECTION: 'connection',
         ACCOUNT: 'account',

@@ -32,7 +32,7 @@ module.exports = (
           }
         })
 
-        if (users && users.length > 0) {
+        if (users && users.length) {
           Bluebird.all(
             users.map(user =>
               request.post({

@@ -419,26 +419,10 @@ module.exports = (
     },
 
     getData () {
-      let connections
-      if (this.connections) {
-        connections = this.connections.map(connection => connection.getData())
-      }
-
-      let goals
-      if (this.goals) {
-        goals = this.goals.sort(({ id: id0 }, { id: id1 }) => id0 - id1)
-        goals = goals.map(goal => goal.getData())
-      }
-
-      let company
-      if (this.company) {
-        company = this.company.getData()
-      }
-
       return {
-        company,
-        connections,
-        goals,
+        company: this.getCompany(),
+        connections: this.getConnections(),
+        goals: this.getGoals(),
         id: this.id,
         promptRating: this.shouldPromptRating(),
         expoPushToken: this.expoPushToken,
@@ -459,6 +443,31 @@ module.exports = (
           bonus: 0
         }
       }
+    },
+
+    getCompany () {
+      let company
+      if (this.company) {
+        company = this.company.getData()
+      }
+      return company
+    },
+
+    getGoals () {
+      let goals
+      if (this.goals) {
+        goals = this.goals.sort(({ id: id0 }, { id: id1 }) => id0 - id1)
+        goals = goals.map(goal => goal.getData())
+      }
+      return goals
+    },
+
+    getConnections () {
+      let connections
+      if (this.connections) {
+        connections = this.connections.map(connection => connection.getData())
+      }
+      return connections
     },
 
     getPrimaryAccount () {
@@ -668,9 +677,9 @@ module.exports = (
           this.firstName
         }! Your referral bonus $${amountDollars} is added to your Thrive savings amount. Your updated balance is $${balanceDollars}. Have a great day!`
       } else {
-        msg = `Hi ${
-          this.firstName
-        }! Your employer had contributed $${amountDollars} to your Thrive savings amount. Your updated balance is $${balanceDollars}. Have a great day!`
+        msg = `Hi ${this.firstName}! ${
+          type === 'momentum_offer' ? 'Momentum' : 'Your employer'
+        } had contributed $${amountDollars} to your Thrive savings amount. Your updated balance is $${balanceDollars}. Have a great day!`
       }
 
       twilio.messages.create({

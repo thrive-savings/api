@@ -748,6 +748,7 @@ module.exports = (
         })
         const value = parseInt(floatValue * 100)
 
+        const oldStatus = connection.status
         await connection.update({
           lastGoodSync,
           lastSync,
@@ -785,7 +786,7 @@ module.exports = (
             body: {
               text: `User [${connection.userID}] | Connection [${
                 connection.id
-              }] got disconnected`
+              }] status changed from *${oldStatus}* to *${status}*`
             },
             json: true
           })

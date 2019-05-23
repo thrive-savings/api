@@ -233,7 +233,6 @@ module.exports = (
         } else if (['invite', 'refer'].includes(command)) {
           analyticsEvent = 'Bot Received Invite Command'
           let invitedPhone = params.join('')
-          console.log(invitedPhone)
           if (
             !invitedPhone ||
             !invitedPhone.match(
