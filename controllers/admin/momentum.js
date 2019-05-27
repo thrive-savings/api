@@ -212,7 +212,7 @@ module.exports = (
                 if (
                   address &&
                   address.city &&
-                  address.city.toUpperCase() === 'CALGARY'
+                  address.city.toUpperCase() === 'CALGARY____'
                 ) {
                   eligibleAddress = true
                 }

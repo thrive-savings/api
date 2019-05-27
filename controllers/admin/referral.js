@@ -158,6 +158,13 @@ module.exports = (User, Referral, Bluebird, request, config, amplitude) => ({
           })
           await user.updateBalance(REWARD_AMOUNT, 'debit')
           user.sendBonusNotification(REWARD_AMOUNT, 'referral')
+          amplitude.track({
+            eventType: 'REFERRAL_REWARD_USER_SUCCEED',
+            userId: user.id,
+            eventProperties: {
+              amount: REWARD_AMOUNT
+            }
+          })
         } else {
           reply.error = true
           reply.errorCode = 'user_not_found'

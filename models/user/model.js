@@ -845,7 +845,7 @@ module.exports = (
         }
       })
 
-      if (transactionType !== 'debit' || this.balance >= 50000) {
+      if (transactionType === 'credit' || this.balance >= 50000) {
         this.canPromptRating()
       }
     }

@@ -191,44 +191,26 @@ module.exports = (
           }
         } else if (['boost', ':thumbsup:', ':fire:'].includes(command)) {
           analyticsEvent = 'Bot Received Boost Command'
-          const connections = await Connection.findAll({
-            where: { userID: user.id, status: 'good' }
-          })
-          if (!connections || connections.length <= 0) {
-            responseMsg = `Hi ${
-              user.firstName
-            }, it looks like you haven’t connected a bank account yet or we lost the connection to your bank. Please  go to the app to link your primary chequing account.`
+          let scale =
+            command === 'boost'
+              ? params[0]
+              : command === ':thumbsup:'
+                ? '1.5'
+                : '2'
+          if (!['1.5x', '2x', '1.5', '2'].includes(scale)) {
+            responseMsg =
+              'Please use one of the exact options. Example: "Boost 2x" (Emojis are not supported at the moment.)'
           } else {
-            let scale =
-              command === 'boost'
-                ? params[0]
-                : command === ':thumbsup:'
-                  ? '1.5'
-                  : '2'
-            if (!['1.5x', '2x', '1.5', '2'].includes(scale)) {
-              responseMsg =
-                'Please use one of the exact options. Example: "Boost 2x" (Emojis are not supported at the moment.)'
-            } else {
-              responseMsg = user.updateAlgoBoost(scale)
-            }
+            responseMsg = user.updateAlgoBoost(scale)
           }
         } else if (['reduce', ':thumbsdown:'].includes(command)) {
           analyticsEvent = 'Bot Received Reduce Command'
-          const connections = await Connection.findAll({
-            where: { userID: user.id, status: 'good' }
-          })
-          if (!connections || connections.length <= 0) {
-            responseMsg = `Hi ${
-              user.firstName
-            }, it looks like you haven’t connected a bank account yet or we lost the connection to your bank. Please  go to the app to link your primary chequing account.`
+          let scale = command === 'reduce' ? params[0] : '0.5'
+          if (!['0.5x', '0.5'].includes(scale)) {
+            responseMsg =
+              'Please use one of the exact options. Example: "Reduce 0.5x"'
           } else {
-            let scale = command === 'reduce' ? params[0] : '0.5'
-            if (!['0.5x', '0.5'].includes(scale)) {
-              responseMsg =
-                'Please use one of the exact options. Example: "Reduce 0.5x"'
-            } else {
-              responseMsg = user.updateAlgoBoost(scale)
-            }
+            responseMsg = user.updateAlgoBoost(scale)
           }
         } else if (['invite', 'refer'].includes(command)) {
           analyticsEvent = 'Bot Received Invite Command'

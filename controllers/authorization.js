@@ -202,6 +202,17 @@ module.exports = (
           },
           json: true
         })
+        request.post({
+          uri: process.env.slackWebhookURL,
+          body: {
+            text: `User ${
+              user.id
+            } signed up with *referral code* of Referring User ${
+              referringUser.id
+            }`
+          },
+          json: true
+        })
       }
 
       const company = await Company.findOne({ where: { id: user.companyID } })
@@ -223,7 +234,8 @@ module.exports = (
           'Saving Frequency': user.fetchFrequency,
           'Account Verified': user.isVerified,
           'Next Save Date': user.nextSaveDate,
-          'Referral Code': user.referralCode
+          'Referral Code': user.referralCode,
+          'Referred By': referringUser ? referringUser.id : ''
         }
       })
 
