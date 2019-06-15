@@ -13,6 +13,10 @@ module.exports = (Sequelize, Account) => ({
       type: Sequelize.STRING,
       field: 'institution_name'
     },
+    countryCode: {
+      type: Sequelize.STRING,
+      field: 'country_code'
+    },
 
     // Sync info
     lastGoogAuth: {

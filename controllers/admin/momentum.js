@@ -44,33 +44,22 @@ module.exports = (
               })
             )
           )
-
-          amplitude.track({
-            eventType: 'MOMENTUM_BONUS_PASS',
-            userId: 'server',
-            eventProperties: {
-              offersCount: offers.length
-            }
-          })
+          reply.offersCount = offers.length
         } else {
           reply.error = true
           reply.errorCode = 'offers_not_found'
-          amplitude.track({
-            eventType: 'MOMENTUM_BONUS_FAIL',
-            userId: 'server',
-            eventProperties: reply
-          })
         }
       } catch (e) {
         reply.error = true
         reply.errorCode = 'try_catched'
         reply.errorData = e
-        amplitude.track({
-          eventType: 'MOMENTUM_BONUS_FAIL',
-          userId: 'server',
-          eventProperties: reply
-        })
       }
+
+      amplitude.track({
+        eventType: `MOMENTUM_BONUS_${reply.error ? 'FAIL' : 'PASS'}`,
+        userId: 'server',
+        eventProperties: reply
+      })
 
       ctx.body = reply
     }
@@ -86,11 +75,18 @@ module.exports = (
       const OFFER_AMOUNT = 1000
       const MAX_BONUS_COUNT = 6
 
-      const reply = {}
+      const {
+        URL,
+        TRANSFER_ENUMS: { TYPES, SUBTYPES }
+      } = config.constants
+
+      const reply = { offerID }
       try {
         const offer = await MomentumOffer.findOne({ where: { id: offerID } })
 
         if (offer) {
+          reply.userID = offer.userID
+
           const user = await User.findOne({ where: { id: offer.userID } })
           if (user) {
             let savesCount = 0
@@ -113,20 +109,22 @@ module.exports = (
 
             if (savesCount && offer.bonusCount < MAX_BONUS_COUNT) {
               await request.post({
-                uri: `${config.constants.URL}/admin/queue-create`,
+                uri: `${URL}/admin/transfer-create`,
                 body: {
                   secret: process.env.apiSecret,
                   data: {
                     userID: user.id,
-                    amountInCents: OFFER_AMOUNT,
-                    type: 'bonus',
-                    requestMethod: 'MomentumOffer'
+                    amount: OFFER_AMOUNT,
+                    type: TYPES.DEBIT,
+                    subtype: SUBTYPES.REWARD,
+                    extra: {
+                      note: 'Momentum offer bonus',
+                      supplyID: offer.id
+                    }
                   }
                 },
                 json: true
               })
-              await user.updateBalance(OFFER_AMOUNT, 'debit')
-              user.sendBonusNotification(OFFER_AMOUNT, 'momentum_offer')
 
               offer.bonusCount = offer.bonusCount + 1
               if (offer.bonusCount >= MAX_BONUS_COUNT) {
@@ -144,11 +142,6 @@ module.exports = (
             } else {
               reply.error = true
               reply.errorCode = 'no_saves'
-              amplitude.track({
-                eventType: 'MOMENTUM_BONUS_OFFER_FAIL',
-                userId: user.id,
-                eventProperties: reply
-              })
             }
 
             offer.nextBonusDate = moment().add(1, 'M')
@@ -156,28 +149,21 @@ module.exports = (
           } else {
             reply.error = true
             reply.errorCode = 'user_not_found'
-            amplitude.track({
-              eventType: 'MOMENTUM_BONUS_OFFER_FAIL',
-              userId: 'server',
-              eventProperties: reply
-            })
           }
         } else {
           reply.error = true
           reply.errorCode = 'offer_not_found'
-          amplitude.track({
-            eventType: 'MOMENTUM_BONUS_OFFER_FAIL',
-            userId: 'server',
-            eventProperties: reply
-          })
         }
       } catch (e) {
         reply.error = true
         reply.errorCode = 'try_catched'
         reply.errorData = e
+      }
+
+      if (reply.error) {
         amplitude.track({
           eventType: 'MOMENTUM_BONUS_OFFER_FAIL',
-          userId: 'server',
+          userId: reply.userID ? reply.userID : 'server',
           eventProperties: reply
         })
       }

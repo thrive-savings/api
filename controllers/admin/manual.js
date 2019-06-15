@@ -21,7 +21,7 @@ module.exports = (
 
       await request.post({
         uri: process.env.slackWebhookURL,
-        body: { text: `Scheduler ran for job: ${job}` },
+        body: { text: `Scheduler ran for job: *${job}*` },
         json: true
       })
 
@@ -70,13 +70,14 @@ module.exports = (
         [
           ['userID', true, 'integer'],
           ['amount', true, 'integer'],
-          ['type', true]
+          ['type', true],
+          ['subtype']
         ]
       ]
     ],
     async method (ctx) {
       const {
-        data: { userID, amount, type }
+        data: { userID, amount, type, subtype }
       } = ctx.request.body
 
       const user = await User.findOne({ where: { id: userID } })
@@ -86,24 +87,23 @@ module.exports = (
         ])
       }
 
-      // Create queue entry
-      await request.post({
-        uri: `${config.constants.URL}/admin/queue-create`,
+      const res = await request.post({
+        uri: `${config.constants.URL}/admin/transfer-create`,
         body: {
           secret: process.env.apiSecret,
           data: {
             userID,
-            amountInCents: amount,
+            amount,
             type,
-            requestMethod: 'ManualUpdate',
-            processed: true
+            subtype: subtype || config.constants.TRANSFER_ENUMS.SUBTYPES.MANUAL,
+            requestMethod:
+              config.constants.TRANSFER_ENUMS.REQUEST_METHODS.MANUAL
           }
         },
         json: true
       })
 
-      await user.updateBalance(amount, type)
-      ctx.body = {}
+      ctx.body = res
     }
   },
 
@@ -421,6 +421,82 @@ module.exports = (
           } else {
             responseMsg = `Direct Transfer couldn't find User for ID ${userID}`
           }
+        }
+      } catch (e) {
+        responseMsg = `Direct Transfer failed for User ${userID}`
+      }
+
+      ctx.body = responseMsg
+    }
+  },
+
+  createDumbAccount: {
+    schema: [
+      [
+        'data',
+        true,
+        [
+          ['userID', true, 'integer'],
+          ['countryCode', true],
+          ['achNumbers', true, 'object']
+        ]
+      ]
+    ],
+    async method (ctx) {
+      const {
+        data: { userID, countryCode, achNumbers }
+      } = ctx.request.body
+
+      console.log(ctx.request.body)
+
+      let responseMsg = `Creating the Account for User ${userID}`
+      try {
+        if (['CAN', 'USA'].includes(countryCode)) {
+          const user = await User.findOne({ where: { id: userID } })
+          if (user) {
+            let connection = await Connection.findOne({
+              where: { quovoConnectionID: 0, userID }
+            })
+            if (!connection) {
+              connection = await Connection.create({
+                userID,
+                countryCode,
+                institutionName: 'Dumb ACH Institution',
+                quovoUserID: user.quovoUserID,
+                quovoConnectionID: 0,
+                quovoInstitutionID: 0
+              })
+            }
+
+            const accountData = {
+              name: 'ManualACHAccount',
+              nickname: `${
+                user.firstName
+              }'s manual ACH account for ${countryCode}`,
+              userID,
+              connectionID: connection.id,
+              quovoConnectionID: 0,
+              quovoAccountID: 0,
+              quovoUserID: user.quovoUserID,
+              number: achNumbers.account
+            }
+            if (countryCode === 'CAN') {
+              accountData.institution = achNumbers.institution
+              accountData.transit = achNumbers.transit
+            } else {
+              accountData.routing = achNumbers.routing
+            }
+
+            const account = await Account.create(accountData)
+
+            responseMsg = `Account ${account.id} | Connection ${
+              connection.id
+            } is created for User ${userID}`
+          } else {
+            responseMsg = `User not found for ID ${userID}`
+          }
+        } else {
+          responseMsg = `Wrong Country Code ${countryCode} is provided for User ${userID}`
         }
       } catch (e) {
         responseMsg = `Direct Transfer failed for User ${userID}`

@@ -62,23 +62,29 @@ module.exports = (
 
       const reply = {}
       try {
+        const {
+          URL,
+          TRANSFER_ENUMS: { TYPES, SUBTYPES }
+        } = config.constants
+
+        const bonus = await Bonus.create({ amount, companyID, userID })
         await request.post({
-          uri: `${config.constants.URL}/admin/queue-create`,
+          uri: `${URL}/admin/transfer-create`,
           body: {
             secret: process.env.apiSecret,
             data: {
               userID,
-              amountInCents: amount,
-              type: 'bonus',
-              requestMethod: 'EmployerBonus'
+              amount,
+              type: TYPES.DEBIT,
+              subtype: SUBTYPES.MATCH,
+              extra: {
+                note: 'Company match',
+                supplyID: bonus.id
+              }
             }
           },
           json: true
         })
-        await Bonus.create({ amount, companyID, userID })
-
-        await user.updateBalance(amount, 'debit')
-        user.sendBonusNotification(amount)
 
         amplitude.track({
           eventType: 'BONUS_USER_SUCCEED',

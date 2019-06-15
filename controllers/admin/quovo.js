@@ -96,10 +96,6 @@ module.exports = (
           is_available: isAvailable,
           country_code: countryCode
         } of institutions) {
-          if (countryCode !== 'CAN') {
-            continue
-          }
-
           const obj = {
             quovoInstitutionID,
             name,
@@ -356,7 +352,11 @@ module.exports = (
       const reply = {}
       try {
         const {
-          auth: { last_good_auth: lastGoodAuth, accounts }
+          auth: {
+            last_good_auth: lastGoodAuth,
+            country_code: countryCode,
+            accounts
+          }
         } = await request.get({
           uri: `${
             config.constants.QUOVO_API_URL
@@ -446,6 +446,7 @@ module.exports = (
           }
 
           connection.lastGoodAuth = lastGoodAuth
+          connection.countryCode = countryCode
           connection.save()
           amplitude.track({
             eventType: 'QUOVO_CONNECTION_AUTH_SUCCEED',
@@ -801,6 +802,22 @@ module.exports = (
               quovoUserID: connection.quovoUserID,
               status
             }
+          })
+        }
+
+        if (
+          !connection.lastGoodAuth ||
+          moment().diff(moment(connection.lastGoodAuth), 'd') > 7
+        ) {
+          request.post({
+            uri: `${config.constants.URL}/admin/quovo-fetch-connection-auth`,
+            body: {
+              secret: process.env.apiSecret,
+              data: {
+                quovoConnectionID
+              }
+            },
+            json: true
           })
         }
       } catch (e) {

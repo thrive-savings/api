@@ -3,6 +3,8 @@ module.exports = (User, Account, Queue, request) => ({
     async method (ctx) {
       const req = ctx.request.body
 
+      console.log(req)
+
       if (req.type === 'transaction') {
         // TODO: Verify signature
 

@@ -4,6 +4,7 @@ module.exports = (
   User,
   Connection,
   Account,
+  Transfer,
   Company,
   amplitude,
   twilio,
@@ -254,6 +255,103 @@ module.exports = (
         } catch (e) {
           slackMsg = `*Error*: something went wrong trying to sync Amplitude data for User ${userID}`
         }
+      }
+
+      if (slackMsg) {
+        await request.post({
+          uri: process.env.slackWebhookURL,
+          body: { text: slackMsg },
+          json: true
+        })
+      }
+
+      ctx.body = ''
+    }
+  },
+
+  createDumbAccount: {
+    async method (ctx) {
+      const {
+        token,
+        text,
+        trigger_id,
+        response_url: responseUrl
+      } = ctx.request.body
+
+      if (token !== process.env.slackVerificationToken) {
+        return Bluebird.reject([
+          { key: 'Access Denied', value: `Incorrect Verification Token` }
+        ])
+      }
+
+      const [userID, countryCode = 'CAN'] = text.split(' ')
+
+      if (!userID || !countryCode) {
+        ctx.body = `Correct Syntax: /create-dumb-account [*userID*] [Optional *countryCode* - [*CAN* or *USA*]`
+        return
+      }
+
+      let user
+      if (userID) {
+        user = await User.findOne({ where: { id: userID } })
+      }
+
+      let slackMsg = ''
+      if (!user) {
+        slackMsg = `*Error*: user not found for ID${userID}`
+      } else {
+        const elements = [
+          {
+            type: 'text',
+            label: 'Account #:',
+            name: 'account',
+            placeholder: '123456789xxx'
+          }
+        ]
+
+        if (countryCode && countryCode === 'USA') {
+          elements.push({
+            type: 'text',
+            label: 'Routing #:',
+            name: 'routing',
+            placeholder: '001'
+          })
+        } else {
+          elements.push(
+            {
+              type: 'text',
+              label: 'Institution #:',
+              name: 'institution',
+              placeholder: '001'
+            },
+            {
+              type: 'text',
+              label: 'Transit #:',
+              name: 'transit',
+              placeholder: '01234'
+            }
+          )
+        }
+
+        request.post({
+          uri: `${config.constants.URL}/slack-api-call`,
+          body: {
+            data: {
+              url: 'dialog.open',
+              body: {
+                dialog: JSON.stringify({
+                  callback_id: `createDumbAccount_${userID}_${countryCode}`,
+                  title: 'Create Dumb ACH Account',
+                  submit_label: 'Submit',
+                  elements,
+                  state: responseUrl
+                }),
+                trigger_id
+              }
+            }
+          },
+          json: true
+        })
       }
 
       if (slackMsg) {
@@ -1001,6 +1099,75 @@ module.exports = (
     }
   },
 
+  requestTransferApproval: {
+    schema: [['data', true, [['transferID', true, 'integer'], ['uri']]]],
+    async method (ctx) {
+      const {
+        data: { transferID, uri }
+      } = ctx.request.body
+
+      const transfer = await Transfer.findOne({
+        include: [User],
+        where: { id: transferID }
+      })
+      if (!transfer) {
+        return Bluebird.reject(`Transfer not found for ID ${transferID}`)
+      }
+
+      const getDollarString = amount => {
+        let dollars = amount / 100
+        dollars = dollars % 1 === 0 ? dollars : dollars.toFixed(2)
+        dollars.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+        return `$${dollars}`
+      }
+
+      await request.post({
+        uri: uri || process.env.slackWebhookURL,
+        body: {
+          text: `Transfer ID ${
+            transfer.id
+          } requires *Admin Approval* | Amount: ${getDollarString(
+            transfer.amount
+          )} | Type: ${transfer.type} | Subtype: ${transfer.subtype} | UserID ${
+            transfer.userID
+          }`,
+          attachments: [
+            {
+              title: 'Do you approve?',
+              fallback: 'You are unable to approve the request',
+              callback_id: `transferApproval_${transferID}`,
+              color: '#2CC197',
+              actions: [
+                {
+                  name: 'yes',
+                  text: 'Yes',
+                  type: 'button',
+                  style: 'danger',
+                  value: 'yes'
+                },
+                {
+                  name: 'no',
+                  text: 'No',
+                  type: 'button',
+                  value: 'no'
+                },
+                {
+                  name: 'change',
+                  text: 'Change amount',
+                  type: 'button',
+                  value: 'change'
+                }
+              ]
+            }
+          ]
+        },
+        json: true
+      })
+
+      ctx.body = {}
+    }
+  },
+
   requestAlgoApproval: {
     schema: [
       [
@@ -1112,7 +1279,16 @@ module.exports = (
         const command = payload.callback_id.split('_')[0]
 
         replyMessage = payload.original_message
-        if (command === 'algoResultApproval') {
+        if (command === 'transferApproval') {
+          replyMessage = await request.post({
+            uri: `${config.constants.URL}/admin/approved-transfer-amount`,
+            body: {
+              secret: process.env.apiSecret,
+              data: { payload }
+            },
+            json: true
+          })
+        } else if (command === 'algoResultApproval') {
           replyMessage = await request.post({
             uri: `${config.constants.URL}/admin/approved-algo-result`,
             body: {
@@ -1134,7 +1310,30 @@ module.exports = (
       } else if (payload.type === 'dialog_submission') {
         const command = payload.callback_id.split('_')[0]
 
-        if (command === 'changeAmount') {
+        if (command === 'changeTransferAmount') {
+          const {
+            callback_id,
+            submission: { amount },
+            state: origianlMesageURI
+          } = payload
+
+          const transferID = callback_id.split('_')[1]
+
+          await request.post({
+            uri: `${config.constants.URL}/admin/transfer-update-amount`,
+            body: {
+              secret: process.env.apiSecret,
+              data: {
+                transferID: +transferID,
+                amount: Math.round(+amount * 100),
+                origianlMesageURI
+              }
+            },
+            json: true
+          })
+
+          replyMessage = {}
+        } else if (command === 'changeAmount') {
           const {
             callback_id,
             submission: { amount },
@@ -1193,6 +1392,34 @@ module.exports = (
             },
             json: true
           })
+
+          if (replyMessage) {
+            await request.post({
+              uri: process.env.slackWebhookURL,
+              body: { text: replyMessage },
+              json: true
+            })
+            replyMessage = {}
+          }
+        } else if (command === 'createDumbAccount') {
+          const userID = payload.callback_id.split('_')[1]
+          const countryCode = payload.callback_id.split('_')[2]
+
+          const { submission: achNumbers } = payload
+          if (achNumbers) {
+            replyMessage = await request.post({
+              uri: `${config.constants.URL}/admin/manual-create-dumb-account`,
+              body: {
+                secret: process.env.apiSecret,
+                data: {
+                  userID: +userID,
+                  countryCode,
+                  achNumbers
+                }
+              },
+              json: true
+            })
+          }
 
           if (replyMessage) {
             await request.post({

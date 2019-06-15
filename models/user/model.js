@@ -600,6 +600,96 @@ module.exports = (
       })
     },
 
+    async updateBalance (amount, type) {
+      const { TYPES } = config.constants.TRANSFER_ENUMS
+
+      const deltaAmount =
+        type === TYPES.CREDIT ? -1 * parseInt(amount) : parseInt(amount)
+      this.balance = parseInt(this.balance) + deltaAmount
+      await this.save()
+      await Goal.distributeAmount(deltaAmount, this.id)
+
+      amplitude.track({
+        eventType: 'BALANCE_UPDATED',
+        userId: this.id,
+        userProperties: {
+          Balance: this.balance
+        }
+      })
+
+      if (type === TYPES.CREDIT || this.balance >= 50000) {
+        this.canPromptRating()
+      }
+    },
+
+    async undoBalanceUpdate (amount, type) {
+      const { TYPES } = config.constants.TRANSFER_ENUMS
+
+      const deltaAmount =
+        type === TYPES.CREDIT ? -1 * parseInt(amount) : parseInt(amount)
+      this.balance = parseInt(this.balance) - deltaAmount
+      await this.save()
+      await Goal.distributeAmount(-1 * deltaAmount, this.id)
+
+      amplitude.track({
+        eventType: 'BALANCE_UPDATE_UNDONE',
+        userId: this.id,
+        userProperties: {
+          Balance: this.balance
+        }
+      })
+    },
+
+    notifyAboutTransfer (amount, subtype, state) {
+      const getDollarString = amount => {
+        let dollars = amount / 100
+        dollars = dollars % 1 === 0 ? dollars : dollars.toFixed(2)
+        dollars.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+        return `$${dollars}`
+      }
+      const dollarizedAmount = getDollarString(amount)
+      const dollarizedBalance = getDollarString(this.balance)
+
+      const { SUBTYPES, STATES } = config.constants.TRANSFER_ENUMS
+
+      let msg
+      if (subtype === 'invalid_withdraw') {
+        msg = `The amount of ${dollarizedAmount} you requested to withdraw exceeds your balance of ${dollarizedBalance}`
+      } else if ([SUBTYPES.SAVE, SUBTYPES.WITHDRAW].includes(subtype)) {
+        if (state === STATES.PROCESSING) {
+          msg =
+            subtype === SUBTYPES.SAVE
+              ? `You've got ${dollarizedAmount} enroute to Thrive Savings. Keep it up, great job saving!`
+              : `You've withdrawn ${dollarizedAmount} You’ll see this amount back in your chequing account in 1 business day. Have a great day!`
+        } else if (state === STATES.COMPLETED) {
+          msg =
+            subtype === SUBTYPES.SAVE
+              ? `You’ve got an updated balance at Thrive Savings, reply back with ‘Balance’ to check your progress. Have a great day!`
+              : `Your withdrawal request has settled. As a good friend, I’d love to know what you are spending it on?`
+        }
+      } else {
+        msg = `You've been rewarded with ${dollarizedAmount}. Your updated balance is ${dollarizedBalance}. Have a great day!`
+      }
+
+      if (msg) {
+        msg = `Hi ${this.firstName}. ${msg}`
+        twilio.messages.create({
+          from: process.env.twilioNumber,
+          to: this.phone,
+          body: msg
+        })
+        amplitude.track({
+          eventType: 'BOT_SENT_MESSAGE',
+          userId: this.id,
+          eventProperties: {
+            msg,
+            phone: this.phone,
+            messageType: 'Automatic'
+          }
+        })
+      }
+    },
+
     notifyUserAboutTransaction (type, state, amount) {
       let msg
 
@@ -826,34 +916,13 @@ module.exports = (
         },
         json: true
       })
-    },
-
-    async updateBalance (amountInCents, transactionType) {
-      const deltaAmount =
-        transactionType === 'credit'
-          ? -1 * parseInt(amountInCents)
-          : parseInt(amountInCents)
-      this.balance = parseInt(this.balance) + deltaAmount
-      await this.save()
-      await Goal.distributeAmount(deltaAmount, this.id)
-
-      amplitude.track({
-        eventType: 'BALANCE_UPDATED',
-        userId: this.id,
-        userProperties: {
-          Balance: this.balance
-        }
-      })
-
-      if (transactionType === 'credit' || this.balance >= 50000) {
-        this.canPromptRating()
-      }
     }
   },
   associations: {
     hasMany: [
       'Connection',
       'Goal',
+      'Transfer',
       'Bonus',
       'Notification',
       'Debt',

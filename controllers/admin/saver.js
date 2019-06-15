@@ -49,13 +49,14 @@ module.exports = (
       } catch (e) {
         reply.error = true
         reply.errorCode = 'try_catched'
+        reply.errorData = e
+      }
+
+      if (reply.error) {
         amplitude.track({
           eventType: 'SAVER_RUN_FAIL',
           userId: 'server',
-          eventProperties: {
-            error: e,
-            errorCode: reply.errorCode
-          }
+          eventProperties: reply
         })
       }
 
@@ -123,25 +124,19 @@ module.exports = (
           })
         } else {
           reply.error = true
-          reply.errorCode = 'not_found'
-          amplitude.track({
-            eventType: 'SAVER_RUN_USER_FAIL',
-            userId: userID,
-            eventProperties: {
-              errorCode: reply.errorCode
-            }
-          })
+          reply.errorCode = 'user_not_found'
         }
       } catch (e) {
         reply.error = true
         reply.errorCode = 'try_catched'
+        reply.errorData = e
+      }
+
+      if (reply.error) {
         amplitude.track({
           eventType: 'SAVER_RUN_USER_FAIL',
           userId: userID,
-          eventProperties: {
-            error: e,
-            errorCode: reply.errorCode
-          }
+          eventProperties: reply
         })
       }
 
@@ -167,9 +162,10 @@ module.exports = (
       } = ctx.request.body
 
       let reply = {}
+      let user
 
       try {
-        const user = await User.findOne({
+        user = await User.findOne({
           include: [{ model: Connection, include: [Account] }],
           where: { id: userID }
         })
@@ -226,38 +222,24 @@ module.exports = (
             }
             reply.error = true
             reply.errorCode = connectionError
-            amplitude.track({
-              eventType: 'SAVER_TRY_FAIL',
-              userId: userID,
-              eventProperties: {
-                errorCode: connectionError
-              }
-            })
           }
         } else {
           reply.error = true
           reply.errorCode = 'not_found'
-          amplitude.track({
-            eventType: 'SAVER_TRY_FAIL',
-            userId: userID,
-            eventProperties: {
-              errorCode: reply.errorCode
-            }
-          })
         }
       } catch (e) {
         reply.error = true
         reply.errorCode = 'try_catched'
-        amplitude.track({
-          eventType: 'SAVER_TRY_FAIL',
-          userId: userID,
-          eventProperties: {
-            error: e,
-            errorCode: reply.errorCode
-          }
-        })
+        reply.errorData = e
       }
 
+      if (reply.error) {
+        amplitude.track({
+          eventType: 'SAVER_TRY_FAIL',
+          userId: user ? user.id : 'server',
+          eventProperties: reply
+        })
+      }
       ctx.body = reply
     }
   },
@@ -280,11 +262,16 @@ module.exports = (
         data: { userID, connectionID, accountID, amount: amountProvided }
       } = ctx.request.body
 
+      const {
+        URL,
+        TRANSFER_ENUMS: { TYPES, SUBTYPES }
+      } = config.constants
+
       const MIN_BALANCE_THRESHOLD = 5000
       const MIN_DEPOSIT_AMOUNT = 500
       const MAX_DEPOSIT_AMOUNT = 100000
 
-      const reply = {}
+      const reply = { userID, connectionID, accountID }
 
       try {
         const user = await User.findOne({ where: { id: userID } })
@@ -303,7 +290,7 @@ module.exports = (
           } else {
             if (user.savingType === 'Thrive Flex') {
               const { amount: amountFromAlgo } = await request.post({
-                uri: `${config.constants.URL}/admin/algo-run`,
+                uri: `${URL}/admin/algo-run`,
                 body: {
                   secret: process.env.apiSecret,
                   data: {
@@ -316,7 +303,7 @@ module.exports = (
               })
               amountToSave = amountFromAlgo
 
-              // Don't check the safe balance if lastGoodSync happened 3 days ago
+              // NOTE: don't check the safe balance if lastGoodSync happened 3 days ago
               const daysFromLastGoodSync = moment().diff(
                 moment(connection.lastGoodSync),
                 'd'
@@ -327,124 +314,68 @@ module.exports = (
             }
           }
 
+          reply.amountToSave = amountToSave
+          reply.accountBalance = accountBalance
+
           if (amountToSave) {
             if (
               amountToSave >= MIN_DEPOSIT_AMOUNT &&
               amountToSave <= MAX_DEPOSIT_AMOUNT
             ) {
               if (!checkSafeBalance || accountBalance > MIN_BALANCE_THRESHOLD) {
-                if (user.userType === 'vip') {
-                  amplitude.track({
-                    eventType: 'SAVER_REQUESTED_APPROVAL',
-                    userId: user.id,
-                    eventProperties: {
-                      savingType: user.savingType,
-                      amount: amountToSave
-                    }
-                  })
-                  request.post({
-                    uri: `${config.constants.URL}/slack-request-algo-approval`,
-                    body: {
-                      data: {
-                        userID,
-                        amount: parseInt(amountToSave)
-                      }
-                    },
-                    json: true
-                  })
-                } else {
-                  // Do the transfer
-                  await request.post({
-                    uri: `${config.constants.URL}/admin/worker-transfer`,
-                    body: {
-                      secret: process.env.apiSecret,
-                      data: {
-                        userID: user.id,
-                        amount: amountToSave,
-                        type: 'debit',
-                        requestMethod: amountProvided
-                          ? 'ThriveBot'
-                          : 'Automated'
-                      }
-                    },
-                    json: true
-                  })
+                const extra = {
+                  memo: 'Thrive Savings Auto Save',
+                  countryCode: connection.countryCode
+                }
+                if (extra.countryCode === 'CAN') {
+                  extra.accountID = account.id
+                } else if (extra.countryCode === 'USA') {
+                  // TODO: set processing details - fromNodeID & toNodeID
                 }
 
-                // Update the Next Save Date
-                if (!amountProvided) {
-                  user.setNextSaveDate()
-                }
+                await request.post({
+                  uri: `${URL}/admin/transfer-create`,
+                  body: {
+                    secret: process.env.apiSecret,
+                    data: {
+                      userID,
+                      amount: amountToSave,
+                      type: TYPES.DEBIT,
+                      subtype: SUBTYPES.SAVE,
+                      extra
+                    }
+                  },
+                  json: true
+                })
               } else {
                 reply.error = true
                 reply.errorCode = 'not_enough_balance'
-                amplitude.track({
-                  eventType: 'SAVER_PERFORM_FAIL',
-                  userId: userID,
-                  eventProperties: {
-                    errorCode: reply.errorCode,
-                    connectionID,
-                    accountID,
-                    amount: amountToSave,
-                    accountBalance,
-                    minBalanceThreshold: MIN_BALANCE_THRESHOLD
-                  }
-                })
+                reply.minBalanceThreshold = MIN_BALANCE_THRESHOLD
               }
             } else {
               reply.error = true
               reply.errorCode = 'amount_out_of_range'
-              amplitude.track({
-                eventType: 'SAVER_PERFORM_FAIL',
-                userId: userID,
-                eventProperties: {
-                  errorCode: reply.errorCode,
-                  connectionID,
-                  accountID,
-                  amount: amountToSave,
-                  accountBalance,
-                  range: { min: MIN_DEPOSIT_AMOUNT, max: MAX_DEPOSIT_AMOUNT }
-                }
-              })
+              reply.range = { min: MIN_DEPOSIT_AMOUNT, max: MAX_DEPOSIT_AMOUNT }
             }
           } else {
             reply.error = true
             reply.errorCode = 'no_amount_to_save'
-            amplitude.track({
-              eventType: 'SAVER_PERFORM_FAIL',
-              userId: userID,
-              eventProperties: {
-                errorCode: reply.errorCode,
-                connectionID,
-                accountID,
-                amount: amountToSave,
-                accountBalance
-              }
-            })
           }
         } else {
           reply.error = true
           reply.errorCode = 'not_found'
-          amplitude.track({
-            eventType: 'SAVER_PERFORM_FAIL',
-            userId: userID,
-            eventProperties: {
-              errorCode: reply.errorCode,
-              connectionID,
-              accountID
-            }
-          })
         }
       } catch (e) {
         reply.error = true
         reply.errorCode = 'try_catched'
+        reply.errorData = e
+      }
+
+      if (reply.error) {
         amplitude.track({
           eventType: 'SAVER_PERFORM_FAIL',
           userId: userID,
-          eventProperties: {
-            error: e,
-            errorCode: reply.rerorCode
-          }
+          eventProperties: reply
         })
       }
 

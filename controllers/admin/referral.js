@@ -3,10 +3,16 @@ module.exports = (User, Referral, Bluebird, request, config, amplitude) => ({
     schema: [['data', true, [['referralID', true, 'integer']]]],
     async method (ctx) {
       const {
+        URL,
+        TRANSFER_ENUMS: { TYPES, SUBTYPES }
+      } = config.constants
+      const REWARD_AMOUNT = 500
+
+      const {
         data: { referralID }
       } = ctx.request.body
 
-      const reply = {}
+      const reply = { referralID }
       try {
         const referral = await Referral.findOne({ where: { id: referralID } })
         if (referral) {
@@ -15,21 +21,35 @@ module.exports = (User, Referral, Bluebird, request, config, amplitude) => ({
 
           Bluebird.all([
             request.post({
-              uri: `${config.constants.URL}/admin/referral-reward-user`,
+              uri: `${URL}/admin/transfer-create`,
               body: {
                 secret: process.env.apiSecret,
                 data: {
-                  userID: referral.sourceID
+                  userID: referral.sourceID,
+                  amount: REWARD_AMOUNT,
+                  type: TYPES.DEBIT,
+                  subtype: SUBTYPES.REWARD,
+                  extra: {
+                    note: 'Referral program reward',
+                    supplyID: referral.id
+                  }
                 }
               },
               json: true
             }),
             request.post({
-              uri: `${config.constants.URL}/admin/referral-reward-user`,
+              uri: `${URL}/admin/transfer-create`,
               body: {
                 secret: process.env.apiSecret,
                 data: {
-                  userID: referral.targetID
+                  userID: referral.targetID,
+                  amount: REWARD_AMOUNT,
+                  type: TYPES.DEBIT,
+                  subtype: SUBTYPES.REWARD,
+                  extra: {
+                    note: 'Referral program reward',
+                    supplyID: referral.id
+                  }
                 }
               },
               json: true
@@ -38,26 +58,18 @@ module.exports = (User, Referral, Bluebird, request, config, amplitude) => ({
         } else {
           reply.error = true
           reply.errorCode = 'referral_not_found'
-          amplitude.track({
-            eventType: 'REFERRAL_REWARD_FAIL',
-            userId: 'server',
-            eventProperties: {
-              errorCode: reply.errorCode,
-              referralID
-            }
-          })
         }
       } catch (e) {
         reply.error = true
         reply.errorCode = 'try_catched'
+        reply.errorData = e
+      }
+
+      if (reply.error) {
         amplitude.track({
           eventType: 'REFERRAL_REWARD_FAIL',
           userId: 'server',
-          eventProperties: {
-            error: e,
-            errorCode: reply.errorCode,
-            referralID
-          }
+          eventProperties: reply
         })
       }
 
@@ -122,71 +134,6 @@ module.exports = (User, Referral, Bluebird, request, config, amplitude) => ({
             errorCode: reply.errorCode,
             sourceID,
             targetID
-          }
-        })
-      }
-
-      ctx.body = reply
-    }
-  },
-
-  rewardUser: {
-    schema: [['data', true, [['userID', true, 'integer']]]],
-    async method (ctx) {
-      const {
-        data: { userID }
-      } = ctx.request.body
-
-      const REWARD_AMOUNT = 500
-
-      const reply = {}
-      try {
-        const user = await User.findOne({ where: { id: userID } })
-        if (user) {
-          await request.post({
-            uri: `${config.constants.URL}/admin/queue-create`,
-            body: {
-              secret: process.env.apiSecret,
-              data: {
-                userID,
-                amountInCents: REWARD_AMOUNT,
-                type: 'reward',
-                requestMethod: 'ReferralReward'
-              }
-            },
-            json: true
-          })
-          await user.updateBalance(REWARD_AMOUNT, 'debit')
-          user.sendBonusNotification(REWARD_AMOUNT, 'referral')
-          amplitude.track({
-            eventType: 'REFERRAL_REWARD_USER_SUCCEED',
-            userId: user.id,
-            eventProperties: {
-              amount: REWARD_AMOUNT
-            }
-          })
-        } else {
-          reply.error = true
-          reply.errorCode = 'user_not_found'
-          amplitude.track({
-            eventType: 'REFERRAL_REWARD_USER_FAIL',
-            userId: 'server',
-            eventProperties: {
-              errorCode: reply.errorCode,
-              userID
-            }
-          })
-        }
-      } catch (e) {
-        reply.error = true
-        reply.errorCode = 'try_catched'
-        amplitude.track({
-          eventType: 'REFERRAL_REWARD_USER_FAIL',
-          userId: 'server',
-          eventProperties: {
-            error: e,
-            errorCode: reply.errorCode,
-            userID
           }
         })
       }
