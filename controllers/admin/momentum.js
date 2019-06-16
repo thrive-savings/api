@@ -118,7 +118,8 @@ module.exports = (
                     type: TYPES.DEBIT,
                     subtype: SUBTYPES.REWARD,
                     extra: {
-                      note: 'Momentum offer bonus',
+                      memo: 'Momentum offer bonus',
+                      supplyTable: 'MomentumOffer',
                       supplyID: offer.id
                     }
                   }

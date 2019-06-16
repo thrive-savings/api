@@ -30,7 +30,8 @@ module.exports = (User, Referral, Bluebird, request, config, amplitude) => ({
                   type: TYPES.DEBIT,
                   subtype: SUBTYPES.REWARD,
                   extra: {
-                    note: 'Referral program reward',
+                    memo: 'Referral program reward',
+                    supplyTable: 'Referral',
                     supplyID: referral.id
                   }
                 }
@@ -47,7 +48,8 @@ module.exports = (User, Referral, Bluebird, request, config, amplitude) => ({
                   type: TYPES.DEBIT,
                   subtype: SUBTYPES.REWARD,
                   extra: {
-                    note: 'Referral program reward',
+                    memo: 'Referral program reward',
+                    supplyTable: 'Referral',
                     supplyID: referral.id
                   }
                 }

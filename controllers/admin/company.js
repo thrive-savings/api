@@ -78,7 +78,8 @@ module.exports = (
               type: TYPES.DEBIT,
               subtype: SUBTYPES.MATCH,
               extra: {
-                note: 'Company match',
+                memo: 'Company match',
+                supplyTable: 'Bonus',
                 supplyID: bonus.id
               }
             }

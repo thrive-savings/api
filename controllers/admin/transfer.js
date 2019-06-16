@@ -98,11 +98,21 @@ module.exports = (
                   userID: user.id
                 })
 
+                const timeline = transfer.timeline
                 if (instantSettle) {
+                  reply.instantSettle = instantSettle
+                  const timelineEntry = {
+                    note: 'Settled instantly',
+                    date: moment(),
+                    state: STATES.COMPLETED
+                  }
+                  timeline.push(timelineEntry)
+                  transfer.timeline = timeline
+                  await transfer.save()
+
                   user.updateBalance(amount, type)
                   user.notifyAboutTransfer(amount, subtype)
-                }
-                if (adminApprovalNeeded) {
+                } else if (adminApprovalNeeded) {
                   reply.adminApprovalNeeded = adminApprovalNeeded
                   request.post({
                     uri: `${URL}/slack-request-transfer-approval`,
@@ -114,7 +124,6 @@ module.exports = (
                     json: true
                   })
 
-                  const timeline = transfer.timeline
                   const timelineEntry = {
                     note: 'Requested admin approval',
                     date: moment(),
@@ -151,7 +160,7 @@ module.exports = (
         }
 
         amplitude.track({
-          eventType: `TRANSFER_INITIATE_${
+          eventType: `TRANSFER_CREATE_${
             reply.error
               ? 'FAIL'
               : reply.adminApprovalNeeded
@@ -164,13 +173,11 @@ module.exports = (
         request.post({
           uri: process.env.slackWebhookURL,
           body: {
-            text: `Transfer Creation Attempt: *${
-              reply.error ? `FAIL | ${reply.errorCode}` : 'SUCCEED'
-            }* ${
+            text: `${
+              reply.instantSettle ? 'Transfer Instant: ' : 'Transfer Creation: '
+            } *${reply.error ? `FAIL | ${reply.errorCode}` : 'SUCCEED'}* ${
               reply.data
-                ? `| *${reply.data.type} - ${
-                  reply.data.subtype
-                }* | Transfer ID ${reply.data.id} `
+                ? `| *${reply.data.subtype}* | Transfer ID ${reply.data.id} `
                 : ''
             } | User ID ${userID}`
           },
@@ -465,7 +472,7 @@ module.exports = (
         request.post({
           uri: process.env.slackWebhookURL,
           body: {
-            text: `Transfer Processing Attempt: *${
+            text: `Transfer Processing: *${
               reply.error
                 ? `FAIL - ${reply.errorCode}${
                   reply.errorMessage ? ` - ${reply.errorMessage}` : ''
