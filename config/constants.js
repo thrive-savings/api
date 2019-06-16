@@ -9,8 +9,7 @@ module.exports = {
       SAVE: 'save',
       WITHDRAW: 'withdraw',
       REWARD: 'reward',
-      MATCH: 'match',
-      MANUAL: 'manual'
+      MATCH: 'match'
     },
     STATES: {
       WAITING: 'waiting', // waiting for Thrive side attention

@@ -167,8 +167,12 @@ module.exports = (
             text: `Transfer Creation Attempt: *${
               reply.error ? `FAIL | ${reply.errorCode}` : 'SUCCEED'
             }* ${
-              reply.data ? `| Transfer ${reply.data.id} ` : ''
-            } | User ${userID}`
+              reply.data
+                ? `| *${reply.data.type} - ${
+                  reply.data.subtype
+                }* | Transfer ID ${reply.data.id} `
+                : ''
+            } | User ID ${userID}`
           },
           json: true
         })
