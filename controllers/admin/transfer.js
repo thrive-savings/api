@@ -62,11 +62,25 @@ module.exports = (
               reply.error = true
               reply.errorCode = 'user_not_found'
             } else {
-              if (type === TYPES.CREDIT && amount > user.balance) {
-                reply.error = true
-                reply.errorCode = 'invalid_withdraw'
-                user.notifyAboutTransfer(amount, reply.errorCode)
-              } else {
+              if (type === TYPES.CREDIT) {
+                const withdrawsInProgress = await Transfer.sumCustom(userID, {
+                  subtype: SUBTYPES.WITHDRAW,
+                  state: STATES.PROCESSING
+                })
+                if (amount > user.balance - withdrawsInProgress) {
+                  reply.error = true
+                  reply.errorCode = 'invalid_withdraw'
+
+                  user.sendMessage(
+                    user.formInvalidWithdrawalMessage(
+                      amount,
+                      withdrawsInProgress
+                    )
+                  )
+                }
+              }
+
+              if (!reply.error) {
                 const instantSettle = ![
                   SUBTYPES.WITHDRAW,
                   SUBTYPES.SAVE
@@ -554,7 +568,6 @@ module.exports = (
           reply.errorCode = 'try_catched'
           reply.errorData = e
           reply.message = 'Request catched an error'
-          console.log(e)
         }
 
         ctx.body = reply

@@ -244,6 +244,79 @@ module.exports = (
     }
   },
 
+  tryWithdraw: {
+    schema: [
+      ['data', true, [['userID', true, 'integer'], ['amount', true, 'integer']]]
+    ],
+    async method (ctx) {
+      const {
+        data: { userID, amount }
+      } = ctx.request.body
+
+      const {
+        URL,
+        TRANSFER: { TYPES, SUBTYPES }
+      } = config.constants
+
+      let reply = {}
+      let user
+
+      try {
+        user = await User.findOne({
+          include: [{ model: Connection, include: [Account] }],
+          where: { id: userID }
+        })
+        if (user) {
+          const {
+            error: connectionError,
+            connection,
+            account
+          } = user.getPrimaryAccount()
+
+          if (!connectionError) {
+            await request.post({
+              uri: `${URL}/admin/transfer-create`,
+              body: {
+                secret: process.env.apiSecret,
+                data: {
+                  userID: user.id,
+                  amount,
+                  type: TYPES.CREDIT,
+                  subtype: SUBTYPES.WITHDRAW,
+                  extra: {
+                    memo: 'Thrive Savings Withdrawal',
+                    accountID: account.id,
+                    countryCode: connection.countryCode
+                  }
+                }
+              },
+              json: true
+            })
+          } else {
+            reply.error = true
+            reply.errorCode = connectionError
+          }
+        } else {
+          reply.error = true
+          reply.errorCode = 'user_not_found'
+        }
+      } catch (e) {
+        reply.error = true
+        reply.errorCode = 'try_catched'
+        reply.errorData = e
+      }
+
+      if (reply.error) {
+        amplitude.track({
+          eventType: 'SAVER_TRY_FAIL',
+          userId: user ? user.id : 'server',
+          eventProperties: reply
+        })
+      }
+      ctx.body = reply
+    }
+  },
+
   performSave: {
     schema: [
       [

@@ -14,8 +14,6 @@ module.exports = (
   return {
     versapay: {
       async method (ctx) {
-        console.log(ctx.request.body)
-
         const reply = {}
         try {
           const {
@@ -81,7 +79,6 @@ module.exports = (
 
               // Set VersaPay Token for Account
               const accountID = transfer.getCanadianAccountID()
-              console.log(accountID)
               const accountVersapayToken =
                 transactionType === 'direct_debit' ? fromFundToken : toFundToken
               const account = await Account.findOne({
@@ -111,7 +108,6 @@ module.exports = (
           reply.error = true
           reply.errorCode = 'try_catched'
           reply.errorData = e
-          console.log(e)
         }
 
         amplitude.track({

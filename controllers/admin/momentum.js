@@ -3,7 +3,7 @@ module.exports = (
   Sequelize,
   User,
   Account,
-  Queue,
+  Transfer,
   MomentumOffer,
   amplitude,
   moment,
@@ -91,19 +91,13 @@ module.exports = (
           if (user) {
             let savesCount = 0
             if (offer.nextBonusDate) {
-              savesCount = await Queue.count({
-                where: {
-                  userID: user.id,
-                  type: 'debit',
-                  processed: true,
-                  processedDate: {
-                    [Sequelize.Op.gt]: moment().subtract(1, 'm')
-                  }
-                }
+              savesCount = await Transfer.countCustom(offer.userID, {
+                subtype: SUBTYPES.SAVE,
+                fromDate: moment().subtract(1, 'M')
               })
             } else {
-              savesCount = await Queue.count({
-                where: { userID: user.id, type: 'debit', processed: true }
+              savesCount = await Transfer.countCustom(offer.userID, {
+                subtype: SUBTYPES.SAVE
               })
             }
 
@@ -159,6 +153,7 @@ module.exports = (
         reply.error = true
         reply.errorCode = 'try_catched'
         reply.errorData = e
+        console.log(e)
       }
 
       if (reply.error) {

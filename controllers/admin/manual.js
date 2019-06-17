@@ -115,19 +115,6 @@ module.exports = (
       }
     },
 
-    fixProcessedDates: {
-      async method (ctx) {
-        const queues = await Queue.findAll({
-          where: { processed: true, processedDate: null }
-        })
-        for (const queue of queues) {
-          queue.update({ processedDate: queue.createdAt })
-        }
-
-        ctx.body = {}
-      }
-    },
-
     generateReferralCode: {
       schema: [['data', true, [['userIDs', true, 'array']]]],
       async method (ctx) {
@@ -234,8 +221,6 @@ module.exports = (
                       type === 'credit' ? SUBTYPES.WITHDRAW : SUBTYPES.SAVE,
                     stateRaw: state,
                     platformID: versapayToken,
-                    createdAt,
-                    updatedAt: processedDate,
                     timeline: [
                       {
                         note: 'Imported from old transfer system',
@@ -246,7 +231,8 @@ module.exports = (
                       memo: 'Imported from old transfer system',
                       countryCode: 'CAN',
                       accountID,
-                      imported: true
+                      imported: true,
+                      processedDate
                     },
                     userID
                   }
@@ -329,7 +315,7 @@ module.exports = (
                       : transfer.amount
                   reply.users[userID].transfers.push(transfer.getData())
 
-                  await transfer.update({ uuid })
+                  await transfer.update({ uuid, createdAt })
                 }
               }
 
@@ -379,24 +365,27 @@ module.exports = (
             if (!Object.keys(reply).includes(user.id)) {
               reply.users[user.id] = {
                 balance: user.balance,
-                historySum: 0,
+                totalSum: 0,
                 queueSum: 0,
                 bonusSum: 0,
+                transferSum: 0,
                 goalProgressSum: 0
               }
             }
 
             const queues = await Queue.findAll({
-              where: { userID: user.id, type: { [Sequelize.Op.ne]: 'bonus' } },
+              where: {
+                userID: user.id,
+                state: 'completed',
+                type: { [Sequelize.Op.ne]: 'bonus' }
+              },
               order: [['id']]
             })
             for (const queue of queues) {
-              if (queue.state === 'completed') {
-                const amountDelta =
-                  queue.type === 'credit' ? -1 * queue.amount : queue.amount
-                reply.users[user.id].historySum += amountDelta
-                reply.users[user.id].queueSum += amountDelta
-              }
+              const amountDelta =
+                queue.type === 'credit' ? -1 * queue.amount : queue.amount
+              reply.users[user.id].totalSum += amountDelta
+              reply.users[user.id].queueSum += amountDelta
             }
 
             const bonuses = await Bonus.findAll({
@@ -405,8 +394,20 @@ module.exports = (
             })
             for (const bonus of bonuses) {
               const amountDelta = bonus.amount
-              reply.users[user.id].historySum += amountDelta
+              reply.users[user.id].totalSum += amountDelta
               reply.users[user.id].bonusSum += amountDelta
+            }
+
+            const transfers = await Transfer.findAll({
+              where: { userID: user.id, state: 'completed' },
+              order: [['id']]
+            })
+            for (const transfer of transfers) {
+              const amountDelta =
+                transfer.type === 'credit'
+                  ? -1 * transfer.amount
+                  : transfer.amount
+              reply.users[user.id].transferSum += amountDelta
             }
 
             reply.users[user.id].goalProgressSum = await Goal.sum('progress', {
@@ -417,8 +418,8 @@ module.exports = (
           reply.matches = []
           reply.dismatches = []
           for (const key of Object.keys(reply.users)) {
-            const { balance, historySum } = reply.users[key]
-            if (balance === historySum) {
+            const { balance, totalSum } = reply.users[key]
+            if (balance === totalSum) {
               reply.matches.push(key)
             } else {
               reply.dismatches.push(key)

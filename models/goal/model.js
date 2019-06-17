@@ -1,4 +1,4 @@
-module.exports = (Bluebird, Sequelize, Queue, request, config) => ({
+module.exports = (Bluebird, Sequelize, Transfer, request, config) => ({
   attributes: {
     description: {
       type: Sequelize.STRING
@@ -49,13 +49,13 @@ module.exports = (Bluebird, Sequelize, Queue, request, config) => ({
         where: whereClause
       })
 
-      let lastDebitAmount = 0
-      const lastDebit = await Queue.findOne({
-        where: { processed: true, type: 'debit', state: 'completed', userID },
-        order: [['processedDate', 'DESC']]
+      let lastSaveAmount = 0
+      const lastSave = await Transfer.lastTransfer(userID, {
+        state: config.constants.TRANSFER.STATES.COMPLETED,
+        subtype: config.constants.TRANSFER.SUBTYPES.SAVE
       })
-      if (lastDebit) {
-        lastDebitAmount = lastDebit.amount
+      if (lastSave) {
+        lastSaveAmount = lastSave.amount
       }
 
       let amountLeftToDistribute = amountToDistribute
@@ -85,13 +85,11 @@ module.exports = (Bluebird, Sequelize, Queue, request, config) => ({
 
           const newProgress = progress + progressDelta
           const newLeftOver = amount - newProgress
-          const lastDebitPortion = Math.round(
-            lastDebitAmount * (portion / totalPortionCount)
+          const lastSavePortion = Math.round(
+            lastSaveAmount * (portion / totalPortionCount)
           )
           const newWeeksLeft =
-            lastDebitPortion <= 0
-              ? -1
-              : Math.ceil(newLeftOver / lastDebitPortion)
+            lastSavePortion <= 0 ? -1 : Math.ceil(newLeftOver / lastSavePortion)
 
           curGoal.progress = newProgress
           curGoal.weeksLeft = newWeeksLeft
@@ -166,13 +164,11 @@ module.exports = (Bluebird, Sequelize, Queue, request, config) => ({
 
           const newProgress = progress - progressDelta
           const newLeftOver = amount - newProgress
-          const lastDebitPortion = Math.round(
-            lastDebitAmount * (portion / totalPortionCount)
+          const lastSavePortion = Math.round(
+            lastSaveAmount * (portion / totalPortionCount)
           )
           const newWeeksLeft =
-            lastDebitPortion <= 0
-              ? -1
-              : Math.ceil(newLeftOver / lastDebitPortion)
+            lastSavePortion <= 0 ? -1 : Math.ceil(newLeftOver / lastSavePortion)
 
           await this.update(
             { progress: newProgress, weeksLeft: newWeeksLeft },

@@ -1,12 +1,6 @@
 module.exports = (Sequelize, uuid, config, moment) => {
   const {
-    TRANSFER: {
-      STATES,
-      TYPES,
-      SUBTYPES,
-      APPROVAL_STATES,
-      REQUEST_METHODS
-    }
+    TRANSFER: { STATES, TYPES, SUBTYPES, APPROVAL_STATES, REQUEST_METHODS }
   } = config.constants
 
   return {
@@ -104,7 +98,61 @@ module.exports = (Sequelize, uuid, config, moment) => {
         field: 'updated_at'
       }
     },
-    classMethods: {},
+    classMethods: {
+      formWhere (userID, filter = {}) {
+        const where = { userID }
+        if (filter.state) {
+          where.state = filter.state
+        }
+        if (filter.type) {
+          where.type = filter.type
+        }
+        if (filter.subtype) {
+          where.subtype = filter.subtype
+        }
+        if (filter.fromDate) {
+          where.createdAt = {
+            [Sequelize.Op.gt]: filter.fromDate
+          }
+        }
+
+        return where
+      },
+
+      async fetchHistory (userID, filter = {}) {
+        const where = this.formWhere(userID, filter)
+
+        const transfers = await this.findAll({ where, order: [['id', 'DESC']] })
+        return transfers
+      },
+
+      async countCustom (userID, filter = {}) {
+        const where = this.formWhere(userID, filter)
+
+        const count = await this.count({ where })
+        return count
+      },
+
+      async sumCustom (userID, filter = {}) {
+        const transfers = await this.fetchHistory(userID, filter)
+
+        let sum = 0
+        for (const { type, amount } of transfers) {
+          sum += type === TYPES.DEBIT ? amount : -1 * amount
+        }
+        return sum
+      },
+
+      async lastTransfer (userID, filter = {}) {
+        const where = this.formWhere(userID, filter)
+
+        const lastTransfer = await this.findAll({
+          where,
+          order: [['id', 'DESC']]
+        })
+        return lastTransfer
+      }
+    },
     instanceMethods: {
       getData () {
         return {

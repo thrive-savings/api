@@ -1,8 +1,7 @@
 module.exports = (
-  Sequelize,
   User,
   Connection,
-  Queue,
+  Transfer,
   twilio,
   amplitude,
   request,
@@ -21,6 +20,11 @@ module.exports = (
       const listCommands = () => {
         return "You can use the following list of commands to interact with me:\n\n- 'Balance': get your balance\n- 'Save 20.00': save money\n- 'Withdraw 20.00': withdraw money\n- 'Boost 2x': increase agressiveness level of automatic pulls\n- 'Reduce 2x': reduce agressiveness level of automatic pulls\n\nAnd feel free to reach out us ar help@thrivesavings.com for any custom request."
       }
+
+      const {
+        URL,
+        TRANSFER: { STATES, SUBTYPES }
+      } = config.constants
 
       const requestBody = ctx.request.body
       const { From: phone, Body: msg } = requestBody
@@ -55,8 +59,14 @@ module.exports = (
             user.firstName
           }. Your balance is $${getDollarString(user.balance)}.`
 
-          let withdrawsInProgress = await Queue.sumInProgress(user.id, 'credit')
-          let depositsInProgress = await Queue.sumInProgress(user.id, 'debit')
+          const withdrawsInProgress = await Transfer.sumCustom(user.id, {
+            subtype: SUBTYPES.WITHDRAW,
+            state: STATES.PROCESSING
+          })
+          const depositsInProgress = await Transfer.sumCustom(user.id, {
+            subtype: SUBTYPES.SAVE,
+            state: STATES.PROCESSING
+          })
 
           if (withdrawsInProgress && depositsInProgress) {
             responseMsg += ` You also have $${getDollarString(
@@ -95,7 +105,7 @@ module.exports = (
             )
 
             const { error, errorCode } = await request.post({
-              uri: `${config.constants.URL}/admin/saver-try-save`,
+              uri: `${URL}/admin/saver-try-save`,
               body: {
                 secret: process.env.apiSecret,
                 data: { userID: user.id, amount, await: true }
@@ -130,62 +140,47 @@ module.exports = (
               }
             }
           }
-        } else if (['withdraw', 'move'].includes(command)) {
+        } else if (['withdraw'].includes(command)) {
           analyticsEvent = 'Bot Received Withdraw Command'
-          const connections = await Connection.findAll({
-            where: { userID: user.id }
-          })
-          if (!connections || connections.length <= 0) {
-            responseMsg = NO_CONNECTIONS_MSG
+          let amount = +params[0]
+          if (isNaN(amount) || amount <= 0) {
+            responseMsg =
+              'How much do you want to withdraw? Example: "Withdraw 10.55"'
           } else {
-            let amount = +params[0]
-            if (isNaN(amount) || amount <= 0) {
-              responseMsg =
-                'How much do you want to withdraw? Example: "Withdraw 10.55"'
-            } else {
-              amount *= 100
+            amount *= 100
 
-              slackMsg = `Processing Withdraw Command from ${user.phone} | ID ${
-                user.id
-              } | ${user.firstName} ${user.lastName} | Balance ${
-                user.balance
-              } | ${msg}`
-              setGenericSlackMsg = false
+            slackMsg = `Processing Withdraw Command from ${user.phone} | ID ${
+              user.id
+            } | ${user.firstName} ${user.lastName} | Balance ${
+              user.balance
+            } | ${msg}`
+            setGenericSlackMsg = false
 
-              let withdrawsInProgress = await Queue.sumInProgress(
-                user.id,
-                'credit'
-              )
+            await user.sendMessageAsync(
+              `Hi ${
+                user.firstName
+              }, Your withdraw request has been received, I am currently processing it.`
+            )
 
-              if (amount > user.balance - withdrawsInProgress) {
-                if (withdrawsInProgress) {
-                  responseMsg = `We cannot process your withdraw request due to previous withdraw request(s) of $${getDollarString(
-                    withdrawsInProgress
-                  )} which will bring your balance to $${getDollarString(
-                    user.balance - withdrawsInProgress
-                  )}.`
-                } else {
-                  responseMsg = `The amount of $${getDollarString(
-                    amount
-                  )} you requested to withdraw exceeds your balance of $${getDollarString(
-                    user.balance
-                  )}.`
-                }
-              } else {
-                // Transfer the amount
-                await request.post({
-                  uri: `${config.constants.URL}/admin/worker-transfer`,
-                  body: {
-                    secret: process.env.apiSecret,
-                    data: {
-                      userID: user.id,
-                      amount,
-                      type: 'credit',
-                      requestMethod: 'ThriveBot'
-                    }
-                  },
-                  json: true
-                })
+            const { error } = await request.post({
+              uri: `${URL}/admin/saver-try-withdraw`,
+              body: {
+                secret: process.env.apiSecret,
+                data: { userID: user.id, amount }
+              },
+              json: true
+            })
+
+            if (error) {
+              switch (error) {
+                case 'no_accounts':
+                case 'no_connections':
+                  responseMsg = NO_CONNECTIONS_MSG
+                  break
+                default:
+                  responseMsg =
+                    'Oops. Something went wrong. Please contact customer support so we can assist you further.'
+                  break
               }
             }
           }

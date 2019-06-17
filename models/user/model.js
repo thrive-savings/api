@@ -640,6 +640,32 @@ module.exports = (
       })
     },
 
+    formInvalidWithdrawalMessage (amount, withdrawsInProgress) {
+      const getDollarString = amount => {
+        let dollars = amount / 100
+        dollars = dollars % 1 === 0 ? dollars : dollars.toFixed(2)
+        dollars.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+        return `$${dollars}`
+      }
+
+      let msg
+      if (withdrawsInProgress) {
+        msg = `We cannot process your withdraw request due to previous withdraw request(s) of $${getDollarString(
+          withdrawsInProgress
+        )} which will bring your balance to $${getDollarString(
+          this.balance - withdrawsInProgress
+        )}.`
+      } else {
+        msg = `The amount of $${getDollarString(
+          amount
+        )} you requested to withdraw exceeds your balance of $${getDollarString(
+          this.balance
+        )}.`
+      }
+
+      return msg
+    },
+
     notifyAboutTransfer (amount, subtype, state) {
       const getDollarString = amount => {
         let dollars = amount / 100
@@ -653,9 +679,7 @@ module.exports = (
       const { SUBTYPES, STATES } = config.constants.TRANSFER
 
       let msg
-      if (subtype === 'invalid_withdraw') {
-        msg = `The amount of ${dollarizedAmount} you requested to withdraw exceeds your balance of ${dollarizedBalance}`
-      } else if ([SUBTYPES.SAVE, SUBTYPES.WITHDRAW].includes(subtype)) {
+      if ([SUBTYPES.SAVE, SUBTYPES.WITHDRAW].includes(subtype)) {
         if (state === STATES.PROCESSING) {
           msg =
             subtype === SUBTYPES.SAVE
