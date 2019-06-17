@@ -366,137 +366,6 @@ module.exports = (
     }
   },
 
-  manualTransfer: {
-    async method (ctx) {
-      const { token, trigger_id, response_url: responseUrl } = ctx.request.body
-
-      if (token !== process.env.slackVerificationToken) {
-        return Bluebird.reject([
-          { key: 'Access Denied', value: `Incorrect Verification Token` }
-        ])
-      }
-
-      request.post({
-        uri: `${config.constants.URL}/slack-api-call`,
-        body: {
-          data: {
-            url: 'dialog.open',
-            body: {
-              dialog: JSON.stringify({
-                callback_id: `manualTransfer`,
-                title: 'Manual Transfer',
-                submit_label: 'Submit',
-                elements: [
-                  {
-                    type: 'text',
-                    subtype: 'number',
-                    label: 'User ID:',
-                    name: 'userID',
-                    max_length: 10,
-                    min_length: 1
-                  },
-                  {
-                    label: 'Transaction Type:',
-                    type: 'select',
-                    subtype: 'text',
-                    name: 'type',
-                    options: [
-                      { label: 'Debit', value: 'debit' },
-                      { label: 'Credit', value: 'credit' }
-                    ]
-                  },
-                  {
-                    type: 'text',
-                    label: 'Amount:',
-                    name: 'amount',
-                    hint: 'Example amount format: 10.25',
-                    max_length: 6,
-                    min_length: 1
-                  }
-                ],
-                state: responseUrl
-              }),
-              trigger_id
-            }
-          }
-        },
-        json: true
-      })
-
-      ctx.body = ''
-    }
-  },
-
-  manualTransferDirect: {
-    async method (ctx) {
-      const { token, trigger_id, response_url: responseUrl } = ctx.request.body
-
-      if (token !== process.env.slackVerificationToken) {
-        return Bluebird.reject([
-          { key: 'Access Denied', value: `Incorrect Verification Token` }
-        ])
-      }
-
-      request.post({
-        uri: `${config.constants.URL}/slack-api-call`,
-        body: {
-          data: {
-            url: 'dialog.open',
-            body: {
-              dialog: JSON.stringify({
-                callback_id: `manualTransferDirect`,
-                title: 'Manual Transfer Direct',
-                submit_label: 'Submit',
-                elements: [
-                  {
-                    type: 'text',
-                    subtype: 'number',
-                    label: 'User ID:',
-                    name: 'userID',
-                    max_length: 10,
-                    min_length: 1
-                  },
-                  {
-                    type: 'text',
-                    label: 'Amount:',
-                    name: 'amount',
-                    hint:
-                      'Example amount format: 10.25 (Use negative amount to trigger withdraw)',
-                    max_length: 8,
-                    min_length: 1
-                  },
-                  {
-                    type: 'text',
-                    label: 'Institution #:',
-                    name: 'institution',
-                    placeholder: '001'
-                  },
-                  {
-                    type: 'text',
-                    label: 'Transit #:',
-                    name: 'transit',
-                    placeholder: '01234'
-                  },
-                  {
-                    type: 'text',
-                    label: 'Account #:',
-                    name: 'account',
-                    placeholder: '123456789xxx'
-                  }
-                ],
-                state: responseUrl
-              }),
-              trigger_id
-            }
-          }
-        },
-        json: true
-      })
-
-      ctx.body = ''
-    }
-  },
-
   bonusUser: {
     async method (ctx) {
       const {
@@ -568,6 +437,197 @@ module.exports = (
         },
         json: true
       })
+
+      ctx.body = ''
+    }
+  },
+
+  manageTransfers: {
+    async method (ctx) {
+      const {
+        token,
+        text,
+        trigger_id,
+        response_url: responseUrl
+      } = ctx.request.body
+
+      if (token !== process.env.slackVerificationToken) {
+        return Bluebird.reject([
+          { key: 'Access Denied', value: `Incorrect Verification Token` }
+        ])
+      }
+
+      const {
+        URL,
+        TRANSFER: { STATES, SUBTYPES, APPROVAL_STATES, REQUEST_METHODS }
+      } = config.constants
+
+      let slackReply
+      let dialogBody
+      if (text) {
+        const [command, ...rest] = text.split(' ')
+
+        switch (command) {
+          case 'display':
+            if (rest && rest.length && rest[0]) {
+              let filter = {}
+              const arg0 = rest[0]
+              if (arg0 !== 'all') {
+                filter = {
+                  transferID: arg0
+                }
+              }
+
+              const reply = await request.post({
+                uri: `${URL}/admin/transfer-display`,
+                body: {
+                  secret: process.env.apiSecret,
+                  data: filter
+                },
+                json: true
+              })
+              slackReply = reply.message
+            }
+
+            if (!slackReply) {
+              dialogBody = {
+                callback_id: `displayTransfers`,
+                title: 'Display Transfer(s) Data',
+                submit_label: 'Submit',
+                elements: [
+                  {
+                    type: 'text',
+                    label: 'User ID(s):',
+                    name: 'userIDs',
+                    optional: true,
+                    hint:
+                      'To filter results by user, provide single or comma separated IDs'
+                  },
+                  {
+                    label: 'Filter by State',
+                    type: 'select',
+                    subtype: 'text',
+                    name: 'state',
+                    options: Object.values(STATES).map(val => ({
+                      label: val,
+                      value: val
+                    })),
+                    optional: true
+                  },
+                  {
+                    label: 'Filter by Subtype',
+                    type: 'select',
+                    subtype: 'text',
+                    name: 'subtype',
+                    options: Object.values(SUBTYPES).map(val => ({
+                      label: val,
+                      value: val
+                    })),
+                    optional: true
+                  },
+                  {
+                    label: 'Filter by Request Method',
+                    type: 'select',
+                    subtype: 'text',
+                    name: 'requestMethod',
+                    options: Object.values(REQUEST_METHODS).map(val => ({
+                      label: val,
+                      value: val
+                    })),
+                    optional: true
+                  },
+                  {
+                    label: 'Filter by Approval State',
+                    type: 'select',
+                    subtype: 'text',
+                    name: 'approvalState',
+                    options: Object.values(APPROVAL_STATES).map(val => ({
+                      label: val,
+                      value: val
+                    })),
+                    optional: true
+                  }
+                ],
+                state: responseUrl
+              }
+            }
+            break
+          case 'create':
+            dialogBody = {
+              callback_id: `createTransfer`,
+              title: 'Create Manual Transfer',
+              submit_label: 'Submit',
+              elements: [
+                {
+                  type: 'text',
+                  subtype: 'number',
+                  label: 'User ID:',
+                  name: 'userID',
+                  max_length: 10,
+                  min_length: 1
+                },
+                {
+                  type: 'text',
+                  subtype: 'number',
+                  label: 'Account ID:',
+                  name: 'accountID',
+                  optional: true,
+                  hint: 'Default account is chosen if omitted'
+                },
+                {
+                  label: 'Transaction Type:',
+                  type: 'select',
+                  subtype: 'text',
+                  name: 'subtype',
+                  options: [SUBTYPES.SAVE, SUBTYPES.WITHDRAW].map(val => ({
+                    label: val,
+                    value: val
+                  }))
+                },
+                {
+                  type: 'text',
+                  label: 'Amount:',
+                  name: 'amount',
+                  hint: 'Example amount format: 10.25',
+                  max_length: 6,
+                  min_length: 1
+                }
+              ],
+              state: responseUrl
+            }
+            break
+          default:
+            const tab = '   '
+            slackReply = `*Transfer Management Syntax Help*:\n - Display:\n${tab} - */transfer display* : then provide filter options through the dialog box\n${tab} - */transfer display [all, transferID]* : shortcuts to display data fro all or single transfer\n - Create:\n${tab} - */transfer create* : to create manual transfer for user`
+            break
+        }
+      }
+
+      if (dialogBody) {
+        console.log(dialogBody)
+
+        request.post({
+          uri: `${config.constants.URL}/slack-api-call`,
+          body: {
+            data: {
+              url: 'dialog.open',
+              body: {
+                dialog: JSON.stringify(dialogBody),
+                trigger_id
+              }
+            }
+          },
+          json: true
+        })
+      }
+
+      if (slackReply) {
+        request.post({
+          uri: process.env.slackWebhookURL,
+          body: { text: slackReply },
+          json: true
+        })
+      }
 
       ctx.body = ''
     }
@@ -1168,88 +1228,6 @@ module.exports = (
     }
   },
 
-  requestAlgoApproval: {
-    schema: [
-      [
-        'data',
-        true,
-        [
-          ['userID', true, 'integer'],
-          ['amount', true, 'integer'],
-          ['uri', 'string']
-        ]
-      ]
-    ],
-    async method (ctx) {
-      const {
-        data: { userID, amount, uri }
-      } = ctx.request.body
-
-      const user = await User.findOne({ where: { id: userID } })
-      if (!user) {
-        return Bluebird.reject([
-          { key: 'user', value: `User not found for ID: ${userID}` }
-        ])
-      }
-
-      const getDollarString = amount => {
-        let dollars = amount / 100
-        dollars = dollars % 1 === 0 ? dollars : dollars.toFixed(2)
-        dollars.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
-        return dollars
-      }
-
-      await request.post({
-        uri: uri || process.env.slackWebhookURL,
-        body: {
-          text: `Algorithm has choosen $${getDollarString(
-            amount
-          )} to transfer for ${user.firstName} ${user.lastName} | ${
-            user.phone
-          } | ID${user.id}`,
-          attachments: [
-            {
-              title: 'Do you approve?',
-              fallback: 'You are unable to approve the request',
-              callback_id: `algoResultApproval_${userID}_${amount}`,
-              color: '#2CC197',
-              actions: [
-                {
-                  name: 'yes',
-                  text: 'Yes',
-                  type: 'button',
-                  style: 'danger',
-                  value: 'yes'
-                },
-                {
-                  name: 'no',
-                  text: 'No',
-                  type: 'button',
-                  value: 'no'
-                },
-                {
-                  name: 'auto',
-                  text: "Don't ask again",
-                  type: 'button',
-                  value: 'auto'
-                },
-                {
-                  name: 'change',
-                  text: 'Change amount',
-                  type: 'button',
-                  value: 'change'
-                }
-              ]
-            }
-          ]
-        },
-        json: true
-      })
-
-      ctx.body = {}
-    }
-  },
-
   apiCall: {
     schema: [['data', true, [['url', true], ['body', true, 'object']]]],
     async method (ctx) {
@@ -1333,27 +1311,6 @@ module.exports = (
           })
 
           replyMessage = {}
-        } else if (command === 'changeAmount') {
-          const {
-            callback_id,
-            submission: { amount },
-            state: approvalMessageUrl
-          } = payload
-
-          const userID = callback_id.split('_')[1]
-
-          await request.post({
-            uri: `${config.constants.URL}/slack-request-algo-approval`,
-            body: {
-              data: {
-                userID: +userID,
-                amount: Math.round(+amount * 100),
-                uri: approvalMessageUrl
-              }
-            },
-            json: true
-          })
-          replyMessage = {}
         } else if (command === 'sendSms') {
           const {
             submission: { userID, message }
@@ -1429,23 +1386,18 @@ module.exports = (
             })
             replyMessage = {}
           }
-        } else if (command === 'manualTransfer') {
-          const {
-            submission: { userID, type, amount }
-          } = payload
+        } else if (command === 'displayTransfers') {
+          const { submission: filter } = payload
 
-          replyMessage = await request.post({
-            uri: `${config.constants.URL}/admin/manual-transfer`,
+          const reply = await request.post({
+            uri: `${config.constants.URL}/admin/transfer-display`,
             body: {
               secret: process.env.apiSecret,
-              data: {
-                userID: +userID,
-                amount: Math.round(+amount * 100),
-                type
-              }
+              data: { filter }
             },
             json: true
           })
+          replyMessage = reply.message
 
           if (replyMessage) {
             await request.post({
@@ -1455,25 +1407,28 @@ module.exports = (
             })
             replyMessage = {}
           }
-        } else if (command === 'manualTransferDirect') {
+        } else if (command === 'createTransfer') {
           const {
-            submission: { userID, amount, institution, transit, account }
+            submission: { userID, accountID, subtype, amount }
           } = payload
 
-          replyMessage = await request.post({
-            uri: `${config.constants.URL}/admin/manual-transfer-direct`,
+          const requestData = {
+            userID: +userID,
+            subtype,
+            amount: Math.round(+amount * 100)
+          }
+          if (accountID) {
+            requestData.accountID = +accountID
+          }
+          const reply = await request.post({
+            uri: `${config.constants.URL}/admin/transfer-create-manual`,
             body: {
               secret: process.env.apiSecret,
-              data: {
-                userID: +userID,
-                amount: Math.round(+amount * 100),
-                institution,
-                transit,
-                account
-              }
+              data: requestData
             },
             json: true
           })
+          replyMessage = reply.message
 
           if (replyMessage) {
             await request.post({

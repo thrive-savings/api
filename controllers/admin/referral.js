@@ -4,7 +4,7 @@ module.exports = (User, Referral, Bluebird, request, config, amplitude) => ({
     async method (ctx) {
       const {
         URL,
-        TRANSFER_ENUMS: { TYPES, SUBTYPES }
+        TRANSFER: { TYPES, SUBTYPES }
       } = config.constants
       const REWARD_AMOUNT = 500
 

@@ -1,6 +1,6 @@
 module.exports = (Sequelize, uuid, config, moment) => {
   const {
-    TRANSFER_ENUMS: {
+    TRANSFER: {
       STATES,
       TYPES,
       SUBTYPES,

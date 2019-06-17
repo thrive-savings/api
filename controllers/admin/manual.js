@@ -15,13 +15,7 @@ module.exports = (
 ) => {
   const {
     URL,
-    TRANSFER_ENUMS: {
-      STATES,
-      TYPES,
-      SUBTYPES,
-      APPROVAL_STATES,
-      REQUEST_METHODS
-    }
+    TRANSFER: { STATES, TYPES, SUBTYPES, APPROVAL_STATES, REQUEST_METHODS }
   } = config.constants
 
   return {
@@ -547,79 +541,6 @@ module.exports = (
           }
         } catch (e) {
           responseMsg = `Transfer failed for User ${userID}`
-        }
-
-        ctx.body = responseMsg
-      }
-    },
-
-    transferDirect: {
-      schema: [
-        [
-          'data',
-          true,
-          [
-            ['userID', true, 'integer'],
-            ['amount', true, 'integer'],
-            ['institution', true],
-            ['transit', true],
-            ['account', true]
-          ]
-        ]
-      ],
-      async method (ctx) {
-        const {
-          data: { userID, amount: givenAmount, institution, transit, account }
-        } = ctx.request.body
-
-        let responseMsg = `Processing the transfer for User ${userID}`
-        try {
-          const requestMethod = 'ManualDirect'
-          const type = givenAmount > 0 ? 'debit' : 'credit'
-          const amount = givenAmount > 0 ? givenAmount : -1 * givenAmount
-
-          if (type === 'debit' && amount > 20000) {
-            responseMsg = `Direct Transfer for User ${userID} - too large amount to save`
-          } else {
-            const user = await User.findOne({ where: { id: userID } })
-            if (user) {
-              // Create Queue entry
-              await Queue.create({
-                userID,
-                amount,
-                type,
-                requestMethod,
-                transactionReference: `THRIVE${userID}_` + moment().format('X')
-              })
-
-              // Deposit to VersaPay
-              await request.post({
-                uri: `${URL}/admin/versapay-sync`,
-                body: {
-                  secret: process.env.apiSecret,
-                  data: { userID, institution, transit, account }
-                },
-                json: true
-              })
-
-              // Set Next Save Date
-              user.setNextSaveDate()
-
-              amplitude.track({
-                eventType: 'MANUAL_DIRECT_TRANSFER_DONE',
-                userId: userID,
-                eventProperties: {
-                  Amount: amount,
-                  TransactionType: type,
-                  RequestMethod: requestMethod
-                }
-              })
-            } else {
-              responseMsg = `Direct Transfer couldn't find User for ID ${userID}`
-            }
-          }
-        } catch (e) {
-          responseMsg = `Direct Transfer failed for User ${userID}`
         }
 
         ctx.body = responseMsg

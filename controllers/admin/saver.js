@@ -264,7 +264,7 @@ module.exports = (
 
       const {
         URL,
-        TRANSFER_ENUMS: { TYPES, SUBTYPES }
+        TRANSFER: { TYPES, SUBTYPES }
       } = config.constants
 
       const MIN_BALANCE_THRESHOLD = 5000
@@ -324,7 +324,7 @@ module.exports = (
             ) {
               if (!checkSafeBalance || accountBalance > MIN_BALANCE_THRESHOLD) {
                 const extra = {
-                  memo: 'Thrive Savings Auto Save',
+                  memo: 'Thrive Savings Save',
                   countryCode: connection.countryCode
                 }
                 if (extra.countryCode === 'CAN') {

@@ -64,7 +64,7 @@ module.exports = (
       try {
         const {
           URL,
-          TRANSFER_ENUMS: { TYPES, SUBTYPES }
+          TRANSFER: { TYPES, SUBTYPES }
         } = config.constants
 
         const bonus = await Bonus.create({ amount, companyID, userID })

@@ -8,7 +8,7 @@ module.exports = (
   request
 ) => {
   const {
-    TRANSFER_ENUMS: { STATES }
+    TRANSFER: { STATES }
   } = config.constants
 
   return {

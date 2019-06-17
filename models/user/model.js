@@ -601,7 +601,7 @@ module.exports = (
     },
 
     async updateBalance (amount, type) {
-      const { TYPES } = config.constants.TRANSFER_ENUMS
+      const { TYPES } = config.constants.TRANSFER
 
       const deltaAmount =
         type === TYPES.CREDIT ? -1 * parseInt(amount) : parseInt(amount)
@@ -623,7 +623,7 @@ module.exports = (
     },
 
     async undoBalanceUpdate (amount, type) {
-      const { TYPES } = config.constants.TRANSFER_ENUMS
+      const { TYPES } = config.constants.TRANSFER
 
       const deltaAmount =
         type === TYPES.CREDIT ? -1 * parseInt(amount) : parseInt(amount)
@@ -650,7 +650,7 @@ module.exports = (
       const dollarizedAmount = getDollarString(amount)
       const dollarizedBalance = getDollarString(this.balance)
 
-      const { SUBTYPES, STATES } = config.constants.TRANSFER_ENUMS
+      const { SUBTYPES, STATES } = config.constants.TRANSFER
 
       let msg
       if (subtype === 'invalid_withdraw') {

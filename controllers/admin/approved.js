@@ -48,7 +48,7 @@ module.exports = (
 
       const {
         URL,
-        TRANSFER_ENUMS: { STATES, APPROVAL_STATES }
+        TRANSFER: { STATES, APPROVAL_STATES }
       } = config.constants
 
       const timeline = transfer.timeline

@@ -77,7 +77,7 @@ module.exports = (
 
       const {
         URL,
-        TRANSFER_ENUMS: { TYPES, SUBTYPES }
+        TRANSFER: { TYPES, SUBTYPES }
       } = config.constants
 
       const reply = { offerID }

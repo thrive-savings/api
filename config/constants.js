@@ -1,6 +1,6 @@
 module.exports = {
   // Transfer Table Enum values
-  TRANSFER_ENUMS: {
+  TRANSFER: {
     TYPES: {
       DEBIT: 'debit',
       CREDIT: 'credit'

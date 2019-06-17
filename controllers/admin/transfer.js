@@ -1,6 +1,8 @@
 module.exports = (
   Bluebird,
+  Sequelize,
   User,
+  Connection,
   Account,
   Transfer,
   config,
@@ -10,13 +12,7 @@ module.exports = (
 ) => {
   const {
     URL,
-    TRANSFER_ENUMS: {
-      STATES,
-      TYPES,
-      SUBTYPES,
-      APPROVAL_STATES,
-      REQUEST_METHODS
-    }
+    TRANSFER: { STATES, TYPES, SUBTYPES, APPROVAL_STATES, REQUEST_METHODS }
   } = config.constants
 
   const MAX_SAVE_AMOUNT = 500000 // $5000
@@ -484,6 +480,182 @@ module.exports = (
           },
           json: true
         })
+
+        ctx.body = reply
+      }
+    },
+
+    // Internal Management Endpoints
+    display: {
+      schema: [['data', true, [['transferID'], ['filter', 'object']]]],
+      async method (ctx) {
+        const {
+          data: { transferID, filter }
+        } = ctx.request.body
+
+        const reply = {}
+        try {
+          const where = {}
+
+          if (transferID) {
+            where.id = transferID
+          } else if (filter) {
+            const {
+              userIDs,
+              state,
+              subtype,
+              requestMethod,
+              approvalState
+            } = filter
+
+            if (userIDs) {
+              where.userID = { [Sequelize.Op.in]: userIDs.split(',') }
+            }
+            if (state) {
+              where.state = state
+            }
+            if (subtype) {
+              where.subtype = subtype
+            }
+            if (requestMethod) {
+              where.requestMethod = requestMethod
+            }
+            if (approvalState) {
+              where.approvalState = approvalState
+            }
+          }
+
+          const transfers = await Transfer.findAll({ where, order: [['id']] })
+          if (transfers && transfers.length) {
+            const tab = '   '
+            reply.message = `${transfers.length} transfers found:\n`
+            for (const {
+              id,
+              userID,
+              state,
+              stateRaw,
+              subtype,
+              requestMethod,
+              extra
+            } of transfers) {
+              reply.message += ` - *Transfer ID ${id} | User ID ${userID}*\n`
+              reply.message += `${tab} - State: *${state}*\n${
+                stateRaw ? `${tab} - State Raw: *${stateRaw}*\n` : ''
+              }${tab} - Subtype: *${subtype}*\n${tab} - Request Method: *${requestMethod}*\n`
+              reply.message += `${tab} - Extra: ${JSON.stringify(extra)}\n`
+            }
+          } else {
+            reply.error = true
+            reply.errorCode = 'no_transfer_found'
+            reply.message = 'No transfers found for provided filter options'
+          }
+        } catch (e) {
+          reply.error = true
+          reply.errorCode = 'try_catched'
+          reply.errorData = e
+          reply.message = 'Request catched an error'
+          console.log(e)
+        }
+
+        ctx.body = reply
+      }
+    },
+
+    createManual: {
+      schema: [
+        [
+          'data',
+          true,
+          [
+            ['userID', true, 'integer'],
+            ['accountID', 'integer'],
+            ['subtype', true],
+            ['amount', true, 'integer']
+          ]
+        ]
+      ],
+      async method (ctx) {
+        const {
+          data: { userID, accountID: requestedAccountID, subtype, amount }
+        } = ctx.request.body
+
+        const reply = { userID, subtype, amount }
+        try {
+          let user
+          let connection
+          let account
+          if (requestedAccountID) {
+            account = await Account.findOne({
+              include: [Connection],
+              where: { id: requestedAccountID }
+            })
+            if (!account) {
+              reply.error = true
+              reply.errorCode = 'requested_account_not_found'
+              reply.message = `No account found for ID ${requestedAccountID}`
+            } else {
+              user = await User.findOne({ where: { id: userID } })
+              connection = account.connection
+            }
+          } else {
+            user = await User.findOne({
+              include: [{ model: Connection, include: [Account] }],
+              where: { id: userID }
+            })
+
+            const {
+              error: connectionError,
+              connection: primaryConnection,
+              account: primaryAccount
+            } = user.getPrimaryAccount()
+
+            if (connectionError) {
+              reply.error = true
+              reply.errorCode = connectionError
+              reply.message = `Error *${connectionError}* occured while fetching primary user account`
+            } else {
+              connection = primaryConnection
+              account = primaryAccount
+            }
+          }
+
+          if (!reply.error && !user) {
+            reply.error = true
+            reply.errorCode = 'user_not_found'
+            reply.message = `User not found for ID ${userID}`
+          }
+
+          if (user && connection && account) {
+            // TODO: implement the logic
+            await request.post({
+              uri: `${URL}/admin/transfer-create`,
+              body: {
+                secret: process.env.apiSecret,
+                data: {
+                  userID,
+                  amount,
+                  type:
+                    subtype === SUBTYPES.WITHDRAW ? TYPES.CREDIT : TYPES.DEBIT,
+                  subtype,
+                  requestMethod: REQUEST_METHODS.MANUAL,
+                  extra: {
+                    memo: `Thrive Savings ${
+                      subtype === SUBTYPES.WITHDRAW ? 'Withdraw' : 'Save'
+                    }`,
+                    countryCode: connection.countryCode,
+                    accountID: account.id
+                  }
+                }
+              },
+              json: true
+            })
+          }
+        } catch (e) {
+          reply.error = true
+          reply.errorCode = 'try_catched'
+          reply.errorData = e
+          reply.message = 'Request catched an error'
+        }
 
         ctx.body = reply
       }

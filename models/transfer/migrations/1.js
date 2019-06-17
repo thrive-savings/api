@@ -6,7 +6,7 @@ module.exports = (Sequelize, config, moment) => ({
       STATES,
       REQUEST_METHODS,
       APPROVAL_STATES
-    } = config.constants.TRANSFER_ENUMS
+    } = config.constants.TRANSFER
 
     return queryInterface
       .createTable('transfers', {
