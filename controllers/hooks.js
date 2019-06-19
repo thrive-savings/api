@@ -103,11 +103,18 @@ module.exports = (
               reply.errorCode = 'transfer_not_found'
               reply.uuid = uuid
             }
+          } else {
+            reply.error = true
+            reply.errorCode = 'incorrect_request_type'
           }
         } catch (e) {
           reply.error = true
           reply.errorCode = 'try_catched'
           reply.errorData = e
+        }
+
+        if (reply.error) {
+          reply.requestBody = JSON.stringify(ctx.request.body)
         }
 
         amplitude.track({

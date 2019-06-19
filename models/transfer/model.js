@@ -126,7 +126,10 @@ module.exports = (Sequelize, uuid, config, moment) => {
       async fetchHistory (userID, filter = {}) {
         const where = this.formWhere(userID, filter)
 
-        const transfers = await this.findAll({ where, order: [['id', 'DESC']] })
+        const transfers = await this.findAll({
+          where,
+          order: [['createdAt', 'DESC']]
+        })
         return transfers
       },
 

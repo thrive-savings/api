@@ -539,7 +539,7 @@ module.exports = (
             }
           }
 
-          const transfers = await Transfer.findAll({ where, order: [['id']] })
+          const transfers = await Transfer.findAll({ where, order: [['createdAt']] })
           if (transfers && transfers.length) {
             const tab = '   '
             reply.message = `${transfers.length} transfers found:\n`

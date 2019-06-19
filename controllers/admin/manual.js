@@ -10,8 +10,7 @@ module.exports = (
   Bluebird,
   request,
   config,
-  moment,
-  amplitude
+  moment
 ) => {
   const {
     URL,
@@ -188,8 +187,14 @@ module.exports = (
             if (!Object.keys(reply).includes(user.id)) {
               reply.users[user.id] = {
                 balance: user.balance,
-                queueSum: 0,
-                transferSum: 0,
+                queueSum: {
+                  settled: 0,
+                  processing: 0
+                },
+                transferSum: {
+                  settled: 0,
+                  processing: 0
+                },
                 transfers: []
               }
 
@@ -204,15 +209,20 @@ module.exports = (
                   type,
                   state,
                   requestMethod,
-                  createdAt,
+                  // createdAt,
                   processedDate,
                   versapay_token: versapayToken,
-                  uuid,
+                  // uuid,
                   accountID,
                   userID
                 } of queues) {
-                  reply.users[userID].queueSum +=
+                  const queueAmountToAdd =
                     type === 'credit' ? -1 * amount : amount
+                  if (state === 'completed') {
+                    reply.users[userID].queueSum.settled += queueAmountToAdd
+                  } else if (state === 'in_progress') {
+                    reply.users[userID].queueSum.processing += queueAmountToAdd
+                  }
 
                   const transferData = {
                     amount,
@@ -249,7 +259,7 @@ module.exports = (
                       case 'failed':
                         transferData.state = STATES.FAILED
                         break
-                      case 'canceled':
+                      case 'cancelled':
                         transferData.state = STATES.CANCELED
                         break
                       case 'nsfed':
@@ -294,10 +304,12 @@ module.exports = (
                     case 'ReferralReward':
                       transferData.subtype = SUBTYPES.REWARD
                       transferData.extra.memo += ' - referral reward'
+                      transferData.extra.supplyTable = 'Referral'
                       break
                     case 'MomentumOffer':
                       transferData.subtype = SUBTYPES.MATCH
                       transferData.extra.memo += ' - momentum offer bonus'
+                      transferData.extra.supplyTable = 'MomentumOffer'
                       break
                     case 'InAppRequest':
                       transferData.extra.memo += ' - goal withdrawal'
@@ -308,19 +320,25 @@ module.exports = (
                       break
                   }
 
-                  const transfer = await Transfer.create(transferData)
-                  reply.users[userID].transferSum +=
-                    transfer.type === TYPES.CREDIT
-                      ? -1 * transfer.amount
-                      : transfer.amount
-                  reply.users[userID].transfers.push(transfer.getData())
+                  const amountToAdd =
+                    transferData.type === TYPES.CREDIT
+                      ? -1 * transferData.amount
+                      : transferData.amount
 
-                  await transfer.update({ uuid, createdAt })
+                  if (transferData.state === STATES.COMPLETED) {
+                    reply.users[userID].transferSum.settled += amountToAdd
+                  } else if (transferData.state === STATES.PROCESSING) {
+                    reply.users[userID].transferSum.processing += amountToAdd
+                  }
+
+                  // const transfer = await Transfer.create(transferData)
+                  // await transfer.update({ uuid, createdAt })
+                  // reply.users[userID].transfers.push(transfer.getData())
                 }
               }
 
               const userReplyData = reply.users[user.id]
-              if (userReplyData.transferSum !== userReplyData.balance) {
+              if (userReplyData.transferSum.settled !== userReplyData.balance) {
                 request.post({
                   uri: process.env.slackWebhookURL,
                   body: {
@@ -328,9 +346,13 @@ module.exports = (
                       user.firstName
                     } ${user.lastName} | ID ${user.id}\n - Balance: ${
                       userReplyData.balance
-                    }\n - Transfer Sum: ${
-                      userReplyData.transferSum
-                    }\n - Queue Sum: ${userReplyData.queueSum}`
+                    }\n - Transfer Processing Sum: ${
+                      userReplyData.transferSum.processing
+                    }\n - Transfer Settled Sum: ${
+                      userReplyData.transferSum.settled
+                    }\n - Queue Processing Sum: ${
+                      userReplyData.queueSum.processing
+                    }\n - Queue Settled Sum: ${userReplyData.queueSum.settled}`
                   },
                   json: true
                 })
