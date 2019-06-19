@@ -87,7 +87,8 @@ module.exports = (
                 ].includes(subtype)
                 const adminApprovalNeeded =
                   subtype === SUBTYPES.SAVE &&
-                  (user.userType === 'vip' || amount > MAX_SAVE_AMOUNT)
+                  (['vip', 'tester'].includes(user.userType) ||
+                    amount > MAX_SAVE_AMOUNT)
 
                 const transfer = await Transfer.create({
                   amount,
@@ -539,7 +540,10 @@ module.exports = (
             }
           }
 
-          const transfers = await Transfer.findAll({ where, order: [['createdAt']] })
+          const transfers = await Transfer.findAll({
+            where,
+            order: [['createdAt']]
+          })
           if (transfers && transfers.length) {
             const tab = '   '
             reply.message = `${transfers.length} transfers found:\n`
