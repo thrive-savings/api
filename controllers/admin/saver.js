@@ -246,11 +246,19 @@ module.exports = (
 
   tryWithdraw: {
     schema: [
-      ['data', true, [['userID', true, 'integer'], ['amount', true, 'integer']]]
+      [
+        'data',
+        true,
+        [
+          ['userID', true, 'integer'],
+          ['amount', true, 'integer'],
+          ['extra', 'object']
+        ]
+      ]
     ],
     async method (ctx) {
       const {
-        data: { userID, amount }
+        data: { userID, amount, extra: customExtra }
       } = ctx.request.body
 
       const {
@@ -274,6 +282,14 @@ module.exports = (
           } = user.getPrimaryAccount()
 
           if (!connectionError) {
+            const extra = {
+              memo: 'Thrive Savings Withdrawal',
+              accountID: account.id,
+              countryCode: connection.countryCode
+            }
+            if (customExtra) {
+              Object.assign(extra, customExtra)
+            }
             await request.post({
               uri: `${URL}/admin/transfer-create`,
               body: {
@@ -283,11 +299,7 @@ module.exports = (
                   amount,
                   type: TYPES.CREDIT,
                   subtype: SUBTYPES.WITHDRAW,
-                  extra: {
-                    memo: 'Thrive Savings Withdrawal',
-                    accountID: account.id,
-                    countryCode: connection.countryCode
-                  }
+                  extra
                 }
               },
               json: true

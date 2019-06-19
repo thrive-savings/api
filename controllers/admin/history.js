@@ -39,48 +39,62 @@ module.exports = (Sequelize, User, Transfer, config, moment) => ({
           let history = []
 
           const transfers = await Transfer.fetchHistory(userID, {
-            state: STATES.COMPLETED,
+            state: [STATES.COMPLETED, STATES.PROCESSING],
             fromDate
           })
 
           let totalSavings = 0
           let balance = user.balance
           if (transfers && transfers.length) {
-            transfers.map(({ type, subtype, amount, createdAt }) => {
+            transfers.map(({ type, subtype, state, amount, createdAt }) => {
               if (subtype === SUBTYPES.SAVE) {
                 totalSavings += amount
               }
 
               const momentDate = moment(createdAt)
-
-              history.push({
+              const entry = {
+                withOpacity: state === STATES.PROCESSING,
                 processedDate: createdAt,
                 date: momentDate.format('YYYY-MM-DD'),
                 dateMonthOnly: momentDate.format('MM/DD'),
+                total: balance,
+                totalInDollars: getDollarString(balance),
                 activity: {
                   type,
                   subtype,
-                  typeToDisplay:
-                    subtype === SUBTYPES.WITHDRAW
-                      ? 'Withdrawal'
-                      : subtype === SUBTYPES.MATCH
-                        ? 'Match'
-                        : type === SUBTYPES.REWARD
-                          ? 'Reward'
-                          : 'Deposit',
-                  color:
-                    subtype === SUBTYPES.WITHDRAW
-                      ? '#A12938'
-                      : subtype === SUBTYPES.MATCH || type === SUBTYPES.REWARD
-                        ? '#2CC197'
-                        : '#0089CB',
+                  state,
                   amount,
                   amountInDollars:
                     (type === TYPES.CREDIT ? '-' : '') + getDollarString(amount)
-                },
-                total: balance,
-                totalInDollars: getDollarString(balance)
-              })
+                }
+              }
+
+              switch (subtype) {
+                case SUBTYPES.SAVE:
+                  entry.activity.typeToDisplay = 'Deposit'
+                  entry.activity.color = '#0089CB'
+                  if (state === STATES.PROCESSING) {
+                    entry.activity.typeToDisplay += ' Enroute'
+                  }
+                  break
+                case SUBTYPES.WITHDRAW:
+                  entry.activity.typeToDisplay = 'Withdrawal'
+                  entry.activity.color = '#A12938'
+                  if (state === STATES.PROCESSING) {
+                    entry.activity.typeToDisplay += ' Enroute'
+                  }
+                  break
+                case SUBTYPES.MATCH:
+                  entry.activity.typeToDisplay = 'Match'
+                  entry.activity.color = '#2CC197'
+                  break
+                case SUBTYPES.REWARD:
+                  entry.activity.typeToDisplay = 'Reward'
+                  entry.activity.color = '#2CC197'
+                  break
+              }
+
+              history.push(entry)
 
               if (type === TYPES.CREDIT) {
                 balance += amount

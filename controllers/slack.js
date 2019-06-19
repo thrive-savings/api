@@ -604,8 +604,6 @@ module.exports = (
       }
 
       if (dialogBody) {
-        console.log(dialogBody)
-
         request.post({
           uri: `${config.constants.URL}/slack-api-call`,
           body: {

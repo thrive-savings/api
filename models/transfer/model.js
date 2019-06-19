@@ -102,7 +102,11 @@ module.exports = (Sequelize, uuid, config, moment) => {
       formWhere (userID, filter = {}) {
         const where = { userID }
         if (filter.state) {
-          where.state = filter.state
+          if (Array.isArray(filter.state)) {
+            where.state = { [Sequelize.Op.in]: filter.state }
+          } else {
+            where.state = filter.state
+          }
         }
         if (filter.type) {
           where.type = filter.type
@@ -146,9 +150,8 @@ module.exports = (Sequelize, uuid, config, moment) => {
       async lastTransfer (userID, filter = {}) {
         const where = this.formWhere(userID, filter)
 
-        const lastTransfer = await this.findAll({
-          where,
-          order: [['id', 'DESC']]
+        const lastTransfer = await this.findOne({
+          where
         })
         return lastTransfer
       }

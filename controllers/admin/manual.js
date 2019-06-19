@@ -487,67 +487,6 @@ module.exports = (
       }
     },
 
-    transfer: {
-      schema: [
-        [
-          'data',
-          true,
-          [
-            ['userID', true, 'integer'],
-            ['amount', true, 'integer'],
-            ['type', true]
-          ]
-        ]
-      ],
-      async method (ctx) {
-        const {
-          data: { userID, amount, type }
-        } = ctx.request.body
-
-        let responseMsg = `Processing the transfer for User ${userID}`
-        try {
-          if (amount >= 5000 && type === 'debit') {
-            await request.post({
-              uri: `${URL}/slack-request-algo-approval`,
-              body: {
-                data: {
-                  userID: parseInt(userID),
-                  amount
-                }
-              },
-              json: true
-            })
-            responseMsg = ''
-          } else {
-            const transferResult = await request.post({
-              uri: `${URL}/admin/worker-transfer`,
-              body: {
-                secret: process.env.apiSecret,
-                data: {
-                  userID,
-                  amount,
-                  type,
-                  requestMethod: 'Manual'
-                }
-              },
-              json: true
-            })
-
-            if (!transferResult.error) {
-              const user = await User.findOne({ where: { id: userID } })
-              if (user) {
-                user.setNextSaveDate()
-              }
-            }
-          }
-        } catch (e) {
-          responseMsg = `Transfer failed for User ${userID}`
-        }
-
-        ctx.body = responseMsg
-      }
-    },
-
     createDumbAccount: {
       schema: [
         [
@@ -578,6 +517,7 @@ module.exports = (
                   userID,
                   countryCode,
                   institutionName: 'Dumb ACH Institution',
+                  status: 'dumb',
                   quovoUserID: user.quovoUserID,
                   quovoConnectionID: 0,
                   quovoInstitutionID: 0

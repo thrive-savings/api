@@ -153,7 +153,6 @@ module.exports = (
         reply.error = true
         reply.errorCode = 'try_catched'
         reply.errorData = e
-        console.log(e)
       }
 
       if (reply.error) {

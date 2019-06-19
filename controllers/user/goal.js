@@ -304,19 +304,29 @@ module.exports = (
         return Bluebird.reject([{ key: 'goal', value: 'Goal not found' }])
       }
 
-      await request.post({
-        uri: `${config.constants.URL}/admin/worker-transfer`,
+      const { error: witrhdrawalError } = await request.post({
+        uri: `${config.constants.URL}/admin/saver-try-withdraw`,
         body: {
           secret: process.env.apiSecret,
           data: {
             userID: goal.userID,
             amount: goal.progress,
-            type: 'credit',
-            requestMethod: 'InAppRequest'
+            extra: {
+              memo: 'Thrive Savings Withdrawal - goal completion'
+            }
           }
         },
         json: true
       })
+
+      if (witrhdrawalError) {
+        return Bluebird.reject([
+          {
+            key: 'withdrawal_error',
+            value: 'Oops, something went wrong, contact customer support'
+          }
+        ])
+      }
 
       const category = goal.category
       const progress = goal.progress

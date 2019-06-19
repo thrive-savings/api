@@ -465,7 +465,9 @@ module.exports = (
     getConnections () {
       let connections
       if (this.connections) {
-        connections = this.connections.map(connection => connection.getData())
+        connections = this.connections
+          .filter(({ status }) => status !== 'dumb')
+          .map(connection => connection.getData())
       }
       return connections
     },
@@ -650,15 +652,15 @@ module.exports = (
 
       let msg
       if (withdrawsInProgress) {
-        msg = `We cannot process your withdraw request due to previous withdraw request(s) of $${getDollarString(
+        msg = `We cannot process your withdraw request due to previous withdraw request(s) of ${getDollarString(
           withdrawsInProgress
-        )} which will bring your balance to $${getDollarString(
+        )} which will bring your balance to ${getDollarString(
           this.balance - withdrawsInProgress
         )}.`
       } else {
-        msg = `The amount of $${getDollarString(
+        msg = `The amount of ${getDollarString(
           amount
-        )} you requested to withdraw exceeds your balance of $${getDollarString(
+        )} you requested to withdraw exceeds your balance of ${getDollarString(
           this.balance
         )}.`
       }

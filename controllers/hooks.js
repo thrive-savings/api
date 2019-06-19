@@ -45,7 +45,7 @@ module.exports = (
                   timelineEntry.note = 'Getting processed by the provider'
                   break
                 case 'completed':
-                  state = STATES.COMPLETED
+                  state = STATES.PROCESSING
                   timelineEntry.note = 'Settled'
                   break
                 case 'cancelled':
