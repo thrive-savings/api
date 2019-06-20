@@ -100,8 +100,6 @@ module.exports = (
                     : adminApprovalNeeded
                       ? STATES.WAITING
                       : STATES.QUEUED,
-                  processed: instantSettle,
-                  processedDate: instantSettle ? moment() : null,
                   approvalState: adminApprovalNeeded
                     ? APPROVAL_STATES.ADMIN_REQUESTED
                     : APPROVAL_STATES.NOT_NEEDED,
