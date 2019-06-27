@@ -8,12 +8,16 @@ module.exports = (
   config,
   moment,
   amplitude,
-  request
+  request,
+  ConstantsService
 ) => {
   const {
-    URL,
-    TRANSFER: { STATES, TYPES, SUBTYPES, APPROVAL_STATES, REQUEST_METHODS }
-  } = config.constants
+    STATES,
+    TYPES,
+    SUBTYPES,
+    APPROVAL_STATES,
+    REQUEST_METHODS
+  } = ConstantsService.TRANSFER
 
   const MAX_SAVE_AMOUNT = 500000 // $5000
 
@@ -124,7 +128,9 @@ module.exports = (
                 } else if (adminApprovalNeeded) {
                   reply.adminApprovalNeeded = adminApprovalNeeded
                   request.post({
-                    uri: `${URL}/slack-request-transfer-approval`,
+                    uri: `${
+                      config.constants.URL
+                    }/slack-request-transfer-approval`,
                     body: {
                       data: {
                         transferID: transfer.id
@@ -147,7 +153,7 @@ module.exports = (
 
                 if (transfer.state === STATES.QUEUED) {
                   request.post({
-                    uri: `${URL}/admin/transfer-process`,
+                    uri: `${config.constants.URL}/admin/transfer-process`,
                     body: {
                       secret: process.env.apiSecret,
                       data: {
@@ -239,7 +245,7 @@ module.exports = (
             await transfer.save()
 
             request.post({
-              uri: `${URL}/slack-request-transfer-approval`,
+              uri: `${config.constants.URL}/slack-request-transfer-approval`,
               body: {
                 data: {
                   transferID: transfer.id,
@@ -643,7 +649,7 @@ module.exports = (
           if (user && connection && account) {
             // TODO: implement the logic
             await request.post({
-              uri: `${URL}/admin/transfer-create`,
+              uri: `${config.constants.URL}/admin/transfer-create`,
               body: {
                 secret: process.env.apiSecret,
                 data: {

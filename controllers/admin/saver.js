@@ -7,7 +7,8 @@ module.exports = (
   amplitude,
   request,
   config,
-  moment
+  moment,
+  ConstantsService
 ) => ({
   run: {
     async method (ctx) {
@@ -261,10 +262,7 @@ module.exports = (
         data: { userID, amount, extra: customExtra }
       } = ctx.request.body
 
-      const {
-        URL,
-        TRANSFER: { TYPES, SUBTYPES }
-      } = config.constants
+      const { TYPES, SUBTYPES } = ConstantsService.TRANSFER
 
       let reply = {}
       let user
@@ -291,7 +289,7 @@ module.exports = (
               Object.assign(extra, customExtra)
             }
             await request.post({
-              uri: `${URL}/admin/transfer-create`,
+              uri: `${config.constants.URL}/admin/transfer-create`,
               body: {
                 secret: process.env.apiSecret,
                 data: {
@@ -347,10 +345,7 @@ module.exports = (
         data: { userID, connectionID, accountID, amount: amountProvided }
       } = ctx.request.body
 
-      const {
-        URL,
-        TRANSFER: { TYPES, SUBTYPES }
-      } = config.constants
+      const { TYPES, SUBTYPES } = ConstantsService.TRANSFER
 
       const MIN_BALANCE_THRESHOLD = 5000
       const MIN_DEPOSIT_AMOUNT = 500
@@ -375,7 +370,7 @@ module.exports = (
           } else {
             if (user.savingType === 'Thrive Flex') {
               const { amount: amountFromAlgo } = await request.post({
-                uri: `${URL}/admin/algo-run`,
+                uri: `${config.constants.URL}/admin/algo-run`,
                 body: {
                   secret: process.env.apiSecret,
                   data: {
@@ -419,7 +414,7 @@ module.exports = (
                 }
 
                 await request.post({
-                  uri: `${URL}/admin/transfer-create`,
+                  uri: `${config.constants.URL}/admin/transfer-create`,
                   body: {
                     secret: process.env.apiSecret,
                     data: {

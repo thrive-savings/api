@@ -10,7 +10,9 @@ module.exports = (
   amplitude,
   aws,
   request,
-  Goal
+  Goal,
+  HelpersService,
+  ConstantsService
 ) => ({
   attributes: {
     acceptedAt: {
@@ -603,7 +605,7 @@ module.exports = (
     },
 
     async updateBalance (amount, type) {
-      const { TYPES } = config.constants.TRANSFER
+      const { TYPES } = ConstantsService.TRANSFER
 
       const deltaAmount =
         type === TYPES.CREDIT ? -1 * parseInt(amount) : parseInt(amount)
@@ -625,7 +627,7 @@ module.exports = (
     },
 
     async undoBalanceUpdate (amount, type) {
-      const { TYPES } = config.constants.TRANSFER
+      const { TYPES } = ConstantsService.TRANSFER
 
       const deltaAmount =
         type === TYPES.CREDIT ? -1 * parseInt(amount) : parseInt(amount)
@@ -643,24 +645,17 @@ module.exports = (
     },
 
     formInvalidWithdrawalMessage (amount, withdrawsInProgress) {
-      const getDollarString = amount => {
-        let dollars = amount / 100
-        dollars = dollars % 1 === 0 ? dollars : dollars.toFixed(2)
-        dollars.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
-        return `$${dollars}`
-      }
-
       let msg
       if (withdrawsInProgress) {
-        msg = `We cannot process your withdraw request due to previous withdraw request(s) of ${getDollarString(
+        msg = `We cannot process your withdraw request due to previous withdraw request(s) of ${HelpersService.getDollarString(
           withdrawsInProgress
-        )} which will bring your balance to ${getDollarString(
+        )} which will bring your balance to ${HelpersService.getDollarString(
           this.balance - withdrawsInProgress
         )}.`
       } else {
-        msg = `The amount of ${getDollarString(
+        msg = `The amount of ${HelpersService.getDollarString(
           amount
-        )} you requested to withdraw exceeds your balance of ${getDollarString(
+        )} you requested to withdraw exceeds your balance of ${HelpersService.getDollarString(
           this.balance
         )}.`
       }
@@ -669,16 +664,10 @@ module.exports = (
     },
 
     notifyAboutTransfer (amount, subtype, state) {
-      const getDollarString = amount => {
-        let dollars = amount / 100
-        dollars = dollars % 1 === 0 ? dollars : dollars.toFixed(2)
-        dollars.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
-        return `$${dollars}`
-      }
-      const dollarizedAmount = getDollarString(amount)
-      const dollarizedBalance = getDollarString(this.balance)
+      const dollarizedAmount = HelpersService.getDollarString(amount)
+      const dollarizedBalance = HelpersService.getDollarString(this.balance)
 
-      const { SUBTYPES, STATES } = config.constants.TRANSFER
+      const { SUBTYPES, STATES } = ConstantsService.TRANSFER
 
       let msg
       if ([SUBTYPES.SAVE, SUBTYPES.WITHDRAW].includes(subtype)) {
@@ -952,9 +941,11 @@ module.exports = (
       'Bonus',
       'Notification',
       'Debt',
-      'MomentumOffer'
+      'MomentumOffer',
+      'SynapseNode'
     ],
-    belongsTo: 'Company'
+    belongsTo: 'Company',
+    hasOne: 'SynapseEntry'
   },
   hooks: {
     beforeCreate (instance) {

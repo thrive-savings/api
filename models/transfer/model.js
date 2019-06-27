@@ -1,7 +1,11 @@
-module.exports = (Sequelize, uuid, config, moment) => {
+module.exports = (Sequelize, uuid, ConstantsService, moment) => {
   const {
-    TRANSFER: { STATES, TYPES, SUBTYPES, APPROVAL_STATES, REQUEST_METHODS }
-  } = config.constants
+    STATES,
+    TYPES,
+    SUBTYPES,
+    APPROVAL_STATES,
+    REQUEST_METHODS
+  } = ConstantsService.TRANSFER
 
   return {
     attributes: {

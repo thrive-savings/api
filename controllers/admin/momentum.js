@@ -8,7 +8,8 @@ module.exports = (
   amplitude,
   moment,
   request,
-  config
+  config,
+  ConstantsService
 ) => ({
   // CRON JOBS
   bonus: {
@@ -75,10 +76,7 @@ module.exports = (
       const OFFER_AMOUNT = 1000
       const MAX_BONUS_COUNT = 6
 
-      const {
-        URL,
-        TRANSFER: { TYPES, SUBTYPES }
-      } = config.constants
+      const { TYPES, SUBTYPES } = ConstantsService.TRANSFER
 
       const reply = { offerID }
       try {
@@ -103,7 +101,7 @@ module.exports = (
 
             if (savesCount && offer.bonusCount < MAX_BONUS_COUNT) {
               await request.post({
-                uri: `${URL}/admin/transfer-create`,
+                uri: `${config.constants.URL}/admin/transfer-create`,
                 body: {
                   secret: process.env.apiSecret,
                   data: {

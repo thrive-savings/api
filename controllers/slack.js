@@ -10,7 +10,9 @@ module.exports = (
   twilio,
   request,
   config,
-  moment
+  moment,
+  HelpersService,
+  ConstantsService
 ) => ({
   sendSms: {
     async method (ctx) {
@@ -458,9 +460,11 @@ module.exports = (
       }
 
       const {
-        URL,
-        TRANSFER: { STATES, SUBTYPES, APPROVAL_STATES, REQUEST_METHODS }
-      } = config.constants
+        STATES,
+        SUBTYPES,
+        APPROVAL_STATES,
+        REQUEST_METHODS
+      } = ConstantsService.TRANSFER
 
       let slackReply
       let dialogBody
@@ -479,7 +483,7 @@ module.exports = (
               }
 
               const reply = await request.post({
-                uri: `${URL}/admin/transfer-display`,
+                uri: `${config.constants.URL}/admin/transfer-display`,
                 body: {
                   secret: process.env.apiSecret,
                   data: filter
@@ -664,16 +668,6 @@ module.exports = (
             quovoUserID
           } = user
 
-          const getDollarString = amount => {
-            let dollars = amount / 100
-            dollars = dollars % 1 === 0 ? dollars : dollars.toFixed(2)
-            dollars.toLocaleString('en-US', {
-              style: 'currency',
-              currency: 'USD'
-            })
-            return dollars
-          }
-
           const tab = '   '
 
           if (extra && extra === 'bank') {
@@ -730,7 +724,7 @@ module.exports = (
           } else {
             slackReply += `*Information for User ${userID}*${
               user.isActive ? '' : ' *[DEACTIVATED]*'
-            }\n - *Full Name:* ${firstName} ${lastName}\n - *Balance:* $${getDollarString(
+            }\n - *Full Name:* ${firstName} ${lastName}\n - *Balance:* ${HelpersService.getDollarString(
               balance
             )}\n - *Contact:* ${email} ${phone}\n - *Saving Preferences:* On *${savingType}* plan${
               savingType === 'Thrive Fixed'
@@ -1007,15 +1001,6 @@ module.exports = (
               break
 
             case KEYWORDS.PREFERENCES:
-              const getDollarString = amount => {
-                let dollars = amount / 100
-                dollars = dollars % 1 === 0 ? dollars : dollars.toFixed(2)
-                dollars.toLocaleString('en-US', {
-                  style: 'currency',
-                  currency: 'USD'
-                })
-                return dollars
-              }
               elements = [
                 {
                   label: 'Days to Next Save',
@@ -1053,7 +1038,11 @@ module.exports = (
                   label: 'Fixed Contribution',
                   type: 'text',
                   name: 'fixedContribution',
-                  value: getDollarString(user.fixedContribution),
+                  value: HelpersService.getDollarString(
+                    user.fixedContribution,
+                    2,
+                    false
+                  ),
                   hint: 'Example amount format: 10.25',
                   max_length: 6,
                   min_length: 1
@@ -1172,19 +1161,12 @@ module.exports = (
         return Bluebird.reject(`Transfer not found for ID ${transferID}`)
       }
 
-      const getDollarString = amount => {
-        let dollars = amount / 100
-        dollars = dollars % 1 === 0 ? dollars : dollars.toFixed(2)
-        dollars.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
-        return `$${dollars}`
-      }
-
       await request.post({
         uri: uri || process.env.slackWebhookURL,
         body: {
           text: `Transfer ID ${
             transfer.id
-          } requires *Admin Approval* | Amount: ${getDollarString(
+          } requires *Admin Approval* | Amount: ${HelpersService.getDollarString(
             transfer.amount
           )} | Type: ${transfer.type} | Subtype: ${transfer.subtype} | UserID ${
             transfer.userID

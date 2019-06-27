@@ -1,4 +1,4 @@
-module.exports = (Sequelize, config, moment) => ({
+module.exports = (Sequelize, config, moment, ConstantsService) => ({
   up (queryInterface) {
     const {
       TYPES,
@@ -6,7 +6,7 @@ module.exports = (Sequelize, config, moment) => ({
       STATES,
       REQUEST_METHODS,
       APPROVAL_STATES
-    } = config.constants.TRANSFER
+    } = ConstantsService.TRANSFER
 
     return queryInterface
       .createTable('transfers', {

@@ -10,12 +10,16 @@ module.exports = (
   Bluebird,
   request,
   config,
-  moment
+  moment,
+  ConstantsService
 ) => {
   const {
-    URL,
-    TRANSFER: { STATES, TYPES, SUBTYPES, APPROVAL_STATES, REQUEST_METHODS }
-  } = config.constants
+    STATES,
+    TYPES,
+    SUBTYPES,
+    APPROVAL_STATES,
+    REQUEST_METHODS
+  } = ConstantsService.TRANSFER
 
   return {
     notifyAboutSchedulerRun: {
@@ -94,7 +98,7 @@ module.exports = (
         }
 
         const res = await request.post({
-          uri: `${URL}/admin/transfer-create`,
+          uri: `${config.constants.URL}/admin/transfer-create`,
           body: {
             secret: process.env.apiSecret,
             data: {
@@ -494,7 +498,7 @@ module.exports = (
             const {
               data: { code: companyCode }
             } = await request.post({
-              uri: `${URL}/admin/company-add`,
+              uri: `${config.constants.URL}/admin/company-add`,
               body: {
                 secret: process.env.apiSecret,
                 data: { name: companyName.toString().trim() }
@@ -604,7 +608,7 @@ module.exports = (
         let responseMsg = `Success: bonused User ${userID} | Company ${companyID}`
         try {
           await request.post({
-            uri: `${URL}/admin/company-top-up-user`,
+            uri: `${config.constants.URL}/admin/company-top-up-user`,
             body: {
               secret: process.env.apiSecret,
               data: { companyID, userID, amount }
@@ -661,7 +665,9 @@ module.exports = (
                 })
                 if (connection) {
                   request.post({
-                    uri: `${URL}/admin/quovo-fetch-connection-updates`,
+                    uri: `${
+                      config.constants.URL
+                    }/admin/quovo-fetch-connection-updates`,
                     body: {
                       secret: process.env.apiSecret,
                       data: {

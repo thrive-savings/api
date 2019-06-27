@@ -5,7 +5,8 @@ module.exports = (
   Bonus,
   request,
   config,
-  amplitude
+  amplitude,
+  ConstantsService
 ) => ({
   add: {
     schema: [['data', true, [['name', true]]]],
@@ -62,14 +63,11 @@ module.exports = (
 
       const reply = {}
       try {
-        const {
-          URL,
-          TRANSFER: { TYPES, SUBTYPES }
-        } = config.constants
+        const { TYPES, SUBTYPES } = ConstantsService.TRANSFER
 
         const bonus = await Bonus.create({ amount, companyID, userID })
         await request.post({
-          uri: `${URL}/admin/transfer-create`,
+          uri: `${config.constants.URL}/admin/transfer-create`,
           body: {
             secret: process.env.apiSecret,
             data: {

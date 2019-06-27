@@ -1,4 +1,4 @@
-module.exports = {
+module.exports = () => ({
   // Transfer Table Enum values
   TRANSFER: {
     TYPES: {
@@ -35,4 +35,4 @@ module.exports = {
       ADMIN_UNAPPROVED: 'admin-unapproved'
     }
   }
-}
+})

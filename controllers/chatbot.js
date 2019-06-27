@@ -1,30 +1,21 @@
 module.exports = (
   User,
-  Connection,
   Transfer,
   twilio,
   amplitude,
   request,
   config,
-  emoji
+  emoji,
+  ConstantsService,
+  HelpersService
 ) => ({
   process: {
     async method (ctx) {
-      const getDollarString = amount => {
-        let dollars = amount / 100
-        dollars = dollars % 1 === 0 ? dollars : dollars.toFixed(2)
-        dollars.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
-        return dollars
-      }
-
       const listCommands = () => {
         return "You can use the following list of commands to interact with me:\n\n- 'Balance': get your balance\n- 'Save 20.00': save money\n- 'Withdraw 20.00': withdraw money\n- 'Boost 2x': increase agressiveness level of automatic pulls\n- 'Reduce 2x': reduce agressiveness level of automatic pulls\n\nAnd feel free to reach out us ar help@thrivesavings.com for any custom request."
       }
 
-      const {
-        URL,
-        TRANSFER: { STATES, SUBTYPES }
-      } = config.constants
+      const { STATES, SUBTYPES } = ConstantsService.TRANSFER
 
       const requestBody = ctx.request.body
       const { From: phone, Body: msg } = requestBody
@@ -57,7 +48,7 @@ module.exports = (
           analyticsEvent = 'Bot Received Balance Command'
           responseMsg = `Hello ${
             user.firstName
-          }. Your balance is $${getDollarString(user.balance)}.`
+          }. Your balance is ${HelpersService.getDollarString(user.balance)}.`
 
           const withdrawsInProgress = await Transfer.sumCustom(user.id, {
             subtype: SUBTYPES.WITHDRAW,
@@ -69,17 +60,17 @@ module.exports = (
           })
 
           if (withdrawsInProgress && depositsInProgress) {
-            responseMsg += ` You also have $${getDollarString(
+            responseMsg += ` You also have ${HelpersService.getDollarString(
               depositsInProgress
-            )} enroute to Thrive Savings and $${getDollarString(
+            )} enroute to Thrive Savings and ${HelpersService.getDollarString(
               withdrawsInProgress
             )} pending withdrawal.`
           } else if (withdrawsInProgress) {
-            responseMsg += ` You also have $${getDollarString(
+            responseMsg += ` You also have ${HelpersService.getDollarString(
               withdrawsInProgress
             )} pending withdrawal.`
           } else if (depositsInProgress) {
-            responseMsg += ` You also have $${getDollarString(
+            responseMsg += ` You also have ${HelpersService.getDollarString(
               depositsInProgress
             )} enroute to Thrive Savings.`
           }
@@ -105,7 +96,7 @@ module.exports = (
             )
 
             const { error, errorCode } = await request.post({
-              uri: `${URL}/admin/saver-try-save`,
+              uri: `${config.constants.URL}/admin/saver-try-save`,
               body: {
                 secret: process.env.apiSecret,
                 data: { userID: user.id, amount, await: true }
@@ -128,7 +119,7 @@ module.exports = (
                   responseMsg = `We cannot process your request as your bank account balance may go into insufficient funds.`
                   break
                 case 'amount_out_of_range':
-                  responseMsg = `Thrive doesn't support deposit of ${getDollarString(
+                  responseMsg = `Thrive doesn't support deposit of ${HelpersService.getDollarString(
                     amount
                   )}`
                   break
@@ -163,7 +154,7 @@ module.exports = (
             )
 
             const { error } = await request.post({
-              uri: `${URL}/admin/saver-try-withdraw`,
+              uri: `${config.constants.URL}/admin/saver-try-withdraw`,
               body: {
                 secret: process.env.apiSecret,
                 data: { userID: user.id, amount }

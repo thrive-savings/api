@@ -2,14 +2,14 @@ module.exports = (
   User,
   Account,
   Transfer,
-  config,
+  SynapseEntry,
+  SynapseNode,
+  ConstantsService,
   moment,
   amplitude,
   request
 ) => {
-  const {
-    TRANSFER: { STATES }
-  } = config.constants
+  const { STATES } = ConstantsService.TRANSFER
 
   return {
     versapay: {
@@ -126,6 +126,82 @@ module.exports = (
           uri: process.env.slackWebhookURL,
           body: {
             text: `VersaPay Hook: *${
+              reply.error
+                ? `FAIL - ${reply.errorCode}${
+                  reply.errorMessage ? ` - ${reply.errorMessage}` : ''
+                }`
+                : `SUCCEED`
+            }*${reply.stateRaw ? ` | State: *${reply.stateRaw}*` : ''}${
+              reply.transferID ? ` | Transfer ${reply.transferID}` : ''
+            }${reply.userID ? ` | User ${reply.userID}` : ''}`
+          },
+          json: true
+        })
+
+        ctx.body = reply
+      }
+    },
+
+    synapse: {
+      async method (ctx) {
+        console.log(
+          '----------------------------Synapse Hook-------------------------'
+        )
+
+        const reply = {}
+        try {
+          const req = ctx.request.body
+          const {
+            webhook_meta: { function: event }
+          } = req
+          reply.event = event
+
+          if (event === 'USER|PATCH') {
+            console.log(req)
+            const {
+              permission,
+              documents,
+              doc_status: docStatus,
+              rest: { _id: synapseUserID, extra }
+            } = req
+
+            const synapseEntryData = {
+              permission,
+              documents,
+              docStatus,
+              extra
+            }
+            reply.data = synapseEntryData
+
+            const synapseEntry = await SynapseEntry.findOne({
+              where: { synapseUserID }
+            })
+            if (synapseEntry) {
+              reply.userID = synapseEntry.userID
+              await synapseEntry.update(synapseEntryData)
+            } else {
+              reply.error = true
+              reply.errorCode = 'synapse_entry_not_found'
+            }
+          } else {
+            reply.error = true
+            reply.errorCode = 'event_not_supported'
+          }
+        } catch (e) {
+          reply.error = true
+          reply.errorCode = 'try_catched'
+          reply.errorData = e
+        }
+
+        amplitude.track({
+          eventType: `SYNAPSE_HOOK_${reply.error ? 'FAIL' : 'SUCCEED'}`,
+          userId: reply.userID ? reply.userID : 'server',
+          eventProperties: reply
+        })
+        request.post({
+          uri: process.env.slackWebhookURL,
+          body: {
+            text: `Synapse Hook: *${
               reply.error
                 ? `FAIL - ${reply.errorCode}${
                   reply.errorMessage ? ` - ${reply.errorMessage}` : ''

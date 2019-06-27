@@ -1,11 +1,16 @@
-module.exports = (User, Referral, Bluebird, request, config, amplitude) => ({
+module.exports = (
+  User,
+  Referral,
+  ConstantsService,
+  Bluebird,
+  request,
+  config,
+  amplitude
+) => ({
   reward: {
     schema: [['data', true, [['referralID', true, 'integer']]]],
     async method (ctx) {
-      const {
-        URL,
-        TRANSFER: { TYPES, SUBTYPES }
-      } = config.constants
+      const { TYPES, SUBTYPES } = ConstantsService.TRANSFER
       const REWARD_AMOUNT = 500
 
       const {
@@ -21,7 +26,7 @@ module.exports = (User, Referral, Bluebird, request, config, amplitude) => ({
 
           Bluebird.all([
             request.post({
-              uri: `${URL}/admin/transfer-create`,
+              uri: `${config.constants.URL}/admin/transfer-create`,
               body: {
                 secret: process.env.apiSecret,
                 data: {
@@ -39,7 +44,7 @@ module.exports = (User, Referral, Bluebird, request, config, amplitude) => ({
               json: true
             }),
             request.post({
-              uri: `${URL}/admin/transfer-create`,
+              uri: `${config.constants.URL}/admin/transfer-create`,
               body: {
                 secret: process.env.apiSecret,
                 data: {

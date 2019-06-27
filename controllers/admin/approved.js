@@ -6,7 +6,8 @@ module.exports = (
   config,
   amplitude,
   Sentry,
-  moment
+  moment,
+  ConstantsService
 ) => ({
   transferAmount: {
     schema: [['data', true, [['payload', true, 'object']]]],
@@ -46,10 +47,7 @@ module.exports = (
       let replyMessage = Object.assign({}, originalMessage)
       replyMessage.attachments = []
 
-      const {
-        URL,
-        TRANSFER: { STATES, APPROVAL_STATES }
-      } = config.constants
+      const { STATES, APPROVAL_STATES } = ConstantsService.TRANSFER
 
       const timeline = transfer.timeline
       const date = moment()
@@ -67,7 +65,7 @@ module.exports = (
           approvalState: APPROVAL_STATES.ADMIN_APPROVED
         })
         request.post({
-          uri: `${URL}/admin/transfer-process`,
+          uri: `${config.constants.URL}/admin/transfer-process`,
           body: {
             secret: process.env.apiSecret,
             data: {

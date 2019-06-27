@@ -1,4 +1,11 @@
-module.exports = (Sequelize, User, Transfer, config, moment) => ({
+module.exports = (
+  User,
+  Transfer,
+  HelpersService,
+  ConstantsService,
+  config,
+  moment
+) => ({
   fetch: {
     schema: [['data', true, [['userID', true, 'integer'], ['fromDate', true]]]],
     async method (ctx) {
@@ -6,24 +13,7 @@ module.exports = (Sequelize, User, Transfer, config, moment) => ({
         data: { userID, fromDate: providedFromDate }
       } = ctx.request.body
 
-      const {
-        TRANSFER: { TYPES, SUBTYPES, STATES }
-      } = config.constants
-
-      const getDollarString = (amount, rounded = false) => {
-        let amountInDollars = amount / 100
-        amountInDollars = !rounded
-          ? amountInDollars.toFixed(2)
-          : amountInDollars.toFixed(0)
-        amountInDollars =
-          '$' +
-          amountInDollars.toLocaleString('en-US', {
-            style: 'currency',
-            currency: 'USD'
-          })
-
-        return amountInDollars
-      }
+      const { TYPES, SUBTYPES, STATES } = ConstantsService.TRANSFER
 
       const reply = { userID }
       try {
@@ -58,14 +48,15 @@ module.exports = (Sequelize, User, Transfer, config, moment) => ({
                 date: momentDate.format('YYYY-MM-DD'),
                 dateMonthOnly: momentDate.format('MM/DD'),
                 total: balance,
-                totalInDollars: getDollarString(balance),
+                totalInDollars: HelpersService.getDollarString(balance),
                 activity: {
                   type,
                   subtype,
                   state,
                   amount,
                   amountInDollars:
-                    (type === TYPES.CREDIT ? '-' : '') + getDollarString(amount)
+                    (type === TYPES.CREDIT ? '-' : '') +
+                    HelpersService.getDollarString(amount)
                 }
               }
 
@@ -106,8 +97,10 @@ module.exports = (Sequelize, User, Transfer, config, moment) => ({
 
           reply.history = history
           reply.totalSavings = totalSavings
-          reply.totalSavingsInDollars = getDollarString(totalSavings)
-          reply.balanceInDollars = getDollarString(user.balance)
+          reply.totalSavingsInDollars = HelpersService.getDollarString(
+            totalSavings
+          )
+          reply.balanceInDollars = HelpersService.getDollarString(user.balance)
         } else {
           reply.error = true
           reply.errorCode = 'user_not_found'
