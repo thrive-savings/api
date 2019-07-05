@@ -425,7 +425,10 @@ module.exports = (
         company: this.getCompany(),
         connections: this.getConnections(),
         goals: this.getGoals(),
+        synapse: this.getSynapse(),
+        momentumOfferData: this.getMomentumOffer(),
         id: this.id,
+        countryCode: this.getCountryCode(),
         promptRating: this.shouldPromptRating(),
         expoPushToken: this.expoPushToken,
         bankLinked: this.bankLinked,
@@ -445,6 +448,40 @@ module.exports = (
           bonus: 0
         }
       }
+    },
+
+    getSynapse () {
+      const reply = {}
+
+      const synapseEntries = this.synapseEntries
+      if (synapseEntries && synapseEntries.length) {
+        reply.entry = synapseEntries[0].getData()
+      }
+
+      return reply
+    },
+
+    getMomentumOffer () {
+      const momentumOffers = this.momentumOffers
+      if (momentumOffers && momentumOffers.length) {
+        return momentumOffers[0].getData()
+      }
+    },
+
+    getCountryCode () {
+      let countryCode = 'CAN'
+
+      const connections = this.connections
+      if (connections && connections.length) {
+        for (const connection of connections) {
+          if (connection.countryCode === 'USA') {
+            countryCode = 'USA'
+            break
+          }
+        }
+      }
+
+      return countryCode
     },
 
     getCompany () {
@@ -942,10 +979,10 @@ module.exports = (
       'Notification',
       'Debt',
       'MomentumOffer',
+      'SynapseEntry',
       'SynapseNode'
     ],
-    belongsTo: 'Company',
-    hasOne: 'SynapseEntry'
+    belongsTo: 'Company'
   },
   hooks: {
     beforeCreate (instance) {

@@ -77,6 +77,10 @@ module.exports = (
 
               const { user, amount, type, subtype } = transfer
 
+              reply.state = state
+              reply.type = type
+              reply.subtype = subtype
+
               // Set VersaPay Token for Account
               const accountID = transfer.getCanadianAccountID()
               const accountVersapayToken =

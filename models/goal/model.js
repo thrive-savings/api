@@ -1,4 +1,11 @@
-module.exports = (Bluebird, Sequelize, Transfer, request, config) => ({
+module.exports = (
+  Bluebird,
+  Sequelize,
+  Transfer,
+  request,
+  config,
+  ConstantsService
+) => ({
   attributes: {
     description: {
       type: Sequelize.STRING
@@ -51,8 +58,8 @@ module.exports = (Bluebird, Sequelize, Transfer, request, config) => ({
 
       let lastSaveAmount = 0
       const lastSave = await Transfer.lastTransfer(userID, {
-        state: config.constants.TRANSFER.STATES.COMPLETED,
-        subtype: config.constants.TRANSFER.SUBTYPES.SAVE
+        state: ConstantsService.TRANSFER.STATES.COMPLETED,
+        subtype: ConstantsService.TRANSFER.SUBTYPES.SAVE
       })
       if (lastSave) {
         lastSaveAmount = lastSave.amount

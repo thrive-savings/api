@@ -349,7 +349,7 @@ module.exports = (
         where: { quovoConnectionID }
       })
 
-      const reply = {}
+      const reply = { quovoConnectionID }
       try {
         const {
           auth: {
@@ -367,7 +367,11 @@ module.exports = (
           json: true
         })
 
+        reply.lastGoodAuth = lastGoodAuth
+        reply.countryCode = countryCode
+
         if (accounts && accounts.length > 0) {
+          reply.accountCount = accounts.length
           for (const {
             id: quovoAccountID,
             available_balance: availableBalanceInFloat,
@@ -456,13 +460,17 @@ module.exports = (
             }
           })
         } else {
+          reply.error = true
+          reply.errorCode = 'no_accounts_found'
           amplitude.track({
             eventType: 'QUOVO_CONNECTION_AUTH_NO_ACCOUNTS',
-            userId: connection.userID
+            userId: connection.userID,
+            eventProperties: reply
           })
         }
       } catch (e) {
         reply.error = true
+        reply.errorCode = 'try_catched'
         amplitude.track({
           eventType: 'QUOVO_CONNECTION_AUTH_FAIL',
           userId: connection.userID,
@@ -472,7 +480,7 @@ module.exports = (
         })
       }
 
-      ctx.body = {}
+      ctx.body = reply
     }
   },
 

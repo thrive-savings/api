@@ -5,5 +5,6 @@ module.exports = {
   API_LAYER_URL: 'https://apilayer.net/api/check',
   QUOVO_API_URL: 'https://api.quovo.com/v3',
   BRANCH_API_URL: 'https://api2.branch.io/v1',
-  BRANCH_APP_LINK: 'https://invite.thrivesavings.com'
+  BRANCH_APP_LINK: 'https://invite.thrivesavings.com',
+  SYNAPSE_API_URL: 'https://api.synapsefi.com/'
 }

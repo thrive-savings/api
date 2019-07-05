@@ -47,7 +47,7 @@ module.exports = (
       }
 
       if (status === 'good') {
-        const { error: quovoAccountError } = await request.post({
+        const { error: quovoAuthError, countryCode } = await request.post({
           uri: `${config.constants.URL}/admin/quovo-fetch-connection-auth`,
           body: {
             secret: process.env.apiSecret,
@@ -58,7 +58,7 @@ module.exports = (
           json: true
         })
 
-        if (quovoAccountError) {
+        if (quovoAuthError) {
           return Bluebird.reject([
             {
               key: 'QuovoFetchAccounts',
@@ -79,6 +79,22 @@ module.exports = (
         })
         if (momentumOfferData) {
           reply.momentumOfferData = momentumOfferData
+        }
+
+        if (countryCode && countryCode === 'USA') {
+          const { data: synapseEntryData } = await request.post({
+            uri: `${config.constants.URL}/admin/synapse-create-user`,
+            body: {
+              secret: process.env.apiSecret,
+              data: {
+                userID: user.id
+              }
+            },
+            json: true
+          })
+          if (synapseEntryData) {
+            reply.synapseEntryData = synapseEntryData
+          }
         }
       }
 

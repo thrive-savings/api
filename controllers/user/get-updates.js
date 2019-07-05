@@ -3,6 +3,8 @@ module.exports = (
   Institution,
   Connection,
   Account,
+  SynapseEntry,
+  SynapseNode,
   Goal,
   Bonus,
   Company,
@@ -12,6 +14,9 @@ module.exports = (
     const user = await User.findOne({
       include: [
         { model: Connection, include: [Institution, Account] },
+        SynapseEntry,
+        SynapseNode,
+        MomentumOffer,
         Goal,
         Company
       ],
@@ -34,12 +39,7 @@ module.exports = (
 
     authorizedData.notifications.bonus = totalBonus
 
-    const momentumOffer = await MomentumOffer.findOne({
-      where: { userID: user.id }
-    })
-    if (momentumOffer) {
-      authorizedData.momentumOfferData = momentumOffer.getData()
-    }
+    console.log(authorizedData)
 
     ctx.body = { data: { authorized: authorizedData } }
   }

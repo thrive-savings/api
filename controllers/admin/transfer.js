@@ -365,6 +365,7 @@ module.exports = (
                 user,
                 amount,
                 type,
+                subtype,
                 uuid,
                 timeline,
                 extra: {
@@ -378,6 +379,8 @@ module.exports = (
 
               reply.userID = user.id
               reply.countryCode = countryCode
+              reply.type = type
+              reply.subtype = subtype
 
               if (countryCode === 'CAN') {
                 const account = await Account.findOne({
