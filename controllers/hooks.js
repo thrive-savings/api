@@ -166,7 +166,7 @@ module.exports = (
               permission,
               documents,
               doc_status: docStatus,
-              rest: { _id: synapseUserID, extra }
+              _rest: { _id: synapseUserID, extra }
             } = req
 
             const synapseEntryData = {
@@ -192,6 +192,7 @@ module.exports = (
             reply.errorCode = 'event_not_supported'
           }
         } catch (e) {
+          console.log(e)
           reply.error = true
           reply.errorCode = 'try_catched'
           reply.errorData = e

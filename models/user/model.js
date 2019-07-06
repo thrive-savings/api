@@ -450,12 +450,21 @@ module.exports = (
       }
     },
 
+    getSynapseEntry () {
+      const synapseEntries = this.synapseEntries
+      if (synapseEntries && synapseEntries.length) {
+        return synapseEntries[0]
+      }
+    },
+
     getSynapse () {
       const reply = {}
 
       const synapseEntries = this.synapseEntries
       if (synapseEntries && synapseEntries.length) {
         reply.entry = synapseEntries[0].getData()
+
+        // TODO: add synapseNodes to the result
       }
 
       return reply
