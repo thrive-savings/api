@@ -539,7 +539,7 @@ module.exports = (
             if (defaultAccount && defaultAccount.length > 0) {
               defaultAccount = defaultAccount[0]
               data.account = defaultAccount
-              if (!defaultAccount.hasACH()) {
+              if (!defaultAccount.hasACH(defaultConnection.countryCode)) {
                 data.error = 'no_ach'
               }
             } else {

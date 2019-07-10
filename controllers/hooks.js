@@ -7,7 +7,8 @@ module.exports = (
   ConstantsService,
   moment,
   amplitude,
-  request
+  request,
+  config
 ) => {
   const { STATES } = ConstantsService.TRANSFER
 
@@ -160,36 +161,79 @@ module.exports = (
           } = req
           reply.event = event
 
+          console.log(req)
           if (event === 'USER|PATCH') {
-            console.log(req)
             const {
+              _id: synapseUserID,
               permission,
               documents,
               doc_status: docStatus,
-              _rest: { _id: synapseUserID, extra }
-            } = req
-
-            const synapseEntryData = {
-              permission,
-              documents,
-              docStatus,
               extra
-            }
-            reply.data = synapseEntryData
+            } = req._rest
 
             const synapseEntry = await SynapseEntry.findOne({
               where: { synapseUserID }
             })
             if (synapseEntry) {
               reply.userID = synapseEntry.userID
-              await synapseEntry.update(synapseEntryData)
+              await synapseEntry.update({
+                permission,
+                documents,
+                docStatus,
+                extra
+              })
+              reply.updatedData = synapseEntry.getData()
+
+              // TODO: figure out where to trust to get the full KYC status, for now checking SynapseEntry.permission
+              if (synapseEntry.permission === 'SEND-AND-RECEIVE') {
+                console.log('------Calling to Create Deposit Account-------')
+                request.post({
+                  uri: `${
+                    config.constants.URL
+                  }/admin/synapse-create-deposit-node`,
+                  body: {
+                    secret: process.env.apiSecret,
+                    data: {
+                      userID: synapseEntry.userID
+                    }
+                  },
+                  json: true
+                })
+              }
             } else {
               reply.error = true
               reply.errorCode = 'synapse_entry_not_found'
             }
-          } else {
-            reply.error = true
-            reply.errorCode = 'event_not_supported'
+          } else if (event === 'NODE|PATCH') {
+            const {
+              _id: synapseNodeID,
+              info,
+              allowed,
+              type,
+              extra,
+              is_active: isActive,
+              timeline,
+              user_id: synapseUserID
+            } = req._rest
+
+            const synapseNode = await SynapseNode.findOne({
+              where: { synapseNodeID, synapseUserID }
+            })
+            if (synapseNode) {
+              reply.userID = synapseNode.userID
+              await synapseNode.update({
+                type,
+                allowed,
+                timeline,
+                info,
+                extra,
+                isActive
+              })
+              reply.updatedData = synapseNode.getData()
+            } else {
+              reply.error = true
+              reply.errorCode = 'synapse_node_not_found'
+            }
           }
         } catch (e) {
           console.log(e)
@@ -212,7 +256,7 @@ module.exports = (
                   reply.errorMessage ? ` - ${reply.errorMessage}` : ''
                 }`
                 : `SUCCEED`
-            }*${reply.stateRaw ? ` | State: *${reply.stateRaw}*` : ''}${
+            }*${reply.event ? ` | Event: *${reply.event}*` : ''}${
               reply.transferID ? ` | Transfer ${reply.transferID}` : ''
             }${reply.userID ? ` | User ${reply.userID}` : ''}`
           },

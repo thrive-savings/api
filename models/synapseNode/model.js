@@ -71,6 +71,19 @@ module.exports = Sequelize => ({
   associations: {
     belongsTo: 'User'
   },
+  instanceMethods: {
+    getData () {
+      return {
+        id: this.id,
+        userID: this.userID,
+        accountID: this.accountID,
+        synapseUserID: this.synapseUserID,
+        synapseNodeID: this.synapseNodeID,
+        type: this.type,
+        allowed: this.allowed
+      }
+    }
+  },
   indexes: [{ fields: ['user_id'] }],
   timestamps: true,
   createdAt: 'createdAt',

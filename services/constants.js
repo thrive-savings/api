@@ -34,5 +34,13 @@ module.exports = () => ({
       ADMIN_APPROVED: 'admin-approved',
       ADMIN_UNAPPROVED: 'admin-unapproved'
     }
+  },
+
+  // Synapse values
+  SYNAPSE: {
+    NODE_TYPES: {
+      ACH_US: 'ACH-US',
+      DEPOSIT_US: 'DEPOSIT-US'
+    }
   }
 })

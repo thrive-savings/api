@@ -560,7 +560,9 @@ module.exports = (
                 quovoConnectionID: 0,
                 quovoAccountID: 0,
                 quovoUserID: user.quovoUserID,
-                number: achNumbers.account
+                number: achNumbers.account,
+                type: 'Checking',
+                category: 'Banking'
               }
               if (countryCode === 'CAN') {
                 accountData.institution = achNumbers.institution

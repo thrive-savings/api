@@ -789,7 +789,7 @@ module.exports = (
             json: true
           })
         } else {
-          // TODO: Schedule notifications about unlink
+          // TODO: Schedule notifications about disconnect
           await request.post({
             uri: process.env.slackWebhookURL,
             body: {
@@ -854,30 +854,36 @@ module.exports = (
         data: { quovoConnectionID }
       } = ctx.request.body
 
-      const connection = await Connection.findOne({
-        where: { quovoConnectionID }
-      })
-
-      const reply = {}
+      const reply = { quovoConnectionID }
       try {
-        const { accounts } = await request.get({
-          uri: `${
-            config.constants.QUOVO_API_URL
-          }/connections/${quovoConnectionID}/accounts`,
-          headers: {
-            Authorization: `Bearer ${process.env.quovoApiToken}`
-          },
-          json: true
+        const connection = await Connection.findOne({
+          where: { quovoConnectionID }
         })
+        if (connection) {
+          reply.connectionID = connection.id
+          reply.userID = connection.userID
 
-        if (accounts && accounts.length > 0) {
-          Bluebird.all(
-            accounts.map(
-              ({
-                id: quovoAccountID,
-                value: accountValue,
-                owner_type: ownerType
-              }) => {
+          const { accounts } = await request.get({
+            uri: `${
+              config.constants.QUOVO_API_URL
+            }/connections/${quovoConnectionID}/accounts`,
+            headers: {
+              Authorization: `Bearer ${process.env.quovoApiToken}`
+            },
+            json: true
+          })
+
+          reply.accountsCount = accounts ? accounts.length : 0
+          if (accounts && accounts.length > 0) {
+            const transactionFetchers = []
+            const synapseNodeCreators = []
+
+            for (const {
+              id: quovoAccountID,
+              value: accountValue,
+              owner_type: ownerType
+            } of accounts) {
+              transactionFetchers.push(
                 request.post({
                   uri: `${
                     config.constants.URL
@@ -890,38 +896,72 @@ module.exports = (
                   },
                   json: true
                 })
-                return Account.update(
-                  { value: parseInt(accountValue * 100), ownerType },
-                  { where: { quovoAccountID } }
+              )
+
+              const account = await Account.findOne({
+                where: { quovoAccountID }
+              })
+
+              if (!account.hasACH() || !account.getOwnerAddress()) {
+                console.log('---------Calling Node Creation--------')
+                request.post({
+                  uri: `${config.constants.URL}/admin/quovo-fetch-account-auth`,
+                  body: {
+                    secret: process.env.apiSecret,
+                    data: {
+                      quovoAccountID
+                    }
+                  },
+                  json: true
+                })
+              }
+
+              account.update({
+                value: parseInt(accountValue * 100),
+                ownerType
+              })
+
+              if (
+                connection.countryCode === 'USA' &&
+                account.shouldHaveSynapseNode()
+              ) {
+                synapseNodeCreators.push(
+                  request.post({
+                    uri: `${
+                      config.constants.URL
+                    }/admin/synapse-create-ach-node`,
+                    body: {
+                      secret: process.env.apiSecret,
+                      data: {
+                        userID: connection.userID,
+                        accountID: account.id
+                      }
+                    },
+                    json: true
+                  })
                 )
               }
-            )
-          )
-        }
+            }
 
-        amplitude.track({
-          eventType: 'QUOVO_FETCH_ACCOUNTS_UPDATES_SUCCEED',
-          userId: connection.userID,
-          eventProperties: {
-            connectionID: connection.id,
-            quovoConnectionID,
-            accountsCount: accounts ? accounts.length : 0
+            Bluebird.all([...transactionFetchers, ...synapseNodeCreators])
           }
-        })
+        } else {
+          reply.error = true
+          reply.errorCode = 'connection_not_found'
+        }
       } catch (e) {
         reply.error = true
-
-        amplitude.track({
-          eventType: 'QUOVO_FETCH_ACCOUNTS_UPDATES_FAIL',
-          userId: connection.userID,
-          eventProperties: {
-            connectionID: connection.id,
-            quovoConnectionID: connection.quovoConnectionID,
-            quovoUserID: connection.quovoUserID,
-            error: e
-          }
-        })
+        reply.errorData = e
+        console.log(e)
       }
+
+      amplitude.track({
+        eventType: `QUOVO_FETCH_ACCOUNTS_UPDATES_${
+          !reply.error ? 'SUCCEED' : 'FAIL'
+        }`,
+        userId: reply.userID || 'server',
+        eventProperties: reply
+      })
 
       ctx.body = reply
     }
@@ -939,19 +979,6 @@ module.exports = (
 
       const reply = {}
       try {
-        if (!account.hasACH() || !account.getOwnerAddress()) {
-          request.post({
-            uri: `${config.constants.URL}/admin/quovo-fetch-account-auth`,
-            body: {
-              secret: process.env.apiSecret,
-              data: {
-                quovoAccountID
-              }
-            },
-            json: true
-          })
-        }
-
         const lastTransactionSaved = await Transaction.findOne({
           order: [['date', 'DESC']],
           where: { quovoAccountID }

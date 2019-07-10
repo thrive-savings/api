@@ -115,8 +115,21 @@ module.exports = Sequelize => ({
   },
   indexes: [{ fields: ['connection_id'] }],
   instanceMethods: {
-    hasACH () {
-      return this.institution && this.transit && this.number
+    hasACH (countryCodeProvided = 'CAN') {
+      const countryCode = this.connection
+        ? this.connection.countryCode
+        : countryCodeProvided
+      return countryCode === 'USA'
+        ? this.number && this.routing
+        : this.institution && this.transit && this.number
+    },
+
+    shouldHaveSynapseNode () {
+      return (
+        ['Checking', 'Savings'].includes(this.type) &&
+        this.number &&
+        this.routing
+      )
     },
 
     getData () {

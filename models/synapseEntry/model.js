@@ -97,6 +97,22 @@ module.exports = Sequelize => ({
 
       docStatus = 'INVALID'
       return docStatus
+    },
+
+    getDocumentsData () {
+      const reply = {}
+
+      const documents = this.documents
+      if (documents && documents.length) {
+        const doc = documents[0]
+
+        reply.id = doc.id
+        reply.govID = doc.physical_docs[0]
+        reply.ssn = doc.virtual_docs[0]
+        reply.socialDocs = doc.social_docs
+      }
+
+      return reply
     }
   },
   indexes: [{ fields: ['user_id'] }],
