@@ -7,16 +7,9 @@ module.exports = (
   moment,
   request,
   config,
-  ConstantsService
+  ConstantsService,
+  HelpersService
 ) => {
-  const getHeaders = (authKey = '') => ({
-    'X-SP-GATEWAY': `${process.env.synapseClientID}|${
-      process.env.synapseClientSecret
-    }`,
-    'X-SP-USER-IP': '127.0.0.1',
-    'X-SP-USER': `${authKey}|${process.env.synapseUserID}`
-  })
-
   const FAKE_ADDRESS = {
     address_street: '1 Market St.',
     address_city: 'San Francisco',
@@ -51,7 +44,7 @@ module.exports = (
 
               const res = await request.post({
                 uri: `${config.constants.SYNAPSE_API_URL}/users`,
-                headers: getHeaders(),
+                headers: HelpersService.getSynapseHeaders(),
                 body: {
                   logins: [{ email }],
                   emails: [email],
@@ -150,14 +143,14 @@ module.exports = (
 
             const { refresh_token: refreshToken } = await request.get({
               uri: `${config.constants.SYNAPSE_API_URL}/users/${synapseUserID}`,
-              headers: getHeaders(),
+              headers: HelpersService.getSynapseHeaders(),
               json: true
             })
             console.log(refreshToken)
 
             const { oauth_key: oauth } = await request.post({
               uri: `${config.constants.SYNAPSE_API_URL}/oauth/${synapseUserID}`,
-              headers: getHeaders(),
+              headers: HelpersService.getSynapseHeaders(),
               body: {
                 refresh_token: refreshToken
               },
@@ -251,7 +244,7 @@ module.exports = (
                 uri: `${config.constants.SYNAPSE_API_URL}/users/${
                   synapseEntry.synapseUserID
                 }`,
-                headers: getHeaders(oauth),
+                headers: HelpersService.getSynapseHeaders(oauth),
                 body: {
                   documents: [
                     {
@@ -333,6 +326,8 @@ module.exports = (
               if (!synapseNode) {
                 const account = await Account.findOne({ id: accountID })
                 if (account) {
+                  // TODO: clean up here
+
                   /* const transactions = await Transaction.findAll({
                     where: { accountID },
                     order: [['date', 'DESC']],
@@ -408,7 +403,7 @@ module.exports = (
                         uri: `${config.constants.SYNAPSE_API_URL}/users/${
                           synapseEntry.synapseUserID
                         }/nodes`,
-                        headers: getHeaders(oauth),
+                        headers: HelpersService.getSynapseHeaders(oauth),
                         body: {
                           type: NODE_TYPES.ACH_US,
                           info: {
@@ -535,7 +530,7 @@ module.exports = (
                       uri: `${config.constants.SYNAPSE_API_URL}/users/${
                         synapseEntry.synapseUserID
                       }/nodes`,
-                      headers: getHeaders(oauth),
+                      headers: HelpersService.getSynapseHeaders(oauth),
                       body: {
                         type: NODE_TYPES.DEPOSIT_US,
                         info: {

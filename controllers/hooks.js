@@ -149,10 +149,6 @@ module.exports = (
 
     synapse: {
       async method (ctx) {
-        console.log(
-          '----------------------------Synapse Hook-------------------------'
-        )
-
         const reply = {}
         try {
           const req = ctx.request.body
@@ -160,6 +156,8 @@ module.exports = (
             webhook_meta: { function: event }
           } = req
           reply.event = event
+
+          console.log(`--------------Synapse Hook [${event}]-------------`)
 
           console.log(req)
           if (event === 'USER|PATCH') {
@@ -233,6 +231,72 @@ module.exports = (
             } else {
               reply.error = true
               reply.errorCode = 'synapse_node_not_found'
+            }
+          } else if (event === 'TRAN|PATCH') {
+            const {
+              _id: synapseTransID,
+              recent_status: recentStatus,
+              extra: { supp_id: uuid },
+              from: { id: fromNodeID },
+              to: { id: toNodeID }
+            } = req._rest
+
+            const transfer = await Transfer.findOne({
+              include: [User],
+              where: { uuid }
+            })
+            if (transfer) {
+              const stateRaw = recentStatus.status
+              let state = transfer.state
+              switch (stateRaw) {
+                case 'QUEUED-BY-SYNAPSE':
+                case 'QUEUED-BY-RECEIVER':
+                case 'CREATED':
+                  state = STATES.SENT
+                  break
+                case 'PROCESSING-DEBIT':
+                case 'PROCESSING-CREDIT':
+                  state = STATES.PROCESSING
+                  break
+                case 'SETTLED':
+                  state = STATES.COMPLETED
+                  break
+                case 'CANCELED':
+                  state = STATES.CANCELED
+                  break
+                case 'RETURNED':
+                  state = STATES.RETURNED
+                  break
+              }
+
+              const timeline = transfer.timeline
+              timeline.push(recentStatus)
+
+              const extra = transfer.extra
+              extra.fromNodeID = fromNodeID
+              extra.toNodeID = toNodeID
+
+              await transfer.update({
+                timeline,
+                extra,
+                platformID: synapseTransID,
+                state,
+                stateRaw
+              })
+
+              const { user, amount, type, subtype } = transfer
+
+              // Update & Notify User
+              if ([STATES.COMPLETED, STATES.PROCESSING].includes(state)) {
+                if (state === STATES.COMPLETED) {
+                  user.updateBalance(amount, type)
+                }
+                user.notifyAboutTransfer(amount, subtype, state)
+              }
+            } else {
+              reply.error = true
+              reply.errorCode = 'transfer_not_found'
+              reply.uuid = uuid
             }
           }
         } catch (e) {

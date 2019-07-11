@@ -403,16 +403,6 @@ module.exports = (
               amountToSave <= MAX_DEPOSIT_AMOUNT
             ) {
               if (!checkSafeBalance || accountBalance > MIN_BALANCE_THRESHOLD) {
-                const extra = {
-                  memo: 'Thrive Savings Save',
-                  countryCode: connection.countryCode
-                }
-                if (extra.countryCode === 'CAN') {
-                  extra.accountID = account.id
-                } else if (extra.countryCode === 'USA') {
-                  // TODO: set processing details - fromNodeID & toNodeID
-                }
-
                 await request.post({
                   uri: `${config.constants.URL}/admin/transfer-create`,
                   body: {
@@ -422,7 +412,11 @@ module.exports = (
                       amount: amountToSave,
                       type: TYPES.DEBIT,
                       subtype: SUBTYPES.SAVE,
-                      extra
+                      extra: {
+                        memo: 'Thrive Savings Save',
+                        countryCode: connection.countryCode,
+                        accountID: account.id
+                      }
                     }
                   },
                   json: true

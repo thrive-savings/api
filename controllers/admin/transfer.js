@@ -5,11 +5,14 @@ module.exports = (
   Connection,
   Account,
   Transfer,
+  SynapseEntry,
+  SynapseNode,
   config,
   moment,
   amplitude,
   request,
-  ConstantsService
+  ConstantsService,
+  HelpersService
 ) => {
   const {
     STATES,
@@ -18,6 +21,8 @@ module.exports = (
     APPROVAL_STATES,
     REQUEST_METHODS
   } = ConstantsService.TRANSFER
+
+  const { NODE_TYPES } = ConstantsService.SYNAPSE
 
   const MAX_SAVE_AMOUNT = 500000 // $5000
 
@@ -368,25 +373,20 @@ module.exports = (
                 subtype,
                 uuid,
                 timeline,
-                extra: {
-                  memo,
-                  countryCode,
-                  accountID,
-                  fromNodeID,
-                  toNodeID
-                } = {}
+                extra: { memo, countryCode, accountID } = {}
               } = transfer
 
               reply.userID = user.id
+              reply.accountID = accountID
               reply.countryCode = countryCode
               reply.type = type
               reply.subtype = subtype
 
-              if (countryCode === 'CAN') {
-                const account = await Account.findOne({
-                  where: { id: accountID }
-                })
-                if (account) {
+              const account = await Account.findOne({
+                where: { id: accountID, userID: user.id }
+              })
+              if (account) {
+                if (countryCode === 'CAN') {
                   const body = {
                     amount_in_cents: amount,
                     transaction_type: `direct_${type}`,
@@ -441,16 +441,104 @@ module.exports = (
                     transfer.state = timelineEntry.state
                     await transfer.save()
                   }
+                } else if (countryCode === 'USA') {
+                  const achNode = await SynapseNode.findOne({
+                    where: {
+                      type: NODE_TYPES.ACH_US,
+                      accountID,
+                      userID: user.id,
+                      isActive: true
+                    }
+                  })
+                  const depositNode = await SynapseNode.findOne({
+                    where: {
+                      type: NODE_TYPES.DEPOSIT_US,
+                      userID: user.id,
+                      isActive: true
+                    }
+                  })
+
+                  if (achNode && depositNode) {
+                    const userID = user.id
+                    const synapseUserID = achNode.synapseUserID
+
+                    let fromNodeID = achNode.synapseNodeID
+                    let toNodeID = depositNode.synapseNodeID
+                    let toNodeType = depositNode.type
+                    if (type === TYPES.CREDIT) {
+                      fromNodeID = depositNode.synapseNodeID
+                      toNodeID = achNode.synapseNodeID
+                      toNodeType = achNode.type
+                    }
+
+                    const { oauth } = await request.post({
+                      uri: `${config.constants.URL}/admin/synapse-oauth-user`,
+                      body: {
+                        secret: process.env.apiSecret,
+                        data: {
+                          userID,
+                          synapseUserID
+                        }
+                      },
+                      json: true
+                    })
+
+                    if (oauth) {
+                      try {
+                        await request.post({
+                          uri: `${
+                            config.constants.SYNAPSE_API_URL
+                          }/users/${synapseUserID}/nodes/${fromNodeID}/trans`,
+                          headers: HelpersService.getSynapseHeaders(oauth),
+                          body: {
+                            to: {
+                              type: toNodeType,
+                              id: toNodeID
+                            },
+                            amount: {
+                              amount: transfer.amount / 100,
+                              currency: 'USD'
+                            },
+                            extra: {
+                              ip: '::1',
+                              supp_id: transfer.uuid
+                            }
+                          },
+                          json: true
+                        })
+                        reply.sentToProvider = true
+                      } catch (synapseError) {
+                        reply.error = true
+                        reply.errorCode = 'try_catched_synapse_error'
+                        reply.errorData = synapseError
+
+                        const timelineEntry = {
+                          note: 'Failed with immediate provider error',
+                          date: moment(),
+                          state: STATES.FAILED,
+                          errorMessage: reply.errorMessage
+                        }
+                        timeline.push(timelineEntry)
+
+                        transfer.timeline = timeline
+                        transfer.state = timelineEntry.state
+                        await transfer.save()
+                      }
+                    } else {
+                      reply.error = true
+                      reply.errorCode = 'oauth_not_returned'
+                    }
+                  } else {
+                    reply.error = true
+                    reply.errorCode = 'synapse_node_not_found'
+                  }
                 } else {
                   reply.error = true
-                  reply.errorCode = 'no_account_set'
+                  reply.errorCode = 'no_country_code_provided'
                 }
-              } else if (countryCode === 'USA') {
-                console.log({ fromNodeID, toNodeID })
-                // TODO: create ACH transaction @ Synapse
               } else {
                 reply.error = true
-                reply.errorCode = 'no_country_code_provided'
+                reply.errorCode = 'no_account_set'
               }
 
               if (reply.sentToProvider) {
@@ -650,7 +738,6 @@ module.exports = (
           }
 
           if (user && connection && account) {
-            // TODO: implement the logic
             await request.post({
               uri: `${config.constants.URL}/admin/transfer-create`,
               body: {
