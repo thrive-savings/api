@@ -21,7 +21,7 @@ module.exports = (Bluebird, request, config) => ({
           ],
           ['dob', true],
           ['ssn', true],
-          ['govID', true]
+          ['govID', true, [['encodedImage', true], ['imageType', true]]]
         ]
       ]
     ],
@@ -36,6 +36,8 @@ module.exports = (Bluebird, request, config) => ({
         },
         json: true
       })
+
+      // TODO: validate input
 
       if (errorCode) {
         return Bluebird.reject([

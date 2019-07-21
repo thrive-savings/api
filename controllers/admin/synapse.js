@@ -196,7 +196,7 @@ module.exports = (
             ],
             ['dob', true],
             ['ssn', true],
-            ['govID', true]
+            ['govID', true, [['encodedImage', true], ['imageType', true]]]
           ]
         ]
       ],
@@ -211,7 +211,7 @@ module.exports = (
           address: { street, city, subdivision, zipCode, countryCode },
           dob,
           ssn,
-          govID
+          govID: { encodedImage, imageType }
         } = documentsToSubmit
 
         const reply = {}

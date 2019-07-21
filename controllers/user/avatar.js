@@ -12,7 +12,7 @@ module.exports = (path, fs, User, aws, amplitude) => ({
       })
 
       let buf = Buffer.from(encodedImage, 'base64')
-      var data = {
+      const data = {
         Bucket: process.env.awsBucketName,
         Key: avatarS3Key,
         Body: buf,
