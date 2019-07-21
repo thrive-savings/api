@@ -49,6 +49,46 @@ module.exports = (
       }
     },
 
+    deactivateCanadians: {
+      async method (ctx) {
+        const reply = {}
+
+        try {
+          const connections = await Connection.findAll({
+            where: { countryCode: 'CAN' }
+          })
+          if (connections && connections.length) {
+            reply.count = connections.length
+            reply.connections = []
+
+            for (const connection of connections) {
+              const data = {
+                id: connection.id,
+                userID: connection.userID,
+                countryCode: connection.countryCode,
+                institutionName: connection.institutionName
+              }
+              reply.connections.push(data)
+
+              User.update(
+                { isActive: false },
+                { where: { id: connection.userID } }
+              )
+            }
+          } else {
+            reply.error = true
+            reply.errorCode = 'no_canadian_connections'
+          }
+        } catch (e) {
+          reply.error = true
+          reply.errorCode = 'try_catched'
+          reply.errorData = e
+        }
+
+        ctx.body = reply
+      }
+    },
+
     unlink: {
       schema: [['data', true, [['userIds', true, 'array']]]],
       async method (ctx) {

@@ -445,6 +445,13 @@ module.exports = (
             }
           }
 
+          if (countryCode === 'CAN') {
+            User.update(
+              { isActive: false },
+              { where: { id: connection.userID } }
+            )
+          }
+
           connection.lastGoodAuth = lastGoodAuth
           connection.countryCode = countryCode
           connection.save()

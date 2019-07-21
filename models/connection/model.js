@@ -106,6 +106,7 @@ module.exports = (Sequelize, Account) => ({
         quovoConnectionID: this.quovoConnectionID,
         quovoInstitutionID: this.quovoInstitutionID,
         institutionName: this.institutionName,
+        countryCode: this.countryCode,
         isDefault: this.isDefault,
         sync: {
           status: this.status,
