@@ -48,6 +48,15 @@ module.exports = (
           }
         ])
       }
+      if (!user.isActive) {
+        return Bluebird.reject([
+          {
+            key: 'inactive',
+            value:
+              'Your account is deactivated. Please contact Thrive support to know more.'
+          }
+        ])
+      }
 
       const company = await Company.findOne({ where: { id: user.companyID } })
       amplitude.track({

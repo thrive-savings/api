@@ -67,7 +67,7 @@ module.exports = (
           ])
         }
 
-        const { data: momentumOfferData } = await request.post({
+        /* const { data: momentumOfferData } = await request.post({
           uri: `${config.constants.URL}/admin/momentum-create-offer`,
           body: {
             secret: process.env.apiSecret,
@@ -79,7 +79,7 @@ module.exports = (
         })
         if (momentumOfferData) {
           reply.momentumOfferData = momentumOfferData
-        }
+        } */
       }
 
       if (!user.bankLinked) {

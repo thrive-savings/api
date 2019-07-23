@@ -89,6 +89,156 @@ module.exports = (
       }
     },
 
+    refundCanadians: {
+      schema: [
+        [
+          'data',
+          true,
+          [['minUserID', true, 'integer'], ['maxUserID', true, 'integer']]
+        ]
+      ],
+      async method (ctx) {
+        ctx.request.socket.setTimeout(5 * 60 * 1000)
+
+        const {
+          data: { minUserID, maxUserID }
+        } = ctx.request.body
+
+        const reply = {
+          total: 0,
+
+          refundable_users_count: 0,
+          refundable_users: [],
+
+          non_refundable_users_count: 0,
+          non_refundable_users: [],
+
+          users_with_no_banks_count: 0,
+          users_with_no_banks: []
+        }
+
+        try {
+          const users = await User.findAll({
+            include: [{ model: Connection, include: [Account] }],
+            where: {
+              id: {
+                [Sequelize.Op.gt]: minUserID,
+                [Sequelize.Op.lte]: maxUserID
+              }
+            }
+          })
+          if (users && users.length) {
+            reply.total = users.length
+
+            for (const user of users) {
+              const userReplyData = {
+                id: user.id,
+                isActive: user.isActive,
+                balance: user.balance,
+                countryCode: 'CAN',
+                connectionsCount: 0
+              }
+
+              const connections = user.getConnections()
+              if (connections && connections.length) {
+                userReplyData.connectionsCount = connections.length
+                for (const connection of connections) {
+                  if (connection.countryCode === 'USA') {
+                    userReplyData.countryCode = 'USA'
+                  }
+                }
+              }
+
+              if (
+                userReplyData.countryCode === 'CAN' &&
+                userReplyData.connectionsCount &&
+                userReplyData.balance
+              ) {
+                if (user.isActive) {
+                  user.isActive = false
+                  user.save()
+                }
+
+                const { account: primaryAccount } = user.getPrimaryAccount()
+                if (primaryAccount) {
+                  userReplyData.primaryAccountID = primaryAccount.id
+                  /*
+                  try {
+                    await request.post({
+                      uri: `${URL}/admin/transfer-create`,
+                      body: {
+                        secret: process.env.apiSecret,
+                        data: {
+                          userID: user.id,
+                          amount: user.balance,
+                          type: TYPES.CREDIT,
+                          subtype: SUBTYPES.WITHDRAW,
+                          extra: {
+                            memo: 'Full Refund Withdrawal',
+                            accountID: primaryAccount.id,
+                            countryCode: userReplyData.countryCode
+                          }
+                        }
+                      },
+                      json: true
+                    })
+                  } catch (e) {
+                    userReplyData.error = 'ERROR_ON_TRANSFER'
+                    userReplyData.errorData = e
+                  }
+                  */
+
+                  reply.refundable_users.push(userReplyData)
+                } else {
+                  reply.non_refundable_users.push(userReplyData)
+                }
+              } else if (
+                userReplyData.countryCode === 'CAN' &&
+                userReplyData.connectionsCount === 0 &&
+                userReplyData.balance
+              ) {
+                reply.users_with_no_banks.push(userReplyData)
+              }
+            }
+
+            reply.refundable_users_count = reply.refundable_users.length
+            reply.non_refundable_users_count = reply.non_refundable_users.length
+            reply.users_with_no_banks_count = reply.users_with_no_banks.length
+          }
+        } catch (e) {
+          console.log(e)
+        }
+
+        ctx.body = reply
+      }
+    },
+
+    printRefundTransfers: {
+      async method (ctx) {
+        const reply = { count: 0, refunds: [] }
+
+        try {
+          const transfers = await Transfer.findAll({
+            where: { type: TYPES.CREDIT, subtype: SUBTYPES.WITHDRAW }
+          })
+
+          if (transfers && transfers.length) {
+            for (const transfer of transfers) {
+              const extra = transfer.extra
+              if (extra.memo === 'Full Refund Withdrawal') {
+                reply.refunds.push(transfer.getData())
+              }
+            }
+            reply.count = reply.refunds.length
+          }
+        } catch (e) {
+          console.log(e)
+        }
+
+        ctx.body = reply
+      }
+    },
+
     unlink: {
       schema: [['data', true, [['userIds', true, 'array']]]],
       async method (ctx) {

@@ -163,6 +163,7 @@ module.exports = (Sequelize, uuid, config, moment) => {
       getData () {
         return {
           id: this.id,
+          userID: this.userID,
           amount: this.amount,
           type: this.type,
           subtype: this.subtype,

@@ -378,7 +378,7 @@ module.exports = (
         data: { userID }
       } = ctx.request.body
 
-      const user = await User.findOne({ where: { id: userID } })
+      const user = await User.findOne({ where: { id: userID, isActive: true } })
 
       const fromDate = moment().subtract(1, 'M')
       const monthName = fromDate.format('MMMM')

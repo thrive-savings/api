@@ -88,7 +88,7 @@ module.exports = (
           reply.userID = offer.userID
 
           const user = await User.findOne({ where: { id: offer.userID } })
-          if (user) {
+          if (user && user.isActive) {
             let savesCount = 0
             if (offer.nextBonusDate) {
               savesCount = await Transfer.countCustom(offer.userID, {

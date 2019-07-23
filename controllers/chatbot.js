@@ -85,58 +85,68 @@ module.exports = (
           }
         } else if (['save', 'deposit'].includes(command)) {
           analyticsEvent = 'Bot Received Save Command'
-          let amount = +params[0]
-          if (isNaN(amount) || amount <= 0) {
-            responseMsg = 'How much do you want to save? Example: "Save 10.55"'
+
+          if (!user.isActive) {
+            responseMsg =
+              'Your account is deactivated. Please contact Thrive support to know more.'
+            slackMsg = `DEACTIVATED user ${user.id} | ${
+              user.phone
+            } requested SAVE command`
           } else {
-            amount *= 100
+            let amount = +params[0]
+            if (isNaN(amount) || amount <= 0) {
+              responseMsg =
+                'How much do you want to save? Example: "Save 10.55"'
+            } else {
+              amount *= 100
 
-            slackMsg = `Processing Save Command from ${user.phone} | ID ${
-              user.id
-            } | ${user.firstName} ${user.lastName} | Balance ${
-              user.balance
-            } | ${msg}`
-            setGenericSlackMsg = false
+              slackMsg = `Processing Save Command from ${user.phone} | ID ${
+                user.id
+              } | ${user.firstName} ${user.lastName} | Balance ${
+                user.balance
+              } | ${msg}`
+              setGenericSlackMsg = false
 
-            await user.sendMessageAsync(
-              `Hi ${
-                user.firstName
-              }, Your one-time save request has been received, I am currently processing it. Keep up the awesome saving!`
-            )
+              await user.sendMessageAsync(
+                `Hi ${
+                  user.firstName
+                }, Your one-time save request has been received, I am currently processing it. Keep up the awesome saving!`
+              )
 
-            const { error, errorCode } = await request.post({
-              uri: `${URL}/admin/saver-try-save`,
-              body: {
-                secret: process.env.apiSecret,
-                data: { userID: user.id, amount, await: true }
-              },
-              json: true
-            })
+              const { error, errorCode } = await request.post({
+                uri: `${URL}/admin/saver-try-save`,
+                body: {
+                  secret: process.env.apiSecret,
+                  data: { userID: user.id, amount, await: true }
+                },
+                json: true
+              })
 
-            if (error) {
-              switch (errorCode) {
-                case 'no_accounts':
-                case 'no_connections':
-                  responseMsg = NO_CONNECTIONS_MSG
-                  break
-                case 'no_default_account':
-                case 'no_default_connection':
-                  responseMsg = `We cannot process your request as you don't have a primary account set. Please go to your Linked Banks page on the app to set a primary account.`
-                  break
+              if (error) {
+                switch (errorCode) {
+                  case 'no_accounts':
+                  case 'no_connections':
+                    responseMsg = NO_CONNECTIONS_MSG
+                    break
+                  case 'no_default_account':
+                  case 'no_default_connection':
+                    responseMsg = `We cannot process your request as you don't have a primary account set. Please go to your Linked Banks page on the app to set a primary account.`
+                    break
 
-                case 'not_enough_balance':
-                  responseMsg = `We cannot process your request as your bank account balance may go into insufficient funds.`
-                  break
-                case 'amount_out_of_range':
-                  responseMsg = `Thrive doesn't support deposit of ${getDollarString(
-                    amount
-                  )}`
-                  break
+                  case 'not_enough_balance':
+                    responseMsg = `We cannot process your request as your bank account balance may go into insufficient funds.`
+                    break
+                  case 'amount_out_of_range':
+                    responseMsg = `Thrive doesn't support deposit of ${getDollarString(
+                      amount
+                    )}`
+                    break
 
-                default:
-                  responseMsg =
-                    'Oops. Something went wrong. Please contact customer support so we can assist you further.'
-                  break
+                  default:
+                    responseMsg =
+                      'Oops. Something went wrong. Please contact customer support so we can assist you further.'
+                    break
+                }
               }
             }
           }
