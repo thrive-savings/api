@@ -18,7 +18,7 @@
     "amplitude": "^3.5.0",
     "api-boilerplate": "1",
     "api-db-cli": "0",
-    "aws-sdk": "^2.226.1",
+    "aws-sdk": "^2.814.0",
     "bcryptjs": "2",
     "expo-server-sdk": "^3.0.1",
     "jsonwebtoken": "7",
