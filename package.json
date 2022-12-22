@@ -21,7 +21,7 @@
     "aws-sdk": "^2.226.1",
     "bcryptjs": "2",
     "expo-server-sdk": "^3.0.1",
-    "jsonwebtoken": "7",
+    "jsonwebtoken": "9",
     "koa-static": "4",
     "node-emoji": "^1.8.1",
     "node-schedule": "^1.2.4",
